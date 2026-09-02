@@ -102,7 +102,7 @@ for _pkg, _mod in [("numpy", "numpy"), ("scipy", "scipy"), ("matplotlib", "matpl
                    ("soundfile", "soundfile"), ("requests", "requests"), ("tqdm", "tqdm")]:
     ensure(_pkg, _mod)
 
-import os, io, json, math, time, zipfile, hashlib, warnings, dataclasses
+import os, io, json, math, time, zipfile, hashlib, warnings, dataclasses, shutil, tempfile
 from pathlib import Path
 
 import numpy as np
@@ -205,7 +205,9 @@ class Config:
     batch_size: int
     steps: int
     lr: float
-    lambda_spec: float
+    lr_milestones: tuple  # fractions of `steps` at which lr is multiplied by lr_gamma
+    lr_gamma: float
+    lambda_spec: float    # weight of the multi-scale STFT term.  Official LISA code: 1e-3
     grad_clip: float
     ckpt_every: int
     # analysis
@@ -228,13 +230,20 @@ class Config:
         return int(np.ceil((self.fs_lo / 2) * self.eval_n_fft / self.fs_hi))
 
 
+# Two values below come from the paper / official code (ml-postech/LISA), not from taste:
+#   * lambda_spec = 1e-3.  The paper never prints lambda; the released code uses spec_coeff=0.001 and
+#     its shipped config is plain L1.  The paper's own ablation shows the spectral term moves LSD by
+#     <= 0.01.  An earlier run here used 1.0, which made the phase-blind term 92% of the loss and
+#     produced a model with correct magnitudes, random phase, and -5.8 dB SNR (worse than silence).
+#   * lr halved at milestones (official code: epochs 10,20,25,30,35,40 of 50), grad clip 1e-3 (stated).
 SMOKE = Config(
     name="SMOKE", fs_hi=16000, upsample=4,
     train_speakers=("p225", "p226"), test_speakers=("p236",),
     utts_per_speaker=6, seg_samples=4096,
     enc_channels=(16, 32, 64, 32), enc_kernels=(7, 3, 3, 1),
     dec_hidden=144, dec_layers=5,
-    batch_size=8, steps=400, lr=1e-3, lambda_spec=1.0, grad_clip=1e-3, ckpt_every=200,
+    batch_size=8, steps=400, lr=1e-3, lr_milestones=(0.2, 0.4, 0.5, 0.6, 0.7, 0.8), lr_gamma=0.5,
+    lambda_spec=1e-3, grad_clip=1e-3, ckpt_every=200,
     n_fft=512, hop=128, eval_n_fft=1024, eval_hop=256,
     n_eval_utts=4, n_quantiles=513, lambdas=(0.0, 0.25, 0.5, 0.75, 1.0),
 )
@@ -247,7 +256,8 @@ FULL = Config(
     utts_per_speaker=40, seg_samples=12288,
     enc_channels=(16, 32, 64, 32), enc_kernels=(7, 3, 3, 1),
     dec_hidden=144, dec_layers=5,
-    batch_size=16, steps=20000, lr=1e-3, lambda_spec=1.0, grad_clip=1e-3, ckpt_every=500,
+    batch_size=16, steps=20000, lr=1e-3, lr_milestones=(0.2, 0.4, 0.5, 0.6, 0.7, 0.8), lr_gamma=0.5,
+    lambda_spec=1e-3, grad_clip=1e-3, ckpt_every=1000,
     n_fft=2048, hop=512, eval_n_fft=1024, eval_hop=256,
     n_eval_utts=12, n_quantiles=1001,
     lambdas=(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
@@ -258,10 +268,10 @@ PRESET = "FULL" if torch.cuda.is_available() else "SMOKE"     # <-- the one swit
 # ---------------------------------------------------------------------------
 
 CFG = {"SMOKE": SMOKE, "FULL": FULL}[PRESET]
-RUN = CKPT / CFG.name
+RUN = CKPT / f"{CFG.name}_lam{CFG.lambda_spec:g}"     # objective in the path: no silent resumes
 RUN.mkdir(parents=True, exist_ok=True)
 
-print(f"preset        {CFG.name}")
+print(f"preset        {CFG.name}   run dir {RUN.name}")
 print(f"rates         {CFG.fs_lo} Hz -> {CFG.fs_hi} Hz  ({CFG.upsample}x)")
 print(f"speakers      {len(CFG.train_speakers)} train / {len(CFG.test_speakers)} held out")
 print(f"transport     n_fft={CFG.n_fft} hop={CFG.hop}  high band = bins {CFG.k_cut}..{CFG.n_fft//2}")
@@ -1166,9 +1176,18 @@ Resumable, because Colab disconnects and a training cell you cannot resume is a 
 will run three times.  Checkpoints go to the Drive cache every `ckpt_every` steps; re-running this
 cell picks up where it stopped.
 
-The loop also logs the **high-band energy deficit on a held-out utterance** at every checkpoint.
-That is not decoration: §9's gate can be faked by an undertrained model, so we need the deficit as
-a function of training step, and to read the asymptote rather than the current value.
+The loop logs two things on a held-out utterance at every checkpoint, and both matter:
+
+* the **high-band energy deficit** — §9's headroom gate can be faked by an undertrained model, so we
+  need the deficit as a function of training step and read the asymptote, not the current value;
+* the **waveform SNR**, against naive polyphase upsampling of the same input.  A band-energy ratio
+  only says the *energy* per band is right.  A model can pass it with random phase, and one did:
+  at `lambda_spec=1.0` the run reached −11 dB deficit and −5.8 dB SNR — worse than emitting
+  silence.  SNR is the metric that cannot be fooled that way, and it is the one the paper reports
+  (24.16 dB at 12 kHz → 48 kHz).
+
+Resuming is guarded: a checkpoint trained under a different training config raises instead of
+silently continuing.
 """)
 
 code(r"""
@@ -1207,15 +1226,65 @@ def hb_deficit(model, y, cfg):
     return float(np.mean(b[:, 1])) if len(b) else float("nan")
 
 
+def naive_upsample(y, cfg):
+    '''Polyphase (sinc-windowed) interpolation of the decimated input: the trivial baseline.'''
+    y = np.asarray(y, np.float64)
+    return sps.resample_poly(decimate(y, cfg.upsample), cfg.upsample, 1)[:len(y)]
+
+
+def dev_snr(model, y, cfg):
+    '''Waveform SNR of the reconstruction and of naive upsampling, both against y.'''
+    y = np.asarray(y, np.float64)
+    return snr_db(y, reconstruct(model, y, cfg)), snr_db(y, naive_upsample(y, cfg))
+
+
+def save_ckpt(state, path, retries=4):
+    '''Write locally, then copy to `path` with retries.  Colab's Drive mount intermittently claims a
+    directory it wrote to seconds ago does not exist (seen at ~20 s write cadence on an A100).  A
+    training run must not die of that; if Drive stays unreachable the file is kept in /tmp.'''
+    tmp = Path(tempfile.gettempdir()) / f"{path.stem}_{os.getpid()}.pt"
+    torch.save(state, tmp)
+    err = None
+    for attempt in range(retries):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(tmp, path)
+            return True
+        except (OSError, RuntimeError) as e:
+            err = e
+            time.sleep(3 * (attempt + 1))
+    warnings.warn(f"step {state['step']}: checkpoint not written to {path} ({err}); kept at {tmp}")
+    return False
+
+
 CKPT_PATH = RUN / "lisa.pt"
 spec_loss = MultiScaleSTFTLoss(CFG.n_fft).to(DEVICE)
 opt = torch.optim.Adam(model.parameters(), lr=CFG.lr)
-history = {"step": [], "loss": [], "wave": [], "spec": [], "dev_step": [], "deficit": []}
+sched = torch.optim.lr_scheduler.MultiStepLR(
+    opt, milestones=[int(f * CFG.steps) for f in CFG.lr_milestones], gamma=CFG.lr_gamma)
+history = {"step": [], "loss": [], "wave": [], "spec": [], "lr": [],
+           "dev_step": [], "deficit": [], "snr": [], "snr_naive": []}
 start_step = 0
+
+# Fields that define the optimisation problem.  A checkpoint that disagrees on any of them is a
+# different experiment and must not be resumed into this one.
+TRAIN_KEYS = ("fs_hi", "upsample", "train_speakers", "utts_per_speaker", "seg_samples",
+              "enc_channels", "enc_kernels", "dec_hidden", "dec_layers", "batch_size",
+              "lr", "lr_milestones", "lr_gamma", "lambda_spec", "grad_clip")
+
+def _norm(v):
+    return tuple(v) if isinstance(v, list) else v
 
 if CKPT_PATH.exists():
     ck = torch.load(CKPT_PATH, map_location=DEVICE, weights_only=False)
+    saved, now = ck.get("cfg", {}), dataclasses.asdict(CFG)
+    diff = {k: (saved.get(k), now[k]) for k in TRAIN_KEYS if _norm(saved.get(k)) != _norm(now[k])}
+    if diff:
+        raise RuntimeError(f"{CKPT_PATH} was trained under a different config: {diff}\n"
+                           f"Move or delete it, or change RUN, before training.")
     model.load_state_dict(ck["model"]); opt.load_state_dict(ck["opt"])
+    if "sched" in ck:
+        sched.load_state_dict(ck["sched"])
     history, start_step = ck["history"], ck["step"]
     print(f"resumed from step {start_step}")
 
@@ -1234,29 +1303,39 @@ for step in range(start_step, CFG.steps):
     loss.backward()
     torch.nn.utils.clip_grad_norm_(model.parameters(), CFG.grad_clip)
     opt.step()
+    sched.step()
 
     if step % 25 == 0:
         history["step"].append(step); history["loss"].append(loss.item())
         history["wave"].append(l_wave.item()); history["spec"].append(l_spec.item())
+        history["lr"].append(sched.get_last_lr()[0])
     if (step + 1) % CFG.ckpt_every == 0 or step + 1 == CFG.steps:
         d = hb_deficit(model, probe, CFG)
+        s, s0 = dev_snr(model, probe, CFG)
         model.train()
         history["dev_step"].append(step + 1); history["deficit"].append(d)
-        torch.save({"model": model.state_dict(), "opt": opt.state_dict(),
-                    "step": step + 1, "history": history, "cfg": dataclasses.asdict(CFG)},
-                   CKPT_PATH)
+        history["snr"].append(s); history["snr_naive"].append(s0)
+        save_ckpt({"model": model.state_dict(), "opt": opt.state_dict(), "sched": sched.state_dict(),
+                   "step": step + 1, "history": history, "cfg": dataclasses.asdict(CFG)}, CKPT_PATH)
         print(f"step {step+1:>6}/{CFG.steps}  loss {loss.item():.4f}  "
               f"(wave {l_wave.item():.4f}, spec {l_spec.item():.4f})  "
-              f"HB deficit {d:+.2f} dB  [{time.time()-t0:.0f}s]")
+              f"HB deficit {d:+.2f} dB  SNR {s:5.2f} dB (naive {s0:5.2f})  "
+              f"lr {sched.get_last_lr()[0]:.2e}  [{time.time()-t0:.0f}s]")
 
-fig, ax = plt.subplots(1, 2, figsize=(11, 3.4))
+fig, ax = plt.subplots(1, 3, figsize=(15, 3.4))
 ax[0].plot(history["step"], history["wave"], label="L1 waveform")
-ax[0].plot(history["step"], history["spec"], label="multi-scale STFT")
-ax[0].set_yscale("log"); ax[0].set_xlabel("step"); ax[0].legend(); ax[0].set_title("training loss")
+ax[0].plot(history["step"], history["spec"], label=f"multi-scale STFT (x{CFG.lambda_spec:g} in loss)")
+ax[0].set_yscale("log"); ax[0].set_xlabel("step"); ax[0].legend(); ax[0].set_title("training loss terms")
 ax[1].plot(history["dev_step"], history["deficit"], "o-")
 ax[1].axhline(0, color="k", lw=1)
 ax[1].set_xlabel("step"); ax[1].set_ylabel("mean high-band energy, dB")
 ax[1].set_title("over-smoothing vs training (read the asymptote)")
+ax[2].plot(history["dev_step"], history.get("snr", []), "o-", label="LISA")
+if history.get("snr_naive"):
+    ax[2].axhline(history["snr_naive"][-1], color="grey", ls="--", label="naive upsample")
+ax[2].axhline(0, color="k", lw=1)
+ax[2].set_xlabel("step"); ax[2].set_ylabel("waveform SNR, dB"); ax[2].legend()
+ax[2].set_title("fidelity: must end above the dashed line")
 plt.tight_layout(); plt.savefig(FIGS / f"training_{CFG.name}.png", dpi=130); plt.show()
 """)
 
@@ -1268,15 +1347,51 @@ Everything downstream assumes LISA's high band is energy-deficient.  Measure it 
 it.  $\rho_b$ is the per-third-octave energy ratio on **held-out speakers**, in dB: $0$ means the
 energy is right, negative means over-smoothed.
 
-**Stop rule:** if the mean deficit above the input Nyquist is smaller than ~1–2 dB, the multi-scale
-spectral loss has already eaten the headroom, and the honest result is to write that down rather
-than to correct a deficit that isn't there.  Check it against the training curve in §8 — an
-undertrained model exaggerates the deficit.
+This cell trusts nothing from earlier cells that it can check itself: it reloads both speaker
+splits from the persistent caches, verifies they are disjoint, and reloads the checkpoint weights.
+(§7 builds a *fresh* `LISA`; only §8 loads `lisa.pt`.  Re-running §7 after a reconnect and skipping
+§8 evaluates random weights.  A scratch cell that rebinds `test_utts` leaks training speakers.  Both
+have happened.)
+
+Two gates, in order:
+
+* **2a — fidelity.**  Waveform SNR must beat naive polyphase upsampling of the same input.  If it
+  does not, the model has not learned the baseband, and every high-band number below is built on
+  sand.  The paper reports 24.16 dB at 12 kHz → 48 kHz with the same SNR definition.
+* **2b — headroom.**  If the mean deficit above the input Nyquist is smaller than ~1–2 dB, the
+  spectral loss has already eaten the headroom, and the honest result is to write that down rather
+  than to correct a deficit that isn't there.  Check it against the training curve in §8 — an
+  undertrained model exaggerates the deficit.
+
+On LSD: the paper's 0.81 is **not** directly comparable to `lsd_db` here.  Their STFT basis is
+n_fft 2048 / hop 1024 (from the released code; the paper states neither), and the released code's
+log scaling appears to be twice the quantity in their own Eq. (5).  The paper-basis LSD is printed
+for orientation only; SNR is the like-for-like number.
 """)
 
 code(r"""
-EVAL = test_utts[:CFG.n_eval_utts]
-EVAL_HAT = [reconstruct(model, y, CFG) for y in EVAL]
+# ---- pre-flight: reload what cell order could have corrupted -----------------------------------
+for _tag in ("train", "test"):
+    _cache = FIXTURES / f"{_tag}_{CFG.name}.npz"
+    if _cache.exists():
+        with np.load(_cache, allow_pickle=True) as _d:
+            globals()[f"{_tag}_utts"] = list(_d["utts"])
+            globals()[f"{_tag}_spk"]  = list(_d["speakers"])
+    else:
+        print(f"[pre-flight] no {_cache.name}; using in-memory {_tag}_utts")
+_leak = set(test_spk) & set(train_spk)
+if _leak:
+    warnings.warn(f"SPEAKER LEAK: {sorted(_leak)} appear in both splits. Held-out numbers below are invalid.")
+print(f"train {len(train_utts):>4} utts  speakers {sorted(set(train_spk))}")
+print(f"test  {len(test_utts):>4} utts  speakers {sorted(set(test_spk))}")
+
+_ck = torch.load(CKPT_PATH, map_location=DEVICE, weights_only=False)
+model.load_state_dict(_ck["model"]); model.eval()
+print(f"weights: {CKPT_PATH.relative_to(ROOT)} @ step {_ck['step']}")
+
+EVAL       = test_utts[:CFG.n_eval_utts]
+EVAL_HAT   = [reconstruct(model, y, CFG) for y in EVAL]
+EVAL_NAIVE = [naive_upsample(y, CFG) for y in EVAL]
 print(f"reconstructed {len(EVAL)} held-out utterances")
 
 bands = np.mean([band_energy_ratio(y, yh, CFG.fs_hi, CFG.eval_n_fft, CFG.eval_hop,
@@ -1296,14 +1411,23 @@ plt.xlabel("frequency (Hz)"); plt.ylabel(r"$\rho_b$  (dB)")
 plt.title("High-band energy deficit, held-out speakers")
 plt.legend(); plt.tight_layout(); plt.savefig(FIGS / f"headroom_{CFG.name}.png", dpi=130); plt.show()
 
-print(f"mean deficit above {CFG.fs_lo/2:.0f} Hz: {DEFICIT:+.2f} dB")
-print(f"baseline SNR    {np.mean([snr_db(y, yh) for y, yh in zip(EVAL, EVAL_HAT)]):6.2f} dB")
-print(f"baseline LSD    {np.mean([lsd_db(y, yh, CFG.eval_n_fft, CFG.eval_hop) for y, yh in zip(EVAL, EVAL_HAT)]):6.3f}")
-print(f"baseline HB-LSD {np.mean([lsd_db(y, yh, CFG.eval_n_fft, CFG.eval_hop, CFG.eval_k_cut) for y, yh in zip(EVAL, EVAL_HAT)]):6.3f}")
+SNR       = float(np.mean([snr_db(y, yh) for y, yh in zip(EVAL, EVAL_HAT)]))
+SNR_NAIVE = float(np.mean([snr_db(y, yn) for y, yn in zip(EVAL, EVAL_NAIVE)]))
+LSD       = float(np.mean([lsd_db(y, yh, CFG.eval_n_fft, CFG.eval_hop) for y, yh in zip(EVAL, EVAL_HAT)]))
+HB_LSD    = float(np.mean([lsd_db(y, yh, CFG.eval_n_fft, CFG.eval_hop, CFG.eval_k_cut) for y, yh in zip(EVAL, EVAL_HAT)]))
+LSD_PAPER_BASIS = float(np.mean([lsd_db(y, yh, 2048, 1024) for y, yh in zip(EVAL, EVAL_HAT)]))
 
+print(f"mean deficit above {CFG.fs_lo/2:.0f} Hz: {DEFICIT:+.2f} dB")
+print(f"SNR             {SNR:6.2f} dB    naive upsample {SNR_NAIVE:6.2f} dB    paper 24.16 dB")
+print(f"LSD             {LSD:6.3f}       paper-basis (2048/1024) {LSD_PAPER_BASIS:.3f}    paper 0.81 (see note)")
+print(f"HB-LSD          {HB_LSD:6.3f}")
+
+SNR_OK      = SNR > SNR_NAIVE
 HEADROOM_OK = DEFICIT < -1.0
 print()
-print("GATE:", "headroom exists, continue" if HEADROOM_OK else
+print("GATE 2a fidelity:", "pass -- SNR beats naive upsampling" if SNR_OK else
+      "FAIL -- SNR below naive upsampling. The model has not learned the baseband; fix §8 first.")
+print("GATE 2b headroom:", "headroom exists, continue" if HEADROOM_OK else
       "NO HEADROOM -- the premise is wrong for this model. Record it in RESEARCH.md and stop.")
 """)
 
@@ -1754,7 +1878,12 @@ LISA reimplementation, {n_params:,} params (paper ~89k), {CFG.fs_lo} Hz -> {CFG.
 All {len(TESTS)} tests pass: T1 reproduces the analytic log-Rayleigh shift map to 1e-12,
 Bures satisfies A.Cs.A = Ct to 1e-10, McCann endpoints are exact and the W2 geodesic identity holds.
 
-## Gate 2 -- headroom
+## Gate 2a -- fidelity
+Waveform SNR on held-out speakers: **{SNR:.2f} dB** (naive upsampling {SNR_NAIVE:.2f} dB; paper 24.16 dB).
+LSD {LSD:.3f} in this notebook's basis, {LSD_PAPER_BASIS:.3f} in the paper's STFT basis (not like-for-like; see §9).
+Verdict: {"pass" if SNR_OK else "FAIL -- below naive upsampling; nothing below is a result"}.
+
+## Gate 2b -- headroom
 Mean high-band energy deficit on held-out speakers: **{DEFICIT:+.2f} dB**.
 Verdict: {"headroom exists" if HEADROOM_OK else "NO HEADROOM -- premise does not hold for this model"}.
 
