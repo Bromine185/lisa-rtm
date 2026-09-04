@@ -131,9 +131,10 @@ footer b{color:var(--ink-soft);font-weight:500;}
     <h1>The muffled&#8209;but&#8209;coherent regime lives at &lambda;&nbsp;=&nbsp;10&#8315;&sup2;</h1>
     <p class="lede">Four models, one data stream, identical batches, 37.3&nbsp;hours of VCTK on an
     A100. Sweeping the spectral&#8209;loss weight moves the high&#8209;band deficit from
-    <b>&minus;17.4&nbsp;dB to &minus;2.3&nbsp;dB</b> while the phase stays coherent throughout. The
-    transport ladder finally has a source worth running on &mdash; and the architecture suspect
-    has an alibi.</p>
+    <b>&minus;17.4&nbsp;dB to &minus;2.3&nbsp;dB</b> while the phase stays coherent throughout. Run
+    the transport ladder on that honest source and the deterministic rungs collapse from a
+    <b>42&nbsp;% win to 1.7&nbsp;%</b> &mdash; while the stochastic rung holds
+    <b>&minus;21&nbsp;% CRPS</b>. The architecture suspect has an alibi.</p>
   </div>
   <div class="readout">
     <div><div class="k">Corpus</div><div class="v">37.3<span style="font-size:15px"> h</span></div>
@@ -318,12 +319,20 @@ footer b{color:var(--ink-soft);font-weight:500;}
     </div>
     <div>
       <div class="vh">H2<small>transport</small></div>
-      <div class="vb"><span class="st ok">Unblocked</span>
-      <code>relu_l1e-2</code> is the first legitimate source this project has produced: coherent
-      phase, systematically low high&#8209;band magnitudes, LSD 0.96. The ladder can be judged on it
-      without the source being degenerate. Expect the mis&#8209;specified&#8209;map control to stop
-      flattering &mdash; with T0's high band at &minus;4.5&nbsp;dB instead of on the epsilon floor,
-      pouring in generic energy no longer wins for free.</div>
+      <div class="vb"><span class="st no">Tested, and it largely fails</span>
+      <code>relu_l1e-2</code> gave the ladder its first legitimate source, and the ladder did not
+      survive contact with it. The best deterministic rung improves HB&#8209;LSD by
+      <b>1.7&nbsp;%</b>, not the 42&nbsp;% it scores on a degenerate source. The difference was the
+      energy&#8209;inflation artefact that the mis&#8209;specified&#8209;map control had been
+      flagging from the beginning.</div>
+    </div>
+    <div>
+      <div class="vh">H3<small>sampling</small></div>
+      <div class="vb"><span class="st ok">Survives, and now carries the project</span>
+      The stochastic rung improves CRPS by <b>21.3&nbsp;%</b> on the coherent source &mdash;
+      slightly more than on the degenerate one, so it is not living off a broken baseline. A proper
+      scoring rule on a real source still rewards sampling over every deterministic map. That is
+      where the generative claim actually lives.</div>
     </div>
     <div>
       <div class="vh">H4<small>metrics</small></div>
@@ -341,6 +350,52 @@ footer b{color:var(--ink-soft);font-weight:500;}
       moves <b>0.6&nbsp;dB on a 17&nbsp;dB hole</b>. It is the objective and the data, not the
       decoder. Strike it from the open list.</div>
     </div>
+  </div>
+</section>
+
+<section>
+  <div class="col"><h2>The ladder, run on both sources</h2>
+  <p>The whole point of finding an honest source is that it lets the controls do their job. The
+  ladder was run twice with identical code and controls: once on the degenerate
+  &lambda;=10&#8315;&sup3; model, once on the coherent &lambda;=10&#8315;&sup2; one.</p></div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>on &lambda;=10&#8315;&sup3; &nbsp;degenerate</th>
+        <th>on &lambda;=10&#8315;&sup2; &nbsp;coherent</th></tr></thead>
+      <tbody>
+        <tr><td>T0 identity HB&#8209;LSD</td><td>1.965</td><td>1.057</td></tr>
+        <tr><td>best rung (T1 quantile)</td><td>1.144</td><td>1.039</td></tr>
+        <tr class="mark"><td>improvement</td><td class="pos">&minus;42 %</td><td class="neg">&minus;1.7 %</td></tr>
+        <tr><td>SNR cost of that rung</td><td>&minus;0.79 dB</td><td>&minus;0.41 dB</td></tr>
+        <tr class="mark"><td>control: mis&#8209;specified map</td>
+          <td class="neg">1.279 &nbsp;beats T0</td><td class="pos">1.167 &nbsp;worse than T0</td></tr>
+        <tr><td>control: frame shuffle</td><td>1.509</td><td>1.492</td></tr>
+        <tr><td>control: shaped noise</td><td>1.665</td><td>1.549</td></tr>
+        <tr class="mark"><td>CRPS, determ. &rarr; stochastic</td>
+          <td>1.126 &rarr; 0.906 &nbsp;<span class="pos">&minus;19.6 %</span></td>
+          <td>0.957 &rarr; 0.753 &nbsp;<span class="pos">&minus;21.3 %</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+  <p style="margin-top:20px"><b>The mis&#8209;specified&#8209;map control fires correctly for the
+  first time.</b> On the degenerate source a deliberately wrong map <i>improved</i> HB&#8209;LSD from
+  1.965 to 1.279 &mdash; the artefact that forced the standing warning about generic energy
+  inflation. On the coherent source the same wrong map scores 1.167 against T0's 1.057: it now
+  hurts, as it always should have. The control was right; the metric was being gamed; the fix was a
+  better source, not a better metric.</p>
+  <blockquote>And with the artefact removed, <b>the deterministic ladder buys almost nothing.</b>
+  T1 moves HB&#8209;LSD by 0.018 &mdash; 1.7&nbsp;% &mdash; for 0.41&nbsp;dB of waveform SNR. The
+  42&nbsp;% win on the degenerate source was substantially the energy inflation its own control had
+  been flagging all along.</blockquote>
+  <p>T1 does still halve the energy deficit (&minus;13.2 &rarr; &minus;7.9&nbsp;dB), and that is
+  worth keeping: on an honest source the high&#8209;band <i>structure</i> is already close to right,
+  so closing the <i>energy</i> gap barely moves a log&#8209;spectral distance.</p>
+  <p><b>CRPS is the exception, and it is the one that matters.</b> The stochastic rung improves it by
+  21.3&nbsp;% on the coherent source &mdash; slightly <i>more</i> than on the degenerate one, so this
+  is not an artefact of a broken baseline. A proper scoring rule, on a real source, still rewards
+  sampling over any deterministic map. That is exactly the claim &sect;12 was built to make, and it
+  is now the only rung standing.</p>
   </div>
 </section>
 
@@ -374,13 +429,15 @@ footer b{color:var(--ink-soft);font-weight:500;}
 
 <section class="col">
   <h2>Next, in order</h2>
-  <p><b>1.</b> Run the ladder on <code>relu_l1e-2</code> and judge it on CRPS and the controls
-  &mdash; the first honest test of the transport thesis.
+  <p><b>1.</b> Put the effort into the stochastic rung, not T1&ndash;T3. CRPS is the only score that
+  moved on an honest source, and it moved by a fifth. The deterministic maps have had their test.
   <b>2.</b> Finish the budget: 105k steps at the official &lambda; to see whether an L1&#8209;only
   model eventually learns the high band, which is the paper's implicit claim. About ten hours for
   one arm.
   <b>3.</b> Settle the SNR convention against the official repository before treating 24.16&nbsp;dB
-  as a target.</p>
+  as a target.
+  <b>4.</b> Perceptual adjudication is now the binding constraint. No metric here separates
+  "sharper" from "sounds better", and a 1.7&nbsp;% HB&#8209;LSD move certainly does not.</p>
 </section>
 
 <footer class="col">

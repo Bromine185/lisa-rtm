@@ -140,13 +140,52 @@ as the target. Possible explanations: a different SNR convention, a different do
 (they use sinc interpolation; we use `resample_poly`), or their evaluation including the input band
 differently. Not resolved here.
 
+## 2.5 The ladder, run on both sources — and this is the finding
+
+The transport ladder was run twice: once on the degenerate `relu_l1e-3` source (deficit −23.4 dB on
+this eval set) and once on the coherent `relu_l1e-2` source (−13.2 dB). Same code, same held-out
+speakers, same controls.
+
+| | on `relu_l1e-3` (degenerate) | on `relu_l1e-2` (coherent) |
+|---|---|---|
+| T0 identity HB-LSD | 1.965 | **1.057** |
+| best rung (T1 quantile) | **1.144** | **1.039** |
+| improvement | **−42 %** | **−1.7 %** |
+| SNR cost of that rung | −0.79 dB | −0.41 dB |
+| control: mis-specified T1 | 1.279 — *still beats T0* | 1.167 — **worse than T0** |
+| control: frame shuffle | 1.509 | 1.492 |
+| control: shaped noise | 1.665 | 1.549 |
+| CRPS, deterministic → stochastic | 1.126 → 0.906 (−19.6 %) | 0.957 → **0.753 (−21.3 %)** |
+
+**The mis-specified-map control fires correctly for the first time.** On the degenerate source a
+deliberately wrong map improved HB-LSD from 1.965 to 1.279 — the artefact that forced the warning
+"LSD is rewarding generic energy inflation". On the coherent source the same wrong map scores 1.167
+against T0's 1.057: it now *hurts*, as it always should have. The control was right, the metric was
+being gamed, and the fix was a better source rather than a better metric.
+
+**And with the artefact removed, the deterministic ladder buys almost nothing.** T1 moves HB-LSD by
+**0.018** — 1.7 % — for 0.41 dB of waveform SNR. The 42 % "win" on the degenerate source was
+substantially the energy-inflation effect the control had been flagging all along. T1 does still
+halve the energy deficit (−13.2 → −7.9 dB), which says something worth keeping: on an honest source
+the high-band *structure* is already close to right, so closing the *energy* gap barely moves a
+log-spectral distance.
+
+**CRPS is the exception, and it is the one that matters.** The stochastic rung improves it by
+**21.3 %** on the coherent source — slightly *more* than on the degenerate one, so this is not an
+artefact of a broken baseline. A proper scoring rule, on a real source, still rewards sampling over
+any deterministic map. That is precisely the claim §12 was built to make.
+
+Both gates still read FAIL on 2a (SNR 18.85 vs naive 19.01) for the reason given below: the gate is
+the wrong instrument for a model that synthesises an unpredictable band.
+
 ## 3. Consequences for the hypotheses
 
 | # | before tonight | after tonight |
 |---|---|---|
 | H1 (mechanism) | confirmed in the extreme | **confirmed and now *tunable*.** The deficit is a monotone function of λ: −17.4, −4.5, −2.3 dB at λ = 1e-3, 1e-2, 1e-1 |
 | H1′ (magnitude at paper scale) | unknown; inferred −2…−6 dB | **still not measured at the paper's SNR**, but the −2…−6 dB inference is now *observed* at λ ≥ 1e-2. A model with paper-like LSD (0.95) carries a −2.3…−4.5 dB deficit — small, and in the notebook's own "no-headroom" grey zone at λ=1e-1 |
-| H2 (transport) | untested; source degenerate | **now testable.** `relu_l1e-2` is a legitimate source: coherent phase, −4.5 dB deficit, LSD 0.96 |
+| H2 (deterministic transport) | untested; source degenerate | **tested, and it largely fails.** On an honest source the best rung improves HB-LSD by 1.7 %, not 42 %. The large gain on degenerate sources was the energy-inflation artefact its own control had been flagging |
+| H3 (only the sampler moves a proper score) | supported directionally | **supported on a real source.** CRPS −21.3 % from the stochastic rung, slightly better than on the degenerate source. This is where the project's value is |
 | H4 (LSD is a bad judge) | strongly supported | **supported again, and sharpened.** λ=1e-1 has the best LSD (0.948) *and* the worst SNR (−1.50 vs naive). LSD ranks the arms in exactly the opposite order to waveform fidelity |
 | architecture confound | open | **closed.** Fourier features change nothing |
 
@@ -174,7 +213,7 @@ Drive mount. That is the reproduction path if the Colab kernel is gone.
 
 ## 5. Next
 
-1. **Run the ladder on `relu_l1e-2`.** First legitimate source. Judge on CRPS and the controls, and
+1. **Done — see §2.5.** The deterministic ladder is largely dead on an honest source; the stochastic rung survives. Next: push the stochastic rung, not T1–T3.
    expect the mis-specified-map control to be *much* less flattering now that T0's high band is at
    −4.5 dB instead of on the epsilon floor — that is the real test of whether HB-LSD was ever
    measuring anything.
