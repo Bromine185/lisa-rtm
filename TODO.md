@@ -1,8 +1,46 @@
 # lisa-rtm — todo
 
+**2026-09-04 overnight run supersedes much of what follows.** See
+`notes/2026-09-04-overnight-lambda-frontier.md` and the results page. Headline: a 37.3 h,
+paper-recipe, four-arm paired run found the muffled-but-coherent regime at `lambda_spec = 1e-2`
+(deficit -4.5 dB, coherent phase, LSD 0.962 vs the paper's 0.81). The Fourier-feature control
+cleared ReLU spectral bias as a cause. No arm beats naive upsampling; the paper's 24.16 dB SNR is
+still unreproduced.
+
+## Next, in priority order
+
+- [ ] **Run the ladder on `relu_l1e-2`** (Drive `checkpoints/XL4_b64_1s/`). First legitimate source:
+      coherent phase, systematically low high-band magnitudes. Judge on CRPS and the controls.
+      Expect the mis-specified-map control to stop flattering now that T0's high band sits at
+      -4.5 dB rather than on the epsilon floor -- that is the real test of whether HB-LSD ever
+      measured anything.
+- [ ] **Finish the budget**: 105k steps (50 epochs) at lambda=1e-3, one arm, ~10 h. Does an
+      L1-only model eventually learn the high band? That is the paper's implicit claim and the
+      remaining explanation for the SNR gap.
+- [ ] **Settle the SNR convention** against ml-postech/LISA before treating 24.16 dB as a target.
+      Note all three of the paper's baselines land within ~1 dB of naive upsampling on our data.
+- [ ] Fold `LISAFF`, `GPUCorpus` and the paired trainer into `build_notebook.py`; they are
+      currently overnight-only (`overnight/cell*.py`).
+- [ ] `fetch_vctk` still points at a 403 URL. The Hub route in `overnight/cell1_corpus.py` works;
+      make it the notebook's default.
+
+## Settled by the overnight run
+
+- [x] H1' (magnitude): deficit is monotone in lambda -- -17.4 / -4.5 / -2.3 dB at 1e-3 / 1e-2 / 1e-1.
+      At paper-like LSD the headroom is a few dB, not the 20 dB the starved runs implied.
+- [x] Architecture confound: Fourier-feature decoder moves the deficit 0.6 dB on a 17 dB hole.
+      Not spectral bias. Struck from the notebook's "Still open" list.
+- [x] The paper's spectral-loss ablation is scale-dependent: one decade of lambda moves LSD 0.58
+      here vs their <=0.01. Never quote it without the scale caveat.
+- [x] Throughput: GPU-resident corpus + precomputed decimate + TF32 + determinism off during
+      training -> 86 ms/step/arm.
+
+
 Status as of 2026-09-01, after the evaluation audit on Colab (checkpoint step 20000).
 
-## Settled — do not re-litigate
+## Earlier (2026-09-01 audit) — retained for provenance
+
+
 
 - [x] **Held-out evaluation is sound.** Same code path, clean kernel: baseband energy ratio
       -0.45 dB, high-band deficit -8.96 dB on p236/p237/p238. The earlier "-40 dB across all
