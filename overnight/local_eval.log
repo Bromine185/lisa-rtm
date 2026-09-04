@@ -1,0 +1,32 @@
+python   3.11.15
+torch    2.13.0
+numpy    2.4.6
+in colab False
+device   mps
+cache    /Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache
+seeded   0
+preset        SMOKE   run dir SMOKE_lam0.001
+rates         4000 Hz -> 16000 Hz  (4x)
+speakers      2 train / 1 held out
+transport     n_fft=512 hop=128  high band = bins 64..256
+evaluation    n_fft=1024 hop=256 (different basis, on purpose)
+LISA: 86,881 parameters  (paper reports ~89k)
+  encoder 9,984   decoder 76,897
+test_FULL.npz: 120 [np.str_('p236'), np.str_('p237'), np.str_('p238')]
+relu_l1e-3 first12           {"snr": 18.158, "snr_naive": 18.158, "lsd": 1.5, "lsd_paper_basis": 1.492, "hb_lsd": 1.724, "deficit": -19.887, "baseband": -0.144, "n": 12}
+relu_l1e-3 spread36          {"snr": 19.159, "snr_naive": 19.197, "lsd": 1.546, "lsd_paper_basis": 1.53, "hb_lsd": 1.778, "deficit": -17.418, "baseband": -0.121, "n": 36}
+relu_l1e-3 phase12           SNR as-is  18.16 | pred-mag+target-phase  18.49 | target-mag+pred-phase  15.83
+  [13s]
+relu_l1e-2 first12           {"snr": 17.693, "snr_naive": 18.158, "lsd": 0.96, "lsd_paper_basis": 0.942, "hb_lsd": 1.09, "deficit": -6.273, "baseband": -0.051, "n": 12}
+relu_l1e-2 spread36          {"snr": 18.371, "snr_naive": 19.197, "lsd": 0.962, "lsd_paper_basis": 0.945, "hb_lsd": 1.097, "deficit": -4.523, "baseband": -0.044, "n": 36}
+relu_l1e-2 phase12           SNR as-is  17.69 | pred-mag+target-phase  19.56 | target-mag+pred-phase  15.94
+  [25s]
+relu_l1e-1 first12           {"snr": 17.223, "snr_naive": 18.158, "lsd": 0.944, "lsd_paper_basis": 0.926, "hb_lsd": 1.075, "deficit": -3.964, "baseband": -0.02, "n": 12}
+relu_l1e-1 spread36          {"snr": 17.694, "snr_naive": 19.197, "lsd": 0.948, "lsd_paper_basis": 0.931, "hb_lsd": 1.084, "deficit": -2.348, "baseband": -0.025, "n": 36}
+relu_l1e-1 phase12           SNR as-is  17.22 | pred-mag+target-phase  20.01 | target-mag+pred-phase  15.86
+  [38s]
+ff_l1e-3 first12             {"snr": 18.157, "snr_naive": 18.158, "lsd": 1.448, "lsd_paper_basis": 1.438, "hb_lsd": 1.663, "deficit": -19.531, "baseband": -0.153, "n": 12}
+ff_l1e-3 spread36            {"snr": 19.15, "snr_naive": 19.197, "lsd": 1.486, "lsd_paper_basis": 1.47, "hb_lsd": 1.708, "deficit": -16.835, "baseband": -0.121, "n": 36}
+ff_l1e-3 phase12             SNR as-is  18.16 | pred-mag+target-phase  18.49 | target-mag+pred-phase  15.99
+  [50s]
+LOCAL EVAL DONE

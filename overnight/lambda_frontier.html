@@ -1,0 +1,398 @@
+<title>The Lambda Frontier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root{
+  --paper:#f6f7f9; --panel:#ffffff; --ink:#151a22; --ink-soft:#4a5462; --ink-faint:#79838f;
+  --rule:#dfe3e9; --rule-soft:#eceff3;
+  --amber:#b4711a; --amber-soft:#f0e2cb; --crimson:#b03a2e; --teal:#1f7a6f;
+  --shadow:0 1px 2px rgba(21,26,34,.05), 0 8px 24px -12px rgba(21,26,34,.18);
+  --display:"IBM Plex Sans Condensed",Helvetica Neue,Arial,sans-serif;
+  --body:"Source Serif 4",Georgia,serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1116; --panel:#151a21; --ink:#e6eaf0; --ink-soft:#a7b1bd; --ink-faint:#7c8794;
+    --rule:#252c36; --rule-soft:#1c222a;
+    --amber:#e2a244; --amber-soft:#3a2f1c; --crimson:#e0705f; --teal:#4dbdad;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1116; --panel:#151a21; --ink:#e6eaf0; --ink-soft:#a7b1bd; --ink-faint:#7c8794;
+  --rule:#252c36; --rule-soft:#1c222a;
+  --amber:#e2a244; --amber-soft:#3a2f1c; --crimson:#e0705f; --teal:#4dbdad;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);
+  font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px 96px;}
+.col{max-width:660px;}
+h1,h2,h3,.eyebrow,.tag,th,.num,.axis{font-family:var(--display);}
+h1{font-size:clamp(38px,5.4vw,60px);line-height:1.02;font-weight:700;letter-spacing:-.02em;
+  margin:0 0 18px;text-wrap:balance;}
+h2{font-size:27px;font-weight:700;letter-spacing:-.01em;margin:0 0 14px;text-wrap:balance;}
+h3{font-size:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--ink-soft);margin:0 0 10px;}
+p{margin:0 0 16px;}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--amber);margin:0 0 20px;}
+a{color:var(--amber);}
+
+/* masthead */
+header{border-bottom:1px solid var(--rule);padding:64px 0 40px;margin-bottom:52px;}
+.lede{font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:620px;margin:0 0 30px;}
+.lede b{color:var(--ink);font-weight:600;}
+.meta{display:flex;flex-wrap:wrap;gap:0 34px;font-family:var(--mono);font-size:12px;
+  color:var(--ink-faint);border-top:1px solid var(--rule-soft);padding-top:18px;}
+.meta span b{color:var(--ink-soft);font-weight:500;}
+
+/* headline readout */
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin:0 0 30px;}
+.readout div{background:var(--panel);padding:16px 18px;}
+.readout .k{font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;}
+.readout .v{font-family:var(--mono);font-size:25px;font-weight:500;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;line-height:1.1;}
+.readout .v.hi{color:var(--amber);}
+.readout .s{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:4px;}
+
+section{margin:0 0 56px;}
+.tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.1em;
+  border:1px solid var(--amber);color:var(--amber);border-radius:2px;
+  padding:2px 7px;margin-right:9px;vertical-align:2px;}
+.tag.neg{border-color:var(--ink-faint);color:var(--ink-faint);}
+
+/* charts */
+figure{margin:26px 0 10px;background:var(--panel);border:1px solid var(--rule);
+  box-shadow:var(--shadow);padding:22px 20px 14px;}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:26px;}
+figcaption{font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink-faint);
+  margin-top:12px;padding-top:11px;border-top:1px solid var(--rule-soft);}
+svg{display:block;width:100%;height:auto;overflow:visible;}
+.axis{font-size:9px;fill:var(--ink-faint);font-weight:500;}
+.axis-t{font-size:10px;fill:var(--ink-soft);font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;}
+.gridline{stroke:var(--rule);stroke-width:.6;}
+.zone{fill:var(--ink-faint);opacity:.13;}
+.pt-label{font-family:var(--mono);font-size:9.5px;fill:var(--ink);font-weight:500;}
+
+/* table */
+.scroll{overflow-x:auto;margin:24px 0 10px;border:1px solid var(--rule);background:var(--panel);
+  box-shadow:var(--shadow);}
+table{border-collapse:collapse;width:100%;min-width:640px;font-family:var(--mono);font-size:13px;
+  font-variant-numeric:tabular-nums;}
+th{font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--ink-faint);text-align:right;padding:13px 14px;border-bottom:1px solid var(--rule);
+  white-space:nowrap;}
+th:first-child{text-align:left;}
+td{padding:11px 14px;text-align:right;border-bottom:1px solid var(--rule-soft);white-space:nowrap;}
+td:first-child{text-align:left;color:var(--ink-soft);}
+tr:last-child td{border-bottom:none;}
+tr.mark td{background:var(--amber-soft);}
+tr.mark td:first-child{color:var(--ink);font-weight:500;}
+.pos{color:var(--teal);} .neg{color:var(--crimson);} .dim{color:var(--ink-faint);}
+
+/* verdict list */
+.verdicts{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);margin:24px 0;}
+.verdicts > div{background:var(--panel);padding:18px 20px;display:grid;
+  grid-template-columns:64px 1fr;gap:16px;align-items:start;}
+.vh{font-family:var(--display);font-weight:700;font-size:15px;color:var(--amber);}
+.vh small{display:block;font-weight:500;font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-faint);margin-top:3px;}
+.vb{font-size:15.5px;line-height:1.55;}
+.vb b{font-weight:600;}
+.vb .st{font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;display:block;margin-bottom:5px;}
+.st.ok{color:var(--teal);} .st.no{color:var(--crimson);} .st.mid{color:var(--amber);}
+
+blockquote{margin:22px 0;padding:16px 20px;border-left:2px solid var(--amber);
+  background:var(--panel);font-size:16px;color:var(--ink-soft);}
+blockquote b{color:var(--ink);}
+code{font-family:var(--mono);font-size:.88em;background:var(--rule-soft);
+  padding:1px 5px;border-radius:2px;}
+footer{border-top:1px solid var(--rule);padding-top:24px;font-family:var(--mono);
+  font-size:11.5px;line-height:1.85;color:var(--ink-faint);}
+footer b{color:var(--ink-soft);font-weight:500;}
+@media (max-width:620px){
+  .verdicts > div{grid-template-columns:1fr;gap:8px;}
+  header{padding-top:44px;}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="col">
+    <p class="eyebrow">LISA reproduction &middot; overnight run &middot; 4 September 2026</p>
+    <h1>The muffled&#8209;but&#8209;coherent regime lives at &lambda;&nbsp;=&nbsp;10&#8315;&sup2;</h1>
+    <p class="lede">Four models, one data stream, identical batches, 37.3&nbsp;hours of VCTK on an
+    A100. Sweeping the spectral&#8209;loss weight moves the high&#8209;band deficit from
+    <b>&minus;17.4&nbsp;dB to &minus;2.3&nbsp;dB</b> while the phase stays coherent throughout. The
+    transport ladder finally has a source worth running on &mdash; and the architecture suspect
+    has an alibi.</p>
+  </div>
+  <div class="readout">
+    <div><div class="k">Corpus</div><div class="v">37.3<span style="font-size:15px"> h</span></div>
+      <div class="s">97 speakers &middot; 39,639 utts</div></div>
+    <div><div class="k">Budget</div><div class="v">36k</div>
+      <div class="s">steps &middot; 17.1 epochs &middot; 4 arms</div></div>
+    <div><div class="k">Best LSD</div><div class="v hi">0.948</div>
+      <div class="s">paper reports 0.81</div></div>
+    <div><div class="k">Deficit at &lambda;=10&#8315;&sup2;</div><div class="v hi">&minus;4.5<span style="font-size:15px"> dB</span></div>
+      <div class="s">was &minus;19.6 dB at 0.54 h</div></div>
+  </div>
+  <div class="meta">
+    <span><b>Held out</b> p236 p237 p238</span>
+    <span><b>Task</b> 12 kHz &rarr; 48 kHz</span>
+    <span><b>Params</b> 86,881</span>
+    <span><b>Wall clock</b> 3h 28m</span>
+  </div>
+</header>
+
+<section class="col">
+  <h2>What was actually asked</h2>
+  <p>The open question was <b>H1&prime;</b>: LISA regresses to the mean in the high band &mdash; but
+  is the deficit big enough to be worth correcting on a properly trained model? Every previous run
+  here answered from one of two useless corners. At &lambda;&nbsp;=&nbsp;1.0 the model matched
+  magnitudes with random phase and scored &minus;5.8&nbsp;dB SNR, worse than emitting silence. At the
+  official &lambda;&nbsp;=&nbsp;10&#8315;&sup3; on 0.54&nbsp;hours it learned the baseband perfectly
+  and emitted nothing at all above 6&nbsp;kHz.</p>
+  <p>Tonight's run puts &lambda; on a dial and turns it, with everything else nailed down: same
+  initialisation for the ReLU arms, same batches drawn from the same generator, same schedule, same
+  69&times;-larger corpus.</p>
+</section>
+
+<section>
+  <div class="col"><h2>The frontier</h2>
+  <p>Three arms, three panels: what the spectral term buys, what it costs, and where that lands
+  against the paper's headline metric.</p></div>
+  <div class="charts">
+
+    <figure>
+      <svg viewBox="0 0 300 212" role="img" aria-label="High-band deficit against lambda: minus 17.4 dB at 1e-3, minus 4.5 dB at 1e-2, minus 2.3 dB at 1e-1.">
+        <text class="axis-t" x="0" y="10">What it buys &mdash; deficit</text>
+        <rect class="zone" x="56" y="20" width="220" height="15"></rect>
+        <text class="axis" x="272" y="31" text-anchor="end">no-headroom zone</text>
+        <line class="gridline" x1="56" y1="20" x2="276" y2="20"></line>
+        <line class="gridline" x1="56" y1="57.5" x2="276" y2="57.5"></line>
+        <line class="gridline" x1="56" y1="95" x2="276" y2="95"></line>
+        <line class="gridline" x1="56" y1="132.5" x2="276" y2="132.5"></line>
+        <line class="gridline" x1="56" y1="170" x2="276" y2="170"></line>
+        <text class="axis" x="50" y="23" text-anchor="end">0</text>
+        <text class="axis" x="50" y="60.5" text-anchor="end">&minus;5</text>
+        <text class="axis" x="50" y="98" text-anchor="end">&minus;10</text>
+        <text class="axis" x="50" y="135.5" text-anchor="end">&minus;15</text>
+        <text class="axis" x="50" y="173" text-anchor="end">&minus;20</text>
+        <text class="axis" x="26" y="105" text-anchor="middle" transform="rotate(-90 26 105)">dB</text>
+        <polyline points="76,150.6 166,53.9 256,37.6" fill="none" stroke="var(--amber)" stroke-width="1.6"></polyline>
+        <circle cx="76" cy="150.6" r="4" fill="var(--amber)"></circle>
+        <circle cx="166" cy="53.9" r="5.5" fill="var(--amber)" stroke="var(--panel)" stroke-width="1.6"></circle>
+        <circle cx="256" cy="37.6" r="4" fill="var(--amber)"></circle>
+        <text class="pt-label" x="76" y="164" text-anchor="middle">&minus;17.4</text>
+        <text class="pt-label" x="166" y="45" text-anchor="middle">&minus;4.5</text>
+        <text class="pt-label" x="256" y="29" text-anchor="end">&minus;2.3</text>
+        <text class="axis" x="76" y="186" text-anchor="middle">10&#8315;&sup3;</text>
+        <text class="axis" x="166" y="186" text-anchor="middle">10&#8315;&sup2;</text>
+        <text class="axis" x="256" y="186" text-anchor="middle">10&#8315;&sup1;</text>
+        <text class="axis" x="166" y="202" text-anchor="middle">spectral weight &lambda;</text>
+      </svg>
+      <figcaption>Energy above the 6 kHz input Nyquist, relative to target. The official &lambda;
+      leaves a 17 dB hole; two decades up closes it to 4.5 dB.</figcaption>
+    </figure>
+
+    <figure>
+      <svg viewBox="0 0 300 212" role="img" aria-label="SNR relative to naive upsampling against lambda: minus 0.04 dB at 1e-3, minus 0.83 at 1e-2, minus 1.50 at 1e-1.">
+        <text class="axis-t" x="0" y="10">What it costs &mdash; SNR</text>
+        <line class="gridline" x1="56" y1="20" x2="276" y2="20" stroke="var(--ink-faint)" stroke-dasharray="3 3"></line>
+        <text class="axis" x="272" y="16" text-anchor="end">naive upsample</text>
+        <line class="gridline" x1="56" y1="57.5" x2="276" y2="57.5"></line>
+        <line class="gridline" x1="56" y1="95" x2="276" y2="95"></line>
+        <line class="gridline" x1="56" y1="132.5" x2="276" y2="132.5"></line>
+        <line class="gridline" x1="56" y1="170" x2="276" y2="170"></line>
+        <text class="axis" x="50" y="23" text-anchor="end">0</text>
+        <text class="axis" x="50" y="60.5" text-anchor="end">&minus;0.5</text>
+        <text class="axis" x="50" y="98" text-anchor="end">&minus;1.0</text>
+        <text class="axis" x="50" y="135.5" text-anchor="end">&minus;1.5</text>
+        <text class="axis" x="50" y="173" text-anchor="end">&minus;2.0</text>
+        <text class="axis" x="26" y="105" text-anchor="middle" transform="rotate(-90 26 105)">dB</text>
+        <polyline points="76,22.9 166,81.9 256,132.7" fill="none" stroke="var(--crimson)" stroke-width="1.6"></polyline>
+        <circle cx="76" cy="22.9" r="4" fill="var(--crimson)"></circle>
+        <circle cx="166" cy="81.9" r="5.5" fill="var(--crimson)" stroke="var(--panel)" stroke-width="1.6"></circle>
+        <circle cx="256" cy="132.7" r="4" fill="var(--crimson)"></circle>
+        <text class="pt-label" x="84" y="34" text-anchor="start">&minus;0.04</text>
+        <text class="pt-label" x="166" y="95" text-anchor="middle">&minus;0.83</text>
+        <text class="pt-label" x="256" y="146" text-anchor="end">&minus;1.50</text>
+        <text class="axis" x="76" y="186" text-anchor="middle">10&#8315;&sup3;</text>
+        <text class="axis" x="166" y="186" text-anchor="middle">10&#8315;&sup2;</text>
+        <text class="axis" x="256" y="186" text-anchor="middle">10&#8315;&sup1;</text>
+        <text class="axis" x="166" y="202" text-anchor="middle">spectral weight &lambda;</text>
+      </svg>
+      <figcaption>Waveform SNR minus the sinc-interpolation baseline. No arm gets above the dashed
+      line; synthesised high band is paid for in waveform error.</figcaption>
+    </figure>
+
+    <figure>
+      <svg viewBox="0 0 300 212" role="img" aria-label="Log-spectral distance against lambda: 1.546 at 1e-3, 0.962 at 1e-2, 0.948 at 1e-1, against the paper's 0.81.">
+        <text class="axis-t" x="0" y="10">Where it lands &mdash; LSD</text>
+        <line class="gridline" x1="56" y1="20" x2="276" y2="20"></line>
+        <line class="gridline" x1="56" y1="57.5" x2="276" y2="57.5"></line>
+        <line class="gridline" x1="56" y1="95" x2="276" y2="95"></line>
+        <line class="gridline" x1="56" y1="132.5" x2="276" y2="132.5"></line>
+        <line class="gridline" x1="56" y1="170" x2="276" y2="170"></line>
+        <text class="axis" x="50" y="23" text-anchor="end">1.6</text>
+        <text class="axis" x="50" y="60.5" text-anchor="end">1.4</text>
+        <text class="axis" x="50" y="98" text-anchor="end">1.2</text>
+        <text class="axis" x="50" y="135.5" text-anchor="end">1.0</text>
+        <text class="axis" x="50" y="173" text-anchor="end">0.8</text>
+        <line x1="56" y1="168.1" x2="276" y2="168.1" stroke="var(--teal)" stroke-width="1" stroke-dasharray="4 3"></line>
+        <text class="axis" x="272" y="164" text-anchor="end" fill="var(--teal)">paper 0.81</text>
+        <polyline points="76,30.1 166,139.6 256,142.3" fill="none" stroke="var(--ink-soft)" stroke-width="1.6"></polyline>
+        <circle cx="76" cy="30.1" r="4" fill="var(--ink-soft)"></circle>
+        <circle cx="166" cy="139.6" r="5.5" fill="var(--ink-soft)" stroke="var(--panel)" stroke-width="1.6"></circle>
+        <circle cx="256" cy="142.3" r="4" fill="var(--ink-soft)"></circle>
+        <text class="pt-label" x="76" y="22" text-anchor="middle">1.546</text>
+        <text class="pt-label" x="160" y="131" text-anchor="end">0.962</text>
+        <text class="pt-label" x="256" y="134" text-anchor="end">0.948</text>
+        <text class="axis" x="76" y="186" text-anchor="middle">10&#8315;&sup3;</text>
+        <text class="axis" x="166" y="186" text-anchor="middle">10&#8315;&sup2;</text>
+        <text class="axis" x="256" y="186" text-anchor="middle">10&#8315;&sup1;</text>
+        <text class="axis" x="166" y="202" text-anchor="middle">spectral weight &lambda;</text>
+      </svg>
+      <figcaption>One decade of &lambda; moves LSD by 0.58 and lands within 0.14 of the paper's
+      figure. Bases differ, so this is proximity, not equality.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<section>
+  <div class="col"><h2>All four arms</h2>
+  <p>Evaluated on the Mac, on the original DataShare-derived cache &mdash; a different acquisition
+  route from the Hub corpus the models trained on. 36 utterances, 12 per held-out speaker.</p></div>
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>arm</th><th>SNR</th><th>vs naive</th><th>LSD</th><th>HB&#8209;LSD</th>
+        <th>deficit</th><th>baseband</th><th>pred phase</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>relu &lambda;=10&#8315;&sup3; <span class="dim">official</span></td>
+          <td>19.16</td><td class="dim">&minus;0.04</td><td>1.546</td><td>1.778</td>
+          <td class="neg">&minus;17.42</td><td>&minus;0.12</td><td>15.83</td></tr>
+        <tr class="mark"><td>relu &lambda;=10&#8315;&sup2;</td>
+          <td>18.37</td><td class="neg">&minus;0.83</td><td>0.962</td><td>1.097</td>
+          <td class="pos">&minus;4.52</td><td>&minus;0.04</td><td>15.94</td></tr>
+        <tr><td>relu &lambda;=10&#8315;&sup1;</td>
+          <td>17.69</td><td class="neg">&minus;1.50</td><td>0.948</td><td>1.084</td>
+          <td class="pos">&minus;2.35</td><td>&minus;0.03</td><td>15.86</td></tr>
+        <tr><td>fourier &lambda;=10&#8315;&sup3; <span class="dim">control</span></td>
+          <td>19.15</td><td class="dim">&minus;0.05</td><td>1.486</td><td>1.708</td>
+          <td class="neg">&minus;16.84</td><td>&minus;0.12</td><td>15.99</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+  <p style="font-family:var(--mono);font-size:12px;color:var(--ink-faint);margin-top:14px;">
+  <b style="color:var(--ink-soft)">pred phase</b> = SNR of target magnitude resynthesised with the
+  model's own phase. The &lambda;=1.0 model scored <b style="color:var(--crimson)">&minus;5.89</b>
+  here. Every arm tonight scores ~16 dB: the phase is real.</p>
+  </div>
+</section>
+
+<section class="col">
+  <h2>Three things fall out</h2>
+
+  <div class="verdicts">
+    <div>
+      <div class="vh">H1&prime;<small>magnitude</small></div>
+      <div class="vb"><span class="st mid">The dial exists, and it is monotone</span>
+      Deficit tracks &lambda; smoothly: &minus;17.4, &minus;4.5, &minus;2.3&nbsp;dB across two
+      decades, with the baseband exact (&minus;0.04&nbsp;dB) and phase coherent throughout. The
+      &minus;2&hellip;&minus;6&nbsp;dB range inferred from the paper's own table last week is now
+      <b>observed</b>. At the &lambda; that produces paper-like LSD, headroom is a few dB &mdash;
+      real, but nothing like the 20&nbsp;dB the starved runs implied.</div>
+    </div>
+    <div>
+      <div class="vh">H2<small>transport</small></div>
+      <div class="vb"><span class="st ok">Unblocked</span>
+      <code>relu_l1e-2</code> is the first legitimate source this project has produced: coherent
+      phase, systematically low high&#8209;band magnitudes, LSD 0.96. The ladder can be judged on it
+      without the source being degenerate. Expect the mis&#8209;specified&#8209;map control to stop
+      flattering &mdash; with T0's high band at &minus;4.5&nbsp;dB instead of on the epsilon floor,
+      pouring in generic energy no longer wins for free.</div>
+    </div>
+    <div>
+      <div class="vh">H4<small>metrics</small></div>
+      <div class="vb"><span class="st ok">Supported again, and sharpened</span>
+      &lambda;=10&#8315;&sup1; has the <b>best</b> LSD (0.948) and the <b>worst</b> waveform fidelity
+      (&minus;1.50&nbsp;dB vs naive). LSD ranks these four arms in exactly the reverse order of SNR.
+      It cannot be the primary judge, which the notebook said before any of this ran.</div>
+    </div>
+    <div>
+      <div class="vh neg" style="color:var(--ink-faint)">&mdash;<small>architecture</small></div>
+      <div class="vb"><span class="st no">Suspect cleared</span>
+      The notebook's standing question &mdash; whether ReLU spectral bias is a second, independent
+      cause of over&#8209;smoothing &mdash; gets a clean negative. Same encoder, same latents, same
+      loss, same batches; only the decoder's coordinate view changes to Fourier features. Deficit
+      moves <b>0.6&nbsp;dB on a 17&nbsp;dB hole</b>. It is the objective and the data, not the
+      decoder. Strike it from the open list.</div>
+    </div>
+  </div>
+</section>
+
+<section class="col">
+  <h2>The paper's ablation is scale&#8209;dependent</h2>
+  <p>LISA reports that deleting the spectral term entirely moves LSD by &le;0.01. Here, one decade
+  of &lambda; moves it by <b>0.58</b>. Both can be true, and the reconciliation is the interesting
+  part.</p>
+  <blockquote>The spectral term is a <b>crutch for a model that cannot learn the high band from
+  data.</b> At 17 epochs on 37 hours, the L1&#8209;only model has no way to predict what lives above
+  6&nbsp;kHz, so the loss&#8209;optimal output is zero and it emits nothing. Turn the magnitude term
+  up and it is forced to synthesise. A flat ablation is evidence that <i>their</i> model had already
+  learned the high band conditionally.</blockquote>
+  <p>Which means the ablation should never be quoted without its scale. It is a statement about a
+  fully&#8209;trained LISA, not about the loss in general.</p>
+</section>
+
+<section class="col">
+  <h2>What still doesn't reproduce</h2>
+  <p>No arm beats naive polyphase upsampling. The best is 0.04&nbsp;dB <i>below</i> it. The paper
+  reports 24.16&nbsp;dB, roughly 5&nbsp;dB above where a sinc interpolator sits on this data. This
+  reimplementation now reproduces LISA's <b>LSD</b> and still not its <b>SNR</b>.</p>
+  <p>One observation, recorded as a question rather than a claim: in the paper's own Table 1,
+  AudioUNet (18.55), TFilm (19.51) and WSRGlow (19.41) all land within about a dB of naive
+  upsampling on our data (19.20) &mdash; while LISA alone sits 5&nbsp;dB clear of all three. A gap
+  that size over three unrelated architectures, every one of them at the trivial baseline, is worth
+  understanding before it is adopted as the target. Candidate explanations: a different SNR
+  convention, a different downsampling operator (they specify sinc interpolation, we use
+  <code>resample_poly</code>), or the input band entering their average differently.</p>
+</section>
+
+<section class="col">
+  <h2>Next, in order</h2>
+  <p><b>1.</b> Run the ladder on <code>relu_l1e-2</code> and judge it on CRPS and the controls
+  &mdash; the first honest test of the transport thesis.
+  <b>2.</b> Finish the budget: 105k steps at the official &lambda; to see whether an L1&#8209;only
+  model eventually learns the high band, which is the paper's implicit claim. About ten hours for
+  one arm.
+  <b>3.</b> Settle the SNR convention against the official repository before treating 24.16&nbsp;dB
+  as a target.</p>
+</section>
+
+<footer class="col">
+  <b>Provenance.</b> Corpus <code>sanchit-gandhi/vctk</code>, full VCTK 0.92 mic1, 27 parquet shards,
+  48 kHz &mdash; replaces the 403'd DataShare URL. Train 97 speakers / 39,639 utterances / 37.3 h;
+  held out p236 p237 p238; the paper's own split (id&nbsp;&ge;&nbsp;350) reserved.
+  Recipe: batch 64, 1 s chunks, Adam 1e&#8209;3 halved at six milestones, grad clip 1e&#8209;3
+  &mdash; the paper's, at 17 of its 50 epochs.
+  Checkpoints in Drive <code>lisa_rtm/checkpoints/XL4_b64_1s/</code>; training log
+  <code>train_XL4_b64_1s.log</code>; independent CPU evaluation
+  <code>overnight/local_eval.py</code> &rarr; <code>local_eval_XL4.json</code>, which execs the
+  notebook's own definition cells so the metrics are the notebook's.
+  Written up in <code>notes/2026-09-04-overnight-lambda-frontier.md</code>.
+</footer>
+</div>
