@@ -40,6 +40,46 @@ held-out speaker. Independent of the Colab kernel:
 | `relu_l1e-1` | 17.69 | 19.20 | -1.50 | **0.948** | 0.931 | 1.084 | **-2.35** | -0.025 | 15.86 |
 | `ff_l1e-3` | 19.15 | 19.20 | -0.05 | **1.486** | 1.470 | 1.708 | **-16.84** | -0.121 | 15.99 |
 
+### 1.0 Every arm generalises perfectly; all of them are bias-limited
+
+The Colab pass evaluated each arm on three splits — 12 utterances from *seen* training speakers, all
+120 from p236–238, and 100 from the paper's own held-out split (id ≥ 350, 8 speakers never touched):
+
+| arm | split | n | SNR | naive | LSD | HB-LSD | deficit dB | baseband dB |
+|---|---|---|---|---|---|---|---|---|
+| relu λ=1e-3 (official) | train (seen spk) | 12 | 21.21 | 21.20 | 1.655 | 1.903 | -16.96 | -0.16 |
+| relu λ=1e-3 (official) | p236-238 | 120 | 19.44 | 19.48 | 1.738 | 2.001 | -20.71 | -0.13 |
+| relu λ=1e-3 (official) | paper split id≥350 | 100 | 21.71 | 21.72 | 1.813 | 2.087 | -17.70 | -0.15 |
+| relu λ=1e-3 (official) | p236-238 *(local, DataShare cache)* | 36 | 19.16 | 19.20 | 1.546 | 1.778 | -17.42 | -0.12 |
+| **relu λ=1e-2** | train (seen spk) | 12 | 20.64 | 21.20 | 0.841 | 0.955 | -6.25 | -0.10 |
+| **relu λ=1e-2** | p236-238 | 120 | 19.13 | 19.48 | 0.895 | 1.019 | -10.03 | -0.08 |
+| **relu λ=1e-2** | paper split id≥350 | 100 | 21.17 | 21.72 | 0.865 | 0.984 | -7.00 | -0.10 |
+| **relu λ=1e-2** | p236-238 *(local, DataShare cache)* | 36 | 18.37 | 19.20 | 0.962 | 1.097 | -4.52 | -0.04 |
+| relu λ=1e-1 | train (seen spk) | 12 | 19.69 | 21.20 | 0.826 | 0.941 | -3.28 | -0.05 |
+| relu λ=1e-1 | p236-238 | 120 | 18.79 | 19.48 | 0.873 | 0.997 | -7.94 | -0.06 |
+| relu λ=1e-1 | paper split id≥350 | 100 | 20.42 | 21.72 | 0.845 | 0.962 | -4.28 | -0.07 |
+| relu λ=1e-1 | p236-238 *(local, DataShare cache)* | 36 | 17.69 | 19.20 | 0.948 | 1.084 | -2.35 | -0.03 |
+| fourier λ=1e-3 (control) | train (seen spk) | 12 | 21.20 | 21.20 | 1.591 | 1.829 | -16.49 | -0.16 |
+| fourier λ=1e-3 (control) | p236-238 | 120 | 19.44 | 19.48 | 1.677 | 1.930 | -20.05 | -0.13 |
+| fourier λ=1e-3 (control) | paper split id≥350 | 100 | 21.71 | 21.72 | 1.758 | 2.024 | -17.16 | -0.16 |
+| fourier λ=1e-3 (control) | p236-238 *(local, DataShare cache)* | 36 | 19.15 | 19.20 | 1.486 | 1.708 | -16.84 | -0.12 |
+
+Read the `train (seen spk)` and `paper split` rows against each other. For `relu_l1e-2`: LSD 0.841
+on speakers it trained on, **0.865** on speakers it has never heard. For `relu_l1e-3`: 1.655 vs
+1.813. There is no generalisation gap worth the name. **Every arm is entirely bias-limited** —
+none of them has begun to memorise 37 hours, and adding speakers is therefore not the lever. Steps,
+capacity or objective are.
+
+Two consequences worth carrying:
+
+* **On the paper's own held-out speakers, `relu_l1e-2` scores LSD 0.865** against the paper's 0.81 —
+  within 0.055, on their split, at 17 of their 50 epochs.
+* **The deficit is evaluation-set dependent** and the spread is not small: the same `relu_l1e-2`
+  checkpoint on the same three speakers measures **−4.5 dB** on 36 utterances from the DataShare
+  cache and **−10.0 dB** on all 120 from the Hub. Any deficit figure has to name its set. The
+  100-utterance paper-split number (**−7.0 dB**) is the most robust single value here, and it is the
+  one to quote.
+
 Three things fall out of that table.
 
 ### 1.1 The muffled-but-coherent regime exists, and λ is the dial
