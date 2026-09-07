@@ -195,7 +195,8 @@ def probe_metrics(m, probe, cfg, naive):
 def train_ov2(corpus, arms, steps, batch, lr, milestones, gamma, clip, ckpt_every, tag, probe, log_every=25):
     '''arms: {name: (kind, lam)}.  One init, one batch stream, one optimiser per arm.'''
     names = list(arms)
-    base = LISAS(CFG).to(DEVICE)
+    cls = globals().get("MODEL_CLS", LISAS)
+    base = cls(CFG).to(DEVICE)
     models = {k: copy.deepcopy(base) for k in names}
     for k in names:
         models[k].tau = 0.0 if arms[k][0].startswith("det") else 1.0
@@ -239,7 +240,7 @@ def train_ov2(corpus, arms, steps, batch, lr, milestones, gamma, clip, ckpt_ever
                 s1, d1 = pm.get(1.0, (float("nan"), float("nan")))
                 h["snr1"].append(s1); h["def1"].append(d1)
                 save_ckpt({"model": m.state_dict(), "step": step + 1, "history": h, "arm": arms[k], "n_noise": m.n_noise,
-                           "batch": batch, "seg": corpus.seg_hi, "tag": tag}, run_dir / f"{k}.pt")
+                           "cls": type(m).__name__, "batch": batch, "seg": corpus.seg_hi, "tag": tag}, run_dir / f"{k}.pt")
                 line += f" | {k}: w {h['wave'][-1]:.4f} s {h['spec'][-1]:.3f} SNR0 {pm[0.0][0]:5.2f} def0 {pm[0.0][1]:+6.2f}"
                 if 1.0 in pm:
                     line += f" SNR1 {s1:5.2f} def1 {d1:+6.2f}"
@@ -252,7 +253,8 @@ def train_ov2(corpus, arms, steps, batch, lr, milestones, gamma, clip, ckpt_ever
 
 def time_ov2(corpus, arms, batch, n=20):
     names = list(arms)
-    models = {k: LISAS(CFG).to(DEVICE) for k in names}
+    cls = globals().get("MODEL_CLS", LISAS)
+    models = {k: cls(CFG).to(DEVICE) for k in names}
     opts = {k: torch.optim.Adam(models[k].parameters(), lr=1e-3) for k in names}
     spec_loss = MultiScaleSTFTLoss(CFG.n_fft).to(DEVICE)
     rng = stream("timing")
@@ -275,7 +277,8 @@ def time_ov2(corpus, arms, batch, n=20):
 
 def load_arm(path, cfg=None):
     ck = torch.load(path, map_location=DEVICE, weights_only=False)
-    m = LISAS(cfg or CFG, n_noise=ck.get("n_noise", N_NOISE)).to(DEVICE)
+    cls = globals().get(ck.get("cls", "LISAS"), LISAS)
+    m = cls(cfg or CFG, n_noise=ck.get("n_noise", N_NOISE)).to(DEVICE)
     m.load_state_dict(ck["model"]); m.eval()
     m.tau = 0.0 if ck["arm"][0].startswith("det") else 1.0
     return m, ck

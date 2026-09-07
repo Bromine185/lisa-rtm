@@ -100,19 +100,141 @@ sampler trained under a proper score reaches it with one.
 
 (filled in)
 
-## 4. The deficit as a bound on deterministic SNR
+## 4. Three identities that turn the deficit into a measurement
 
-For an L2-optimal predictor, $\mathbb{E}\|y\|^2 = \|\mathbb{E}y\|^2 + \operatorname{tr}\mathrm{Cov}$, so
-the energy ratio of the conditional mean at frequency $f$ is the predictable fraction $\rho(f)$ of the
-target's power there. Any deterministic model's error power is at least the unpredictable power
-$\sum_f (1-\rho(f)) P_y(f)$. On this data naive polyphase upsampling scores 19.2 dB, i.e. the whole
-band above 6 kHz plus baseband imperfection is 1.2 % of total power. (numbers filled in from the
-measured curve)
+All three follow from one line. Write $y = \mu(x) + \varepsilon$ with $\mu = \mathbb{E}[y\mid x]$ and
+$\Sigma = \mathrm{Cov}(y \mid x)$, and let $Y$ be a draw from a *calibrated* sampler, $Y \sim p(y\mid x)$
+independently of $y$.
+
+**(i) The deficit of the conditional mean is the predictable fraction.** Per frequency band $b$,
+$\mathbb{E}\,P_\mu(b) / \mathbb{E}\,P_y(b) = \rho(b) := 1 - \operatorname{tr}\Sigma_b / \mathbb{E}P_y(b)$. So the
+energy-ratio curve of the ensemble mean, in dB, is $10\log_{10}\rho(b)$: a **predictability spectrum**.
+The $M$-draw mean is biased upward by the residual $(1-\rho)/M$; the bias-corrected estimate is
+$\hat\rho = (M r - 1)/(M - 1)$ where $r$ is the measured ratio.
+
+**(ii) The predictable fraction bounds every deterministic model.** Any point predictor's error power
+is at least $\sum_b (1-\rho(b))\,P_y(b)$, so $\mathrm{SNR}_{\det} \le 10\log_{10}\big(P_y / \sum_b (1-\rho(b)) P_y(b)\big)$.
+This is a property of the data and the input band, not of any architecture, and it is the number to
+compare a published SNR against before trying to reproduce it.
+
+**(iii) A calibrated sampler's single draw has exactly twice the error of the mean.**
+$\mathbb{E}\|y - Y\|^2 = \mathbb{E}\|y-\mu\|^2 + \mathbb{E}\|Y-\mu\|^2 = 2\operatorname{tr}\Sigma$. Hence
+$\mathrm{SNR}(\text{mean}) - \mathrm{SNR}(\text{one draw}) = 3.01$ dB when the error is entirely
+unpredictable, or $10\log_{10}\!\big(2/(1+1/M)\big)$ = 2.75 dB against an $M{=}16$ mean. A smaller gap
+means the sampler is under-dispersed, a larger one over-dispersed. This is a calibration test that
+needs nothing but two SNR numbers — the waveform-domain twin of the PIT histogram.
+
+The same arithmetic is why SNR, LSD and any other RMSE-type score *must* rank a perfect sampler below a
+perfect point predictor (LSD by a factor $\sqrt2$ in the noise-only limit: two independent Rayleigh
+draws differ by $\sqrt2 \times 0.557$ log10-power units, against $0.557$ for the mean). A metric that
+punishes correctness by a known constant is not a judge; it is a ruler that has to be read with the
+constant subtracted.
+
+Numbers for this data are in §1.
+
+### 4.1 The coherent fraction, and why the deterministic deficit is not a predictability estimate
+
+A dry run of the analysis on the step-9000 checkpoints exposed a flaw in prediction (1) as first
+stated. The deterministic arm's high-band energy is set by λ, not by predictability: the 4 September
+frontier run moved the deficit from −17 to −2 dB by turning λ from 1e-3 to 1e-1 with *no* gain in SNR.
+So the energy ratio of a model trained with a spectral term is not $\rho$; part of that energy is
+hallucinated. The estimator that separates the two is the **coherent fraction**
+
+$$\hat\rho(b) = \frac{\mathrm{Re}\langle Y_b, P_b\rangle}{\langle Y_b, Y_b\rangle}, \qquad
+\kappa(b) = \frac{\mathrm{Re}\langle Y_b, P_b\rangle}{\langle P_b, P_b\rangle},$$
+
+with $Y, P$ the complex STFTs of target and prediction summed over band $b$. For the exact conditional
+mean $\hat\rho = \rho$ and $\kappa = 1$ (orthogonality of the residual); for a predictor that adds
+uncorrelated energy $\kappa < 1$; and for an $M$-draw ensemble mean $\hat\rho$ is unbiased in $M$
+because the residual noise is uncorrelated with $y$. The baseband gives the alignment check: coherence
+and $\kappa$ both 1.00 ± 0.02 for every arm.
+
+**Mid-training reading (step 9000, 12 held-out utterances):** $\kappa$ above 6 kHz is **0.05** for the
+deterministic arm and **0.01** for every sampler; the coherent fraction of the high band is **2 %**
+(deterministic) and **1.5 %** (ensemble mean of `es_marg`). Ninety-five percent of the energy the
+spectral loss places above 6 kHz is uncorrelated with the truth. The deterministic SNR ceiling from
+(ii) is then **18.2 dB against naive upsampling's 17.9 dB on the same utterances** — a 0.3 dB ceiling
+that every deterministic arm this project has trained (λ = 1e-3, 1e-2, 1e-1, band-split) sits under.
+(Final-checkpoint numbers in §1.)
+
+This has a structural reading. LISA's encoder sees 11 input samples at 12 kHz — 0.9 ms, less than one
+pitch period — so coherent continuation of harmonics above 6 kHz is impossible *by construction*, and
+the deficit is the model correctly reporting that. It also puts the paper's 24.16 dB in perspective:
+reaching it would require coherently predicting roughly three quarters of the high-band power from a
+0.9 ms window. The receptive-field hypothesis is tested directly in §1.4 (`LISASW`: the same model with
+a dilated residual stack on the latents, 22 ms of context, +11k parameters).
 
 ## 5. What this means for geometric deep learning
 
-(filled in)
+The audio problem is a laboratory: the "high band" is defined exactly (above the input Nyquist), its
+energy is measurable in dB, and the ground truth is available at 48 kHz. What the laboratory shows is
+not about audio.
+
+**1. Over-smoothing has two causes, and the standard diagnosis only sees one.** The GNN literature
+treats over-smoothing as an *architectural* pathology: repeated propagation is a low-pass filter on
+the graph Laplacian, node features converge, and the remedies (residuals, PairNorm, DropEdge, gradient
+gating, shallow depth) all act on the architecture. §2 shows a second cause that has nothing to do
+with depth: any deterministic model trained with a pointwise loss on a target that is not a function
+of its input outputs a conditional barycentre, and a barycentre has no energy where the target is
+unpredictable — which, on a graph, is precisely the high graph-frequency band. A two-layer GNN with a
+root weight is not over-smoothed by depth and still loses 15 dB there. Both causes produce the same
+symptom in the graph Fourier basis; only the sampler tells them apart.
+
+**2. PairNorm-type fixes are transport maps on statistics, and they restore energy, not information.**
+PairNorm recentres and rescales features to a fixed total pairwise distance — it is the diagonal Bures
+map T2 applied per layer. The ladder result on the honest audio source (T1 buys 1.7 % of HB-LSD) is a
+warning about what such fixes can and cannot do: they can put variance back, they cannot put the
+*conditional structure* back, because the information was destroyed by the expectation, not by the
+normalisation. If a graph task is one-to-many at the node level (conformer generation, trajectory
+forecasting, inverse design, any regression whose target has an unpredictable component), a
+normalisation layer is treating the symptom.
+
+**3. The fix is an objective, not an architecture, and it costs nothing at inference.** Concatenate a
+few Gaussian channels to the node features, train under the energy score with two forward passes per
+step, and sample once at inference. The same GNN, the same latency, and now a calibrated conditional
+sampler whose ensemble mean is the L2-optimal point predictor (§1: SNR of the mean vs the
+deterministic arm). For a GDL practitioner this is the recipe: `x -> [x, eps]`, `loss = ES`, done.
+
+**4. The scoring rule's geometry is a modelling choice, and the toy says the architecture may
+override it.** On the graph, per-node CRPS, Euclidean and sliced energy scores produced the same
+spatial structure (§2.1); the root-weight architecture's inductive bias set where the noise went. This
+is worth knowing before spending effort on a fancy joint score: check first whether the architecture
+already constrains the joint structure. The audio comparison `es_marg` vs `es_slice` (§1) is the same
+question on a problem where the architecture (a per-sample MLP) does *not* constrain cross-bin
+structure.
+
+**5. A predictability spectrum is a stopping rule.** The energy ratio of the ensemble mean, per
+frequency band, is the fraction of target power that is predictable from the input *within this model
+class*. It bounds the SNR any deterministic model can reach (§4), and it tells you when a lower loss is
+no longer possible without hallucinating. On a graph, the same curve over Laplacian bands says which
+graph frequencies of the target are predictable from the input at all — a quantity that is
+independent of depth, and a much sharper question than "does my GNN over-smooth".
 
 ## 6. Artefacts
 
 (filled in)
+
+### 2.1 Does the geometry of the score matter on the graph? A clean negative
+
+`overnight2/gnn_toy_scores.py` trains the shallow GNN under three objectives that are each strictly
+proper for something different: the sum of per-node CRPS (marginals only), the Euclidean energy score
+(joint law of all nodes), and the sliced energy score (joint law, one-dimensional power). Prediction
+before running: the marginal score would put its noise in the wrong graph-frequency bands (spatially
+white), the joint scores in the right ones.
+
+| objective | single-draw band ratio (dB) | per-node CRPS | CRPS of graph-Fourier coefficients, modes ≥ 200 |
+|---|---|---|---|
+| per-node CRPS | +0.0 / +1.1 / +5.9 / −1.4 / −1.0 | 0.343 | 0.481 |
+| Euclidean energy score | +0.1 / +1.4 / +6.1 / −1.4 / −1.3 | 0.356 | 0.481 |
+| sliced energy score | +0.1 / +1.7 / +6.2 / −1.5 / −2.1 | 0.380 | 0.487 |
+
+**The prediction failed.** All three put the noise in the same bands to within a decibel, and the
+joint-structure score (CRPS of the graph-Fourier coefficients) is identical across them. On this
+toy the *architecture's* inductive bias — a root weight that can compute node-minus-neighbourhood,
+i.e. a high-pass — decided where the noise went, and the scoring rule only decided how much. The
++6 dB leak into modes 120–200 (a band where the target carries almost nothing) is shared by all
+three, which says the same thing from the other side: a joint-proper score did not prevent it either,
+because a band with no energy contributes nothing to any of these scores.
+
+Kept because it sharpens the audio question rather than settling it: whether `es_marg` and `es_slice`
+differ on speech is now a genuine empirical question, not a foregone conclusion.
