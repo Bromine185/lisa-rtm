@@ -522,4 +522,23 @@ The two bound rows calibrate the whole table: an empty high band scores 1.57 in 
 band 4.73, and the best model tonight (λ = 1e-1, 3.02) has recovered **46 % of that range**. On LSD the
 picture is the same: 5.6 → 0.105 available, 0.89 achieved. The room above every model here is large, and
 §7.2 says it is climbed with deterministic energy plus context, not with sampling — on these two metrics.
-(DataShare rows to be appended when the run completes.)
+
+DataShare set, original → passthrough (36 utterances):
+
+| condition | LSD | ViSQOL-sp | PESQ | ViSQOL-au |
+|---|---|---|---|---|
+| `det` | 0.960 → 0.954 | 4.20 → 4.25 | 4.26 → 4.27 | 2.73 → 2.73 |
+| λ = 1e-1 | 0.948 → 0.945 | 4.21 → 4.25 | 4.29 → 4.30 | 2.85 → 2.85 |
+| `wide_det` | 0.931 → **0.926** | 4.23 → 4.28 | 4.30 → 4.30 | 2.89 → 2.89 |
+| ladder T1 on det | 0.961 → 0.957 | 4.14 → 4.16 | 4.17 → 4.18 | 2.88 → 2.87 |
+| `es_marg`, one draw τ = 1 | 1.028 → 1.008 | **3.94 → 4.19** | **3.82 → 4.01** | 2.61 → 2.62 |
+| `es_marg`, one draw τ = 0.75 | 0.945 → **0.930** | 4.06 → 4.24 | 4.09 → 4.21 | 2.76 → 2.77 |
+| `es_marg`, mean of 16 | 0.942 → 0.938 | 4.20 → 4.25 | 4.34 → 4.35 | 2.88 → 2.88 |
+| passthrough + empty high band (floor) | 4.89 | 4.25 | 4.25 | 1.93 |
+| passthrough + true high band (ceiling) | 0.110 | 4.46 | 4.58 | 4.73 |
+
+Same story on the second set: the sampler's speech-mode penalty is gone with passthrough (4.19 vs 4.25
+for `det`), PESQ recovers, and a τ = 0.75 draw with passthrough reaches LSD 0.930, within 0.004 of the
+best deterministic model. The floor row is the sharpest statement of §7.1: on this set the empty high
+band scores the *same* speech ViSQOL and PESQ as the true high band to within 0.2 and 0.3 MOS, so a
+16 kHz speech metric has essentially nothing to say about a 6–24 kHz reconstruction.
