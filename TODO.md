@@ -27,8 +27,9 @@ beats the point-trained model on SNR; the band above 6 kHz is incoherent with th
       same batches would settle whether the proper-score sampler matches it without a discriminator.
 - [ ] Fold `LISAS`, the energy-score losses, `HostCorpus` and the coherence metrics into
       `build_notebook.py`; they are overnight-only (`overnight2/c*.py`).
-- [ ] Read the wide-context result (§1.4 of the note) and decide whether receptive field is the lever
-      for any coherent high-band prediction.
+- [ ] With coherent prediction excluded (§1.4: 22 ms of context leaves the coherent fraction at zero),
+      settle the paper's 24.16 dB by its SNR convention and down-sampling operator against
+      ml-postech/LISA, not by more training.
 
 ## Settled by the 2026-09-08 run
 
@@ -44,6 +45,8 @@ beats the point-trained model on SNR; the band above 6 kHz is incoherent with th
       log-magnitude marginal score is the best bargain at this budget.
 - [x] Real-time: 1.5 ms per second of audio on an A100, 16.5 ms on an Apple M4 CPU, 0.5 ms
       algorithmic look-ahead.
+- [x] Receptive field is not the lever: a 22 ms dilated-context encoder leaves the coherent fraction
+      above 7 kHz at 0.000–0.005 under both objectives (`OV2_wide`).
 - [x] Graph toy: shallow GNN + MSE loses 15.5 dB in the high graph-frequency bands; the energy score
       restores it in one draw; a deep no-skip GNN cannot under any objective. The ensemble-mean test
       separates objective- from architecture-induced over-smoothing with one model.

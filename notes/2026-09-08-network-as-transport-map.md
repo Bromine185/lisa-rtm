@@ -194,9 +194,34 @@ off the rung. The deterministic rungs are where the 4 September note left them: 
 HB-LSD. Every rung of the ladder except S is now strictly dominated by a network that costs nothing
 extra to run, and S is dominated on the only metric it was built to win.
 
-### 1.4 The receptive-field test
+### 1.4 The receptive-field test: context does not make the band coherent
 
-(filled in from the `OV2_wide` run)
+`LISASW` adds a residual stack of dilated convolutions (k = 3, dilations 2…64) on LISA's 32-d latents:
+receptive field 263 input samples = 22 ms, two to four pitch periods, +11k parameters, everything else
+unchanged. Two arms on the same batches for 26 000 steps (6.2 epochs, 1.3 h): the paper's loss and the
+marginal energy score. DataShare set, 36 utterances, M = 32:
+
+| arm | SNR | LSD | HB-LSD | deficit | CRPS | HB κ | coherent fraction by band from 6 kHz | mean-of-32 SNR |
+|---|---|---|---|---|---|---|---|---|
+| `det` (11-sample context, 38k steps) | 18.35 | 0.960 | 1.095 | −4.5 | 1.011 | 0.06 | .050 .002 .002 .001 .000 .002 | – |
+| `wide_det` (22 ms context, 26k steps) | 18.39 | 0.931 | 1.062 | −4.4 | 0.976 | 0.06 | .102 .001 .005 .000 .000 .000 | – |
+| `es_marg` (11-sample) | 15.93 | 1.029 | 1.156 | +0.6 | 0.686 | 0.01 | .050 −.001 .001 −.002 −.002 −.001 | 18.78 |
+| `wide_es_marg` (22 ms) | 14.38 | 1.055 | 1.171 | +3.4 | 0.654 | 0.00 | .078 .000 .002 .000 .000 .002 | 18.84 |
+
+**Falsified.** Twenty-two milliseconds of context leaves the coherent fraction above 7 kHz at
+0.000–0.005 for both objectives. The only movement is in the first band (5.7–7 kHz, the anti-aliasing
+transition region), where the deterministic arm's κ rises from 0.31 to 0.38 — it reproduces slightly
+more of the filter's roll-off, which is baseband information. LSD improves by 0.03 and CRPS by 0.03–0.04
+from a better *envelope*; SNR does not move (18.39 vs 18.35, ceiling 19.5). The sampler with context is
+over-dispersed on this set (+3.4 dB, SNR gap 4.46 against 2.88, τ* = 0.75) where the narrow one was
+calibrated (+0.6 dB, 2.85) — the extra capacity went into spread, not coherence.
+
+So within this model family, the high band of speech is incoherent with the input regardless of
+context, at least out to 22 ms and 6 epochs. That is consistent with what the band physically contains
+— fricative and breath noise, and harmonics whose period-to-period phase is not stable — and it
+sharpens the reading of the paper's 24.16 dB: the number is not reachable by coherent prediction from
+the 12 kHz input on this data with this family, with or without context. The remaining explanations are
+the SNR convention and the down-sampling operator, as the 4 September note already listed.
 
 
 ## 2. The graph experiment — the same fact, in the graph Fourier basis

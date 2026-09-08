@@ -1,0 +1,22 @@
+python   3.11.15
+torch    2.13.0
+numpy    2.4.6
+in colab False
+device   mps
+cache    /Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache
+seeded   0
+preset        SMOKE   run dir SMOKE_lam0.001
+rates         4000 Hz -> 16000 Hz  (4x)
+speakers      2 train / 1 held out
+transport     n_fft=512 hop=128  high band = bins 64..256
+evaluation    n_fft=1024 hop=256 (different basis, on purpose)
+LISA: 86,881 parameters  (paper reports ~89k)
+  encoder 9,984   decoder 76,897
+OV2 model/loss/trainer defined.  LISAS params: 87777
+LISASW: 107,457 params (LISAS 87,777), encoder receptive field 263 input samples = 21.9 ms
+eval set: 12 utts from [np.str_('p236'), np.str_('p237'), np.str_('p238')], 47 s of audio
+target power above 6000 Hz: 2.85 % of total   naive-upsample SNR 17.93 dB   (bound with rho=0 above the cut: 18.09 dB -- sanity: should sit just above naive)
+wide_det   step  10000 | one draw: SNR  17.30 LSD 1.026 HB-LSD 1.170 def  -5.69 | CRPS 1.0877 sCRPS 1.0757 | BB coh/kappa 1.000/1.000  HB kappa +0.051  predictable HB 1.8%  SNR bound 18.2 dB  [1s]
+wide_es_marg step  10000 | one draw: SNR  14.10 LSD 1.102 HB-LSD 1.154 def  +1.03 | CRPS 0.7074 sCRPS 0.6599 | mean-of-8: SNR  16.95 def  -7.49 HB-LSD 1.060 | SNR gap 2.85 dB (calibrated: 2.50) | BB coh/kappa 0.989/1.002  HB kappa +0.015  predictable HB 1.6%  SNR bound 18.2 dB  [11s]
+tau sweep wide_es_marg tau 0.00: SNR 17.38 CRPS 1.635 def -14.6  tau 0.25: SNR 17.18 CRPS 0.909 def -11.8  tau 0.50: SNR 16.40 CRPS 0.749 def -5.3  tau 0.75: SNR 15.20 CRPS 0.696 def -1.4  tau 1.00: SNR 14.10 CRPS 0.707 def +1.0  tau 1.25: SNR 13.13 CRPS 0.842 def +2.8  tau 1.50: SNR 12.17 CRPS 1.180 def +4.5
+ANALYSIS DONE -> /Users/raghavsharma/projects/lisa-rtm/overnight2/analysis_OV2_wide.json
