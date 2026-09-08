@@ -9,6 +9,22 @@ beats the point-trained model on SNR; the band above 6 kHz is incoherent with th
 
 ## Next, in priority order
 
+**Evening 8 Sep — judged by LSD + ViSQOL (note §7):** speech-mode ViSQOL/PESQ cannot see the band (naive
+wins on DataShare); audio-mode ViSQOL rewards deterministic high-band energy monotonically; winners are
+λ = 1e-1 (Hub) and the wide-context det (DataShare), with the T1 rung adding +0.11/+0.15; the sampler's
+speech-ViSQOL loss was baseband leakage and disappears with passthrough. Best model has 46 % of the
+audio-mode range between empty and true high band.
+
+- [ ] **Deterministic λ sweep {0.1, 0.3, 1.0} with baseband passthrough** (`overnight2/c8_launch_lambda.py`,
+      A100 needed for the 37 h corpus; ~3 h for three arms). Judge on LSD + audio-mode ViSQOL with
+      passthrough; expect the trend 1e-3 → 1e-1 to continue until the phase-blind term breaks the band's
+      own structure.
+- [ ] **Make baseband passthrough the default output** for every model (it improves every condition and
+      is the honest system for BWE since the low band is given).
+- [ ] **Wide context + high λ + T1 rung** as one model: the three things that each helped on LSD + ViSQOL.
+- [ ] Retire speech-mode ViSQOL and PESQ as judges for 12 → 48 kHz; report audio-mode ViSQOL (and NSIM)
+      with the floor/ceiling rows (1.57 / 4.73) alongside.
+
 - [ ] **Resolve the two-test-set discrepancy.** The same checkpoint measures a high-band deficit 5–8 dB
       deeper on the Hub `test_utts` than on the DataShare `test_FULL.npz` for the same speakers (both
       mic1). The sampler is energy-calibrated on one and under-dispersed on the other. Until the
