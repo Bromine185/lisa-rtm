@@ -1,5 +1,57 @@
 # lisa-rtm — todo
 
+**2026-09-08 overnight run supersedes the ladder programme.** See
+`notes/2026-09-08-network-as-transport-map.md`. Headline: the same 88k-parameter LISA trained under the
+energy score (two draws per step, noise channels at the input) is a conditional sampler at zero
+inference cost. CRPS −43 % vs the deterministic model and −23 % vs the best post-hoc rung; ensemble mean
+beats the point-trained model on SNR; the band above 6 kHz is incoherent with the truth for every model
+(coherent fraction ≤ 2 %), so the deterministic SNR ceiling is 0.3 dB above naive upsampling.
+
+## Next, in priority order
+
+- [ ] **Resolve the two-test-set discrepancy.** The same checkpoint measures a high-band deficit 5–8 dB
+      deeper on the Hub `test_utts` than on the DataShare `test_FULL.npz` for the same speakers (both
+      mic1). The sampler is energy-calibrated on one and under-dispersed on the other. Until the
+      provenance is settled, every number must name its set. Start by comparing one utterance's
+      spectrum from both routes.
+- [ ] **Close the in-distribution energy gap of the sampler** (single draw −7.9 dB on Hub at 9 epochs,
+      PIT nearly flat). Candidates, one at a time: train to 50 epochs; weight the log-magnitude term
+      higher than 1e-2; more noise channels or noise into the decoder; the β = 0.5 energy score.
+- [ ] **Sliced score at higher weight / longer budget.** `es_slice` converged slower than `es_marg`
+      and was under-dispersed (PIT top bin 41 %). It is the only arm proper for the joint law of a
+      frame; it should not be judged at 9 epochs and weight 1e-2.
+- [ ] **Listen.** Drive `lisa_rtm/ov2/audio/`: truth, naive, det, det_split, two draws of each
+      sampler and each sampler at τ = 0, three utterances. Perceptual adjudication remains the binding
+      constraint; no metric here settles it.
+- [ ] **GAN baseline.** The community's default answer to over-smoothing; one adversarial arm on the
+      same batches would settle whether the proper-score sampler matches it without a discriminator.
+- [ ] Fold `LISAS`, the energy-score losses, `HostCorpus` and the coherence metrics into
+      `build_notebook.py`; they are overnight-only (`overnight2/c*.py`).
+- [ ] Read the wide-context result (§1.4 of the note) and decide whether receptive field is the lever
+      for any coherent high-band prediction.
+
+## Settled by the 2026-09-08 run
+
+- [x] H2 (deterministic transport) is dead on an honest source and now strictly dominated: every
+      deterministic rung and the post-hoc S rung lose to the learned sampler on CRPS.
+- [x] H3 (only a sampler moves a proper score): confirmed, and the sampler can be the network itself.
+- [x] The deterministic model's high-band energy is set by λ, not by predictability: κ = 0.06–0.12.
+      Its deficit curve is not a predictability spectrum; the sampler's ensemble-mean coherence is.
+- [x] No deterministic LISA of this class can beat naive upsampling by more than 0.3 dB on this data
+      (coherent fraction ≤ 2 % above 6 kHz). The paper's 24.16 dB is not reachable from an 11-sample
+      window unless the SNR convention differs.
+- [x] Score geometry: waveform-only energy score gives energy without spectral structure; the
+      log-magnitude marginal score is the best bargain at this budget.
+- [x] Real-time: 1.5 ms per second of audio on an A100, 16.5 ms on an Apple M4 CPU, 0.5 ms
+      algorithmic look-ahead.
+- [x] Graph toy: shallow GNN + MSE loses 15.5 dB in the high graph-frequency bands; the energy score
+      restores it in one draw; a deep no-skip GNN cannot under any objective. The ensemble-mean test
+      separates objective- from architecture-induced over-smoothing with one model.
+
+---
+
+## Earlier (2026-09-04) — retained for provenance
+
 **2026-09-04 overnight run supersedes much of what follows.** See
 `notes/2026-09-04-overnight-lambda-frontier.md` and the results page. Headline: a 37.3 h,
 paper-recipe, four-arm paired run found the muffled-but-coherent regime at `lambda_spec = 1e-2`
