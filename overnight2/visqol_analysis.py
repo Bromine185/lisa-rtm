@@ -14,6 +14,11 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 DRIVE = pathlib.Path.home() / "Library/CloudStorage/GoogleDrive-naghavnarna@gmail.com/My Drive/lisa_rtm/ov2"
 SRC = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else DRIVE / "visqol_per_utt.json"
 PER = json.load(open(SRC))
+_hyb = SRC.parent / "visqol_hybrid_per_utt.json"
+if _hyb.exists():                       # merge passthrough hybrids as extra conditions (same sets)
+    H = json.load(open(_hyb))
+    for sname, conds in H.items():
+        PER.setdefault(sname, {}).update(conds)
 OUT = REPO / "overnight2" / "visqol_results"
 OUT.mkdir(exist_ok=True)
 KEYS = ["lsd", "visqol_speech16k", "nsim_speech16k", "visqol_audio48k", "nsim_audio48k", "pesq_wb", "hb_lsd", "snr"]
@@ -76,6 +81,7 @@ def style(c):
     if c.startswith("es_"):   return dict(color="#B23A6F", marker="o")
     if c.startswith("wide_es"): return dict(color="#7A2A6F", marker="o")
     if c.startswith("ladder"): return dict(color="#A8720F", marker="^")
+    if "passthrough" in c:    return dict(color="#2E7D32", marker="D")
     if c == "naive":          return dict(color="#555", marker="x")
     return dict(color="#0E7C8B", marker="s")
 for i, sname in enumerate(sets):

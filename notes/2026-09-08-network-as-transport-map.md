@@ -431,3 +431,68 @@ independent of depth, and a much sharper question than "does my GNN over-smooth"
 
 Colab session: GitHub-opened `lisa_rtm.ipynb`, A100-SXM4-40GB. The corpus lives in host RAM
 (`HostCorpus`); on this card a GPU-resident 37 h corpus is 32 GB and OOMs the two-draw arms.
+
+## 7. Judged by LSD + ViSQOL (evening of 8 September)
+
+The user's primary metrics are LSD and ViSQOL, with SNR two rungs down. Every condition of the night
+was re-scored with `evaluation.py` (ViSQOL speech mode at 16 kHz via the pure-Python `visqol-python`
+port with the upstream lattice mapping, plus wideband PESQ), and additionally with ViSQOL audio mode at
+48 kHz and the mapping-free NSIM of each. Twenty-nine conditions × 48 utterances (Hub 12, DataShare 36);
+per-utterance values in `overnight2/visqol_results/visqol_per_utt.json`, paired deltas with bootstrap
+CIs in `visqol_tables.md`, figure `lsd_vs_visqol.png`.
+
+### 7.1 Speech-mode ViSQOL and PESQ cannot judge this task
+
+ViSQOL speech mode analyses 50 Hz–8 kHz in 21 ERB bands whatever the input rate (one band, centred at
+6.8 kHz, overlaps the reconstructed 6–24 kHz); wideband PESQ stops at 8 kHz too. On DataShare the
+**naive upsampler with an empty high band scores best on both** (ViSQOL-sp 4.245, PESQ 4.39), the
+λ = 1e-3 model with a −17 dB high band is second (4.231), and the deterministic arms sit within 0.05 of
+one another. On Hub, naive is 0.15 below `det` because the decimation filter's transition band
+(5.7–6 kHz, the metric's top band) is rolled off and every model restores it. A metric that prefers the
+band left empty, or cannot tell −17 dB from −4 dB, is not measuring the thing this project changes.
+What it *does* see is the baseband, and there it is sharp: the sampler's single draw loses 1.06 MOS on
+Hub and 0.26 on DataShare, PESQ 0.5, from the −23 dB incoherent floor its noise pathway leaves below
+6 kHz (baseband κ 0.995 vs 0.999). §7.4 tests whether passthrough of the given baseband removes that.
+
+### 7.2 Audio-mode ViSQOL at 48 kHz sees the band, and rewards energy
+
+| condition | Hub: LSD | ViSQOL-au | DataShare: LSD | ViSQOL-au |
+|---|---|---|---|---|
+| naive | 4.776 | 1.58 | 4.304 | 1.93 |
+| λ = 1e-3 | 1.715 | 1.92 | 1.546 | 2.24 |
+| `det` (λ = 1e-2) | 0.963 | 2.82 | 0.960 | 2.73 |
+| **λ = 1e-1** | **0.899** | **3.02** | 0.948 | 2.85 |
+| **`wide_det`** (22 ms context) | 0.941 | 2.93 | **0.931** | 2.89 |
+| `det_split` | 0.934 | 2.73 | 0.973 | 2.66 |
+| ladder T1 on det | 0.921 | 2.93 | 0.961 | 2.88 |
+| ladder T3 on det | 0.929 | 2.89 | 0.965 | 2.86 |
+| ladder S on det | 0.910 | 2.91 | 0.994 | 2.83 |
+| `es_marg` one draw, τ = 1 | 0.963 | 2.74 | 1.028 | 2.61 |
+| `es_marg` one draw, τ = 0.5 | 1.132 | 2.46 | 0.942 | 2.90 |
+| `es_marg` mean of 16 | 1.128 | 2.59 | 0.942 | 2.88 |
+| `wide_es_marg` mean of 16 | 1.083 | 2.58 | 0.962 | **2.90** |
+
+Audio-mode ViSQOL climbs monotonically with deterministic high-band energy (1.6 → 1.9 → 2.8 → 3.0 from
+naive to λ = 1e-1) and LSD falls with it. **On the user's two metrics the winners are deterministic:
+λ = 1e-1 on Hub, the wide-context deterministic model on DataShare, and the post-hoc T1 rung adds
++0.11 / +0.15 audio ViSQOL to `det` at no LSD cost on both sets** — the ladder, dead on CRPS, is alive
+on ViSQOL. The learned sampler's single draw at τ = 1 is 0.08–0.12 below `det` in audio mode and no
+better on LSD; its over-smoothed ensemble mean and its τ = 0.5 draws reach the top of the DataShare
+table (2.88–2.90, LSD 0.942) and the bottom half of the Hub table, the two sets again disagreeing because
+of their 5–8 dB difference in high-band level.
+
+### 7.3 What this means
+
+LSD and NSIM are both maximised by a conditional mean of the log-spectrogram, so a metric suite built on
+them ranks the arms in the reverse order of the proper score: the sampler wins CRPS by 43 % and loses
+speech ViSQOL by a MOS point; its ensemble mean, which is the *most* over-smoothed object in the table,
+is the sampler's best entry on both LSD and ViSQOL. This is §4's arithmetic observed on a perceptual
+proxy, and it is the decision the project has to make explicitly: **optimise for LSD + ViSQOL and the
+answer is a deterministic model with a large spectral weight, more context, and a T1 rung on top; optimise
+for a calibrated distribution and the answer is the sampler.** They are different objectives and no
+single model tonight is best on both. The retraining that follows from the first choice is a λ sweep
+above 1e-1 with baseband passthrough (`overnight2/c8_launch_lambda.py`, written, needs the A100).
+
+### 7.4 Baseband passthrough
+
+(filled in from `visqol_hybrid_per_utt.json`)
