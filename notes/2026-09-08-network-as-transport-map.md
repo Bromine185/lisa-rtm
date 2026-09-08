@@ -495,4 +495,31 @@ above 1e-1 with baseband passthrough (`overnight2/c8_launch_lambda.py`, written,
 
 ### 7.4 Baseband passthrough
 
-(filled in from `visqol_hybrid_per_utt.json`)
+For bandwidth extension the band below the input Nyquist is given, so the honest system output is the
+input's own baseband plus the model's band above it (brick-wall at 6 kHz). Hub set, original → passthrough:
+
+| condition | LSD | ViSQOL-sp | PESQ | ViSQOL-au |
+|---|---|---|---|---|
+| `det` | 0.963 → 0.956 | 4.12 → 4.18 | 4.24 → 4.25 | 2.82 → 2.82 |
+| λ = 1e-1 | 0.899 → 0.893 | 4.17 → 4.23 | 4.25 → 4.27 | 3.02 → 3.02 |
+| `wide_det` | 0.941 → 0.934 | 4.10 → 4.15 | 4.25 → 4.27 | 2.93 → 2.93 |
+| ladder T1 on det | 0.921 → 0.914 | 4.12 → 4.11 | 4.14 → 4.15 | 2.93 → 2.92 |
+| **`es_marg`, one draw τ = 1** | 0.963 → **0.933** | **3.06 → 4.11** | **3.72 → 4.04** | 2.74 → 2.77 |
+| `es_marg`, τ = 0.75 | 1.018 → 0.997 | 3.22 → 4.17 | 4.02 → 4.25 | 2.65 → 2.68 |
+| `es_marg`, mean of 16 | 1.128 → 1.122 | 3.90 → 4.16 | 4.29 → 4.32 | 2.59 → 2.59 |
+| passthrough + empty high band (floor) | 5.61 | 3.95 | 4.29 | 1.57 |
+| passthrough + true high band (ceiling) | 0.105 | 4.51 | 4.62 | **4.73** |
+
+**The sampler's speech-ViSQOL and PESQ penalty was baseband leakage, not high-band texture.** With the
+given baseband restored, one draw at τ = 1 sits level with the deterministic arms on speech ViSQOL
+(4.11 vs 4.11–4.23) and PESQ, and *beats* `det` on LSD (0.933 vs 0.956). Its audio-mode gap to `det`
+shrinks to 0.05 and to λ = 1e-1 stays at 0.25: what audio-mode ViSQOL still prefers is the
+deterministic model's larger, smoother high-band energy. The deterministic arms gain ~0.06 speech
+ViSQOL and 0.007 LSD from passthrough themselves — the baseband LISA re-synthesises is very slightly
+worse than the input it was given. Passthrough should be the default for every model in this project.
+
+The two bound rows calibrate the whole table: an empty high band scores 1.57 in audio mode, the true high
+band 4.73, and the best model tonight (λ = 1e-1, 3.02) has recovered **46 % of that range**. On LSD the
+picture is the same: 5.6 → 0.105 available, 0.89 achieved. The room above every model here is large, and
+§7.2 says it is climbed with deterministic energy plus context, not with sampling — on these two metrics.
+(DataShare rows to be appended when the run completes.)
