@@ -4,7 +4,16 @@
 **Question:** the deterministic ladder failed on an honest source (T1 moved HB-LSD 1.7 %), while the
 zero-parameter stochastic rung moved CRPS 21 %. If a hand-built conditional transport map on noise is
 the only thing that works, what happens when the *network itself* is trained to be that map?
-**Headline:** (filled in §1)
+**Headline:** trained under the energy score, the same 88k-parameter LISA becomes a conditional
+sampler at zero inference cost (1.5 ms per second of audio on an A100, 16.5 ms on a laptop CPU). On
+held-out speakers its CRPS is **43 % below the deterministic model and 23 % below the best hand-built
+transport rung**; its ensemble mean is a *better point predictor* than the point-trained model (SNR
+18.90 vs 18.86 dB, 18.78 vs 18.35 on the second set); and the cross-power coherence it makes measurable
+shows that **the band above 6 kHz is unpredictable from LISA's input for every model trained here** —
+coherent fraction ≤ 2 %, zero above 7 kHz — so the deterministic SNR ceiling is 0.3 dB above naive
+upsampling and at least 88 % of the energy the paper's spectral loss puts there is hallucinated. A
+graph experiment reproduces the mechanism in the graph Fourier basis and gives a one-model test that
+separates objective-induced from architecture-induced over-smoothing.
 
 ---
 
@@ -61,7 +70,134 @@ also bounds the SNR any deterministic model can reach (§4).
 
 ## 1. Result
 
-(filled in after training)
+Five arms, identical batches and initialisation, 38 000 steps of batch 32 × 1 s (9.1 epochs of the
+37.3 h Hub corpus), 4.25 h on an A100-40GB at 402 ms/step for all five. Two evaluation sets, because
+the 4 September note showed the same checkpoint measures 5 dB apart on them: **Hub** (`test_utts[:12]`,
+p236–238 from the corpus the models trained on, M = 16 draws) and **DataShare** (the original
+`test_FULL.npz`, 12 utterances per held-out speaker, M = 32, evaluated independently on the Mac from
+the Drive checkpoints). Every comparison below is within one set.
+
+### 1.1 The table
+
+Hub held-out, 12 utterances, ensemble of 16 (CRPS of a deterministic arm = MAE of its point forecast):
+
+| arm | one draw: SNR | HB-LSD | deficit | **CRPS** | sliced CRPS | cross-bin corr err | HB κ | ensemble mean: SNR | deficit |
+|---|---|---|---|---|---|---|---|---|---|
+| naive upsampling | 19.0 | – | −∞ | – | – | – | – | – | – |
+| `det` (paper loss, λ=1e-2) | 18.86 | 1.097 | −13.0 | 1.015 | 1.012 | 0.91 | 0.12 | – | – |
+| `det_split` | 18.71 | 1.062 | −11.0 | 0.973 | 0.984 | 0.96 | 0.04 | – | – |
+| **`es_marg`** | 18.14 | **1.075** | −7.9 | **0.583** | **0.576** | **0.62** | 0.02 | **18.90** | −16.6 |
+| `es_slice` | 18.26 | 1.147 | −12.6 | 0.782 | 0.734 | 0.65 | 0.05 | 18.82 | −16.7 |
+| `es_wave` | 17.64 | 1.161 | −9.7 | 0.733 | 0.677 | 1.75 | −0.01 | 18.74 | −17.0 |
+
+DataShare held-out, 36 utterances, ensemble of 32, plus the 4 September deterministic λ-frontier
+evaluated on the same utterances:
+
+| arm | one draw: SNR | LSD | HB-LSD | deficit | **CRPS** | HB κ | coherent HB | mean-of-32: SNR | deficit | SNR gap (calibrated 2.88) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| naive upsampling | 19.20 | – | – | −∞ | – | – | 0 | – | – | – |
+| λ=1e-3 (4 Sep, 36k) | 19.16 | 1.546 | 1.778 | −17.4 | 1.779 | – | – | – | – | – |
+| λ=1e-2 (4 Sep, 36k) | 18.37 | 0.962 | 1.097 | −4.5 | 1.012 | – | – | – | – | – |
+| λ=1e-1 (4 Sep, 36k) | 17.69 | 0.948 | 1.084 | −2.4 | 1.000 | – | – | – | – | – |
+| `det` | 18.35 | 0.960 | 1.095 | −4.5 | 1.011 | 0.06 | 1.8 % | – | – | – |
+| `det_split` | 17.45 | 0.973 | 1.108 | −2.3 | 1.022 | 0.03 | 2.5 % | – | – | – |
+| **`es_marg`** | 15.93 | 1.029 | 1.156 | **+0.6** | **0.686** | 0.01 | 1.6 % | **18.78** | −10.0 | **2.85** |
+| `es_slice` | 16.23 | 1.025 | 1.108 | −3.7 | 0.704 | 0.02 | 1.4 % | 18.35 | −9.1 | 2.12 |
+| `es_wave` | 14.20 | 1.320 | 1.328 | −0.6 | 0.884 | 0.00 | 0.4 % | 17.88 | −10.0 | 3.68 |
+
+Figures: `overnight2/predictability_OV2_es.png` (energy ratio per band, samples vs ensemble mean; coherent
+fraction above 6 kHz), `overnight2/frontier_OV2_es.png` (τ sweep against the λ frontier in the (SNR,
+CRPS) and (SNR, deficit) planes), `overnight2/calibration_OV2_es.png` (PIT, spread–skill), and the Colab
+counterparts in Drive `lisa_rtm/figures/ov2_*`.
+
+### 1.2 What the table says, item by item
+
+**The proper score moves by a third to a half, at zero inference cost.** CRPS on high-band
+log-magnitude: 1.015 → 0.583 on Hub (−43 %), 1.011 → 0.686 on DataShare (−32 %). The sliced CRPS,
+which sees cross-bin structure, moves by the same amount. This is the same 88k-parameter network, one
+forward pass per draw; `det_split` — the practitioner's deterministic fix — moves CRPS by 4 %.
+
+**The sampler contains a better point predictor than the point-trained model.** The ensemble mean
+scores 18.90 dB against `det`'s 18.86 on Hub and 18.78 against 18.35 on DataShare, and above the
+λ = 1e-2 and 1e-1 members of the deterministic frontier. Only the near-pure-L1 model (λ = 1e-3, 19.16)
+beats it, and that model is naive upsampling with a −17 dB high band.
+
+**Prediction (2) — a single draw has no deficit — holds on DataShare (+0.6 dB) and fails
+in-distribution (−7.9 dB on Hub, −2.3 dB on the paper split).** The waveform calibration test of §4(iii)
+says the same thing from the other side: the mean-minus-draw SNR gap is 2.85 dB against the required
+2.88 on DataShare and 0.76 against 2.75 on Hub. The model is under-dispersed *in energy* on the
+distribution it trained on, by roughly 6–8 dB in the 7–14 kHz bands — yet its PIT histogram on Hub is
+nearly flat (end bins 0.076 and 0.117 against 0.059 uniform) and its τ sweep bottoms out exactly at
+τ = 1 (CRPS 0.610 at τ = 1 vs 0.755 at 0.75 and 0.624 at 1.25). Calibrated in log-magnitude, short in
+power: the draws get the typical bin right and under-produce the loud frames that carry the energy.
+Nine epochs is also not convergence — `es_marg`'s probe deficit was still improving at step 38 000.
+
+**Prediction (1) — the ensemble mean has the deterministic model's deficit — is false, and the reason
+is the finding of the night.** The mean of 16 or 32 draws sits at −16.6 dB (Hub) and −10.0 dB
+(DataShare), 3.5–5.5 dB *below* the deterministic arm. It cannot equal it, because the deterministic
+arm's high band is not a conditional mean: its coherent fraction is 1.8 % and κ = 0.06–0.12, so **at
+least 88 % of the energy the spectral loss puts above 6 kHz is uncorrelated with the truth.** The
+deterministic model at λ = 1e-2 is a sampler with one frozen sample. The ensemble mean, by contrast, is
+pure residual: its energy ratio equals the single-draw ratio minus 10·log10 M, which is what a mean of
+independent draws with no coherent component does. The conditional mean of this band, for this model
+class, is zero.
+
+**The high band is unpredictable at the waveform level, for every arm, and the deterministic ceiling
+is 0.3 dB above naive upsampling.** Coherent fraction by third-octave from 6 kHz, Hub EVAL12: 0.050,
+0.002, 0.002, 0.001, −0.000, 0.002 for `det`; every other arm is within ±0.003 of the same numbers. The
+5 % in the first band is the anti-aliasing filter's transition region (5.7–7 kHz), not prediction. The
+bound of §4(ii) evaluates to 19.5 dB on DataShare (naive 19.20); the three λ-frontier models and both
+deterministic arms tonight sit at 19.16, 18.37, 17.69, 18.35 and 17.45. **No deterministic LISA — at
+any λ, any of the four training runs of this project — has beaten naive upsampling, and none can by
+more than 0.3 dB.** Reaching the paper's 24.16 dB would require coherently predicting three quarters of
+the power above 6 kHz from an 11-sample window; §1.4 tests whether context is the missing ingredient.
+
+**The geometry of the score matters on speech, unlike on the graph.** `es_wave` (waveform L1 alone)
+gets the energy right (−0.6 dB on DataShare) and the structure wrong: LSD 1.32 against 1.03, cross-bin
+correlation error 1.75 against 0.62, PIT skewed to the low ranks. A per-sample proper score is proper for
+per-sample marginals and nothing else, and the network's inductive bias did not rescue it here — a
+per-sample MLP, unlike the graph's root-weight GNN, constrains nothing across bins. `es_slice`, proper
+for the joint law of a frame, converged more slowly (under-dispersed: PIT top bin 41 % on Hub, SNR gap
+2.12) and ends level with `es_marg` on DataShare (0.704 vs 0.686) but behind it on Hub (0.782 vs
+0.583). At equal training budget the marginal log-magnitude score is the better bargain; the sliced
+score needs either more steps or a larger weight than 1e-2 — one matmul is cheap, the gradient signal
+through 64 random directions is diluted.
+
+**The deterministic band-split fix restores energy and nothing else.** `det_split` reaches −2.3 dB
+with κ = 0.03 and the same CRPS as `det`. This is PairNorm's fate in §5, observed.
+
+**The τ sweep dominates the λ frontier.** In the (SNR, CRPS) plane (`frontier_OV2_es.png`, left) the
+deterministic family runs flat at CRPS ≈ 1.0 from 17.7 to 18.4 dB and then climbs to 1.78 at 19.2 dB;
+`es_marg`'s single knob traces 0.66–0.73 across the same SNR range. In the (SNR, energy) plane the
+deterministic family is about 1 dB better at equal mean deficit, because its hallucinated energy sits
+more in the high bands where speech has little power and the SNR penalty is smaller. Both are honest
+readings of the same fact: incoherent energy costs SNR wherever it is put, and the only question is
+whether it carries a distribution (the sampler) or a single frozen draw (the deterministic model).
+
+### 1.3 Against the post-hoc stochastic rung
+
+The notebook's own ladder (§10–§12 of `lisa_rtm.ipynb`) was run on tonight's `det` arm, same 12 Hub
+utterances, same CRPS definition, fitted on 200 training-speaker utterances. The controls behave: the
+mis-specified map hurts (HB-LSD 1.176 vs T0 1.097), the frame shuffle is far worse (1.504), shaped
+noise worse still (1.547).
+
+| | HB-LSD | deficit | SNR | CRPS |
+|---|---|---|---|---|
+| T0 identity (`det`) | 1.097 | −13.2 | 18.86 | 1.015 |
+| T1 quantile, λ=1 (best deterministic rung) | 1.061 | −8.0 | 18.36 | – |
+| T3 conditional, λ=1 | 1.070 | −9.9 | 18.60 | 0.982 |
+| **S: noise through the closed-form conditional map** (16 draws) | 1.044 | −9.6 | 18.58 | **0.753** |
+| **`es_marg`: noise through the learned map** (16 draws, one draw for HB-LSD/SNR) | 1.075 | −7.9 | 18.14 | **0.583** |
+
+The hand-built rung takes 23 % off the point forecast; the learned one takes 43 %, i.e. a further 23 %
+off the rung. The deterministic rungs are where the 4 September note left them: T1 buys 3 % of
+HB-LSD. Every rung of the ladder except S is now strictly dominated by a network that costs nothing
+extra to run, and S is dominated on the only metric it was built to win.
+
+### 1.4 The receptive-field test
+
+(filled in from the `OV2_wide` run)
+
 
 ## 2. The graph experiment — the same fact, in the graph Fourier basis
 
@@ -96,9 +232,47 @@ So one model gives a **two-part decomposition of any measured over-smoothing**:
 In LISA the Fourier-feature control had to be a second architecture to reach the same conclusion. A
 sampler trained under a proper score reaches it with one.
 
+### 2.1 Does the geometry of the score matter on the graph? A clean negative
+
+`overnight2/gnn_toy_scores.py` trains the shallow GNN under three objectives that are each strictly
+proper for something different: the sum of per-node CRPS (marginals only), the Euclidean energy score
+(joint law of all nodes), and the sliced energy score (joint law, one-dimensional power). Prediction
+before running: the marginal score would put its noise in the wrong graph-frequency bands (spatially
+white), the joint scores in the right ones.
+
+| objective | single-draw band ratio (dB) | per-node CRPS | CRPS of graph-Fourier coefficients, modes ≥ 200 |
+|---|---|---|---|
+| per-node CRPS | +0.0 / +1.1 / +5.9 / −1.4 / −1.0 | 0.343 | 0.481 |
+| Euclidean energy score | +0.1 / +1.4 / +6.1 / −1.4 / −1.3 | 0.356 | 0.481 |
+| sliced energy score | +0.1 / +1.7 / +6.2 / −1.5 / −2.1 | 0.380 | 0.487 |
+
+**The prediction failed.** All three put the noise in the same bands to within a decibel, and the
+joint-structure score (CRPS of the graph-Fourier coefficients) is identical across them. On this
+toy the *architecture's* inductive bias — a root weight that can compute node-minus-neighbourhood,
+i.e. a high-pass — decided where the noise went, and the scoring rule only decided how much. The
++6 dB leak into modes 120–200 (a band where the target carries almost nothing) is shared by all
+three, which says the same thing from the other side: a joint-proper score did not prevent it either,
+because a band with no energy contributes nothing to any of these scores.
+
+Kept because it sharpens the audio question rather than settling it: whether `es_marg` and `es_slice`
+differ on speech is now a genuine empirical question, not a foregone conclusion.
+
 ## 3. Latency
 
-(filled in)
+Same architecture as LISA plus eight input channels, so nothing changes at inference. One stochastic
+draw, `LISAS` forward including noise sampling:
+
+| device | 1 s of audio | 20 ms chunk | real-time factor |
+|---|---|---|---|
+| A100-40GB (Colab) | 1.51 ms (p95 1.53) | 1.34 ms (launch-bound) | 660× |
+| Apple M4 CPU, 10 threads | 16.5 ms (p95 16.6) | 0.67 ms (p95 0.70) | 60× |
+| Apple M4 GPU (MPS) | 14.2 ms | 1.02 ms | 70× |
+| wide-context `LISASW`, M4 CPU | 18.8 ms | – | 53× |
+
+Algorithmic look-ahead is 5 input samples for the encoder plus 1 for the decoder's right neighbour:
+0.5 ms at 12 kHz. With a 20 ms streaming buffer the end-to-end latency is ~21 ms on a laptop CPU; the
+50 ms budget is met with a factor of two to spare and no GPU. The post-hoc transport rung it replaces
+cost 33 ms per second of audio in numpy.
 
 ## 4. Three identities that turn the deficit into a measurement
 
@@ -212,29 +386,18 @@ independent of depth, and a much sharper question than "does my GNN over-smooth"
 
 ## 6. Artefacts
 
-(filled in)
+| what | where |
+|---|---|
+| five checkpoints, step 38 000 | Drive `lisa_rtm/checkpoints/OV2_es/{det,det_split,es_marg,es_slice,es_wave}.pt` |
+| wide-context checkpoints | Drive `lisa_rtm/checkpoints/OV2_wide/{wide_det,wide_es_marg}.pt` |
+| training histories | Drive `lisa_rtm/ov2_history_OV2_es.json`, `train_OV2_es.log` |
+| Colab evaluation (Hub sets, τ sweep, latency, ladder) | `overnight2/colab_results/*.json`, Drive `lisa_rtm/ov2/` |
+| local independent analysis (DataShare set, coherence, bound, frontier) | `overnight2/analysis_OV2_es.json`, `analysis_OV2_es.log`, reproduced by `overnight2/analysis_local.py OV2_es 32 36 --extra=XL4_b64_1s` |
+| figures | `overnight2/predictability_OV2_es.png`, `frontier_OV2_es.png`, `calibration_OV2_es.png`, `gnn_toy.png`; Drive `lisa_rtm/figures/ov2_*` |
+| **listening examples** — truth, naive, `det`, `det_split`, one draw and a second draw of each sampler, and each sampler at τ = 0, for three held-out utterances | Drive `lisa_rtm/ov2/audio/u{0,5,10}_*.wav` |
+| graph experiments | `overnight2/gnn_toy.py`, `gnn_toy_scores.py`, results `*.json`, log |
+| code | `overnight2/c0_boot.py` … `c5_launch_wide.py` (Colab cells, exec'd from Drive `lisa_rtm/ov2/`), `c1_model.py` (LISAS, losses, trainer), `c1b_wide.py` (LISASW) |
+| CPU latency | `overnight2/cpu_latency.json` |
 
-### 2.1 Does the geometry of the score matter on the graph? A clean negative
-
-`overnight2/gnn_toy_scores.py` trains the shallow GNN under three objectives that are each strictly
-proper for something different: the sum of per-node CRPS (marginals only), the Euclidean energy score
-(joint law of all nodes), and the sliced energy score (joint law, one-dimensional power). Prediction
-before running: the marginal score would put its noise in the wrong graph-frequency bands (spatially
-white), the joint scores in the right ones.
-
-| objective | single-draw band ratio (dB) | per-node CRPS | CRPS of graph-Fourier coefficients, modes ≥ 200 |
-|---|---|---|---|
-| per-node CRPS | +0.0 / +1.1 / +5.9 / −1.4 / −1.0 | 0.343 | 0.481 |
-| Euclidean energy score | +0.1 / +1.4 / +6.1 / −1.4 / −1.3 | 0.356 | 0.481 |
-| sliced energy score | +0.1 / +1.7 / +6.2 / −1.5 / −2.1 | 0.380 | 0.487 |
-
-**The prediction failed.** All three put the noise in the same bands to within a decibel, and the
-joint-structure score (CRPS of the graph-Fourier coefficients) is identical across them. On this
-toy the *architecture's* inductive bias — a root weight that can compute node-minus-neighbourhood,
-i.e. a high-pass — decided where the noise went, and the scoring rule only decided how much. The
-+6 dB leak into modes 120–200 (a band where the target carries almost nothing) is shared by all
-three, which says the same thing from the other side: a joint-proper score did not prevent it either,
-because a band with no energy contributes nothing to any of these scores.
-
-Kept because it sharpens the audio question rather than settling it: whether `es_marg` and `es_slice`
-differ on speech is now a genuine empirical question, not a foregone conclusion.
+Colab session: GitHub-opened `lisa_rtm.ipynb`, A100-SXM4-40GB. The corpus lives in host RAM
+(`HostCorpus`); on this card a GPU-resident 37 h corpus is 32 GB and OOMs the two-draw arms.

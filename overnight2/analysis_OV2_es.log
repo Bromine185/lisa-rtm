@@ -1,0 +1,30 @@
+python   3.11.15
+torch    2.13.0
+numpy    2.4.6
+in colab False
+device   mps
+cache    /Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache
+seeded   0
+preset        SMOKE   run dir SMOKE_lam0.001
+rates         4000 Hz -> 16000 Hz  (4x)
+speakers      2 train / 1 held out
+transport     n_fft=512 hop=128  high band = bins 64..256
+evaluation    n_fft=1024 hop=256 (different basis, on purpose)
+LISA: 86,881 parameters  (paper reports ~89k)
+  encoder 9,984   decoder 76,897
+OV2 model/loss/trainer defined.  LISAS params: 87777
+LISASW: 107,457 params (LISAS 87,777), encoder receptive field 263 input samples = 21.9 ms
+eval set: 36 utts from [np.str_('p236'), np.str_('p237'), np.str_('p238')], 203 s of audio
+target power above 6000 Hz: 2.32 % of total   naive-upsample SNR 19.20 dB   (bound with rho=0 above the cut: 19.36 dB -- sanity: should sit just above naive)
+det        step  38000 | one draw: SNR  18.35 LSD 0.960 HB-LSD 1.095 def  -4.47 | CRPS 1.0114 sCRPS 0.9887 | BB coh/kappa 1.000/0.999  HB kappa +0.062  predictable HB 1.8%  SNR bound 19.5 dB  [5s]
+det_split  step  38000 | one draw: SNR  17.45 LSD 0.973 HB-LSD 1.108 def  -2.29 | CRPS 1.0219 sCRPS 1.0013 | BB coh/kappa 1.000/1.000  HB kappa +0.031  predictable HB 2.5%  SNR bound 19.5 dB  [10s]
+es_marg    step  38000 | one draw: SNR  15.93 LSD 1.029 HB-LSD 1.156 def  +0.56 | CRPS 0.6860 sCRPS 0.6316 | mean-of-32: SNR  18.78 def  -9.97 HB-LSD 1.154 | SNR gap 2.85 dB (calibrated: 2.88) | BB coh/kappa 1.000/0.995  HB kappa +0.014  predictable HB 1.6%  SNR bound 19.5 dB  [173s]
+es_slice   step  38000 | one draw: SNR  16.23 LSD 1.025 HB-LSD 1.108 def  -3.69 | CRPS 0.7038 sCRPS 0.6549 | mean-of-32: SNR  18.35 def  -9.14 HB-LSD 1.224 | SNR gap 2.12 dB (calibrated: 2.88) | BB coh/kappa 1.001/0.992  HB kappa +0.020  predictable HB 1.4%  SNR bound 19.5 dB  [319s]
+es_wave    step  38000 | one draw: SNR  14.20 LSD 1.320 HB-LSD 1.328 def  -0.61 | CRPS 0.8840 sCRPS 0.8096 | mean-of-32: SNR  17.88 def -10.04 HB-LSD 1.293 | SNR gap 3.68 dB (calibrated: 2.88) | BB coh/kappa 1.000/0.984  HB kappa +0.003  predictable HB 0.4%  SNR bound 19.4 dB  [463s]
+frontier relu_l1e-1   step  36000 | SNR  17.69 LSD 0.948 HB-LSD 1.084 def  -2.35 | CRPS(point) 0.9998
+frontier relu_l1e-2   step  36000 | SNR  18.37 LSD 0.962 HB-LSD 1.097 def  -4.52 | CRPS(point) 1.0121
+frontier relu_l1e-3   step  36000 | SNR  19.16 LSD 1.546 HB-LSD 1.778 def -17.42 | CRPS(point) 1.7787
+tau sweep es_marg   tau 0.00: SNR 18.95 CRPS 1.685 def -12.2  tau 0.25: SNR 18.79 CRPS 0.855 def -11.2  tau 0.50: SNR 18.29 CRPS 0.705 def -8.8  tau 0.75: SNR 17.35 CRPS 0.661 def -4.0  tau 1.00: SNR 15.93 CRPS 0.726 def +0.6  tau 1.25: SNR 14.36 CRPS 0.895 def +3.9  tau 1.50: SNR 12.89 CRPS 1.133 def +6.4
+tau sweep es_slice  tau 0.00: SNR 18.74 CRPS 1.467 def -13.3  tau 0.25: SNR 18.58 CRPS 0.879 def -12.1  tau 0.50: SNR 17.94 CRPS 0.749 def -8.7  tau 0.75: SNR 17.05 CRPS 0.722 def -5.7  tau 1.00: SNR 16.23 CRPS 0.735 def -3.7  tau 1.25: SNR 15.56 CRPS 0.759 def -2.3  tau 1.50: SNR 15.02 CRPS 0.790 def -1.4
+tau sweep es_wave   tau 0.00: SNR 18.34 CRPS 1.644 def -9.7  tau 0.25: SNR 17.96 CRPS 0.869 def -8.1  tau 0.50: SNR 16.87 CRPS 0.793 def -5.2  tau 0.75: SNR 15.55 CRPS 0.807 def -2.7  tau 1.00: SNR 14.20 CRPS 0.918 def -0.6  tau 1.25: SNR 12.92 CRPS 1.151 def +1.2  tau 1.50: SNR 11.71 CRPS 1.447 def +2.8
+ANALYSIS DONE -> /Users/raghavsharma/projects/lisa-rtm/overnight2/analysis_OV2_es.json

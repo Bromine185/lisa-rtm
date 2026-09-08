@@ -33,18 +33,40 @@ def lm_hb(w):
 def grouped(L):                                   # (T, K_HB) -> (T, N_GROUPS)
     return np.stack([L[:, g].mean(1) for g in GROUP], 1)
 
+_FREQS = np.fft.rfftfreq(CFG.eval_n_fft, 1.0 / CFG.fs_hi)
+_EDGES_HB = third_octave_edges(CFG.fs_hi, CFG.fs_lo / 2, CFG.fs_hi / 2 - 1)
+HB_SEL = [(_FREQS >= a) & (_FREQS < b) for a, b in zip(_EDGES_HB[:-1], _EDGES_HB[1:]) if ((_FREQS >= a) & (_FREQS < b)).sum()]
+HB_CENTRES = [float(np.sqrt(a * b)) for a, b in zip(_EDGES_HB[:-1], _EDGES_HB[1:]) if ((_FREQS >= a) & (_FREQS < b)).sum()]
+
+def coherent(y, w):
+    '''Per high-band third-octave: coherent fraction Re<Y,P>/<Y,Y> (= predictable fraction rho for the exact
+    conditional mean; unbiased for an ensemble mean) and kappa = Re<Y,P>/<P,P> (1 = informative output energy,
+    ~0 = hallucinated).  Plus the baseband pair as an alignment check.'''
+    Y = stft(y, CFG.eval_n_fft, CFG.eval_hop)[0]; P = stft(w, CFG.eval_n_fft, CFG.eval_hop)[0]
+    n = min(len(Y), len(P)); Y, P = Y[:n], P[:n]
+    yy = np.array([np.sum(np.abs(Y[:, s]) ** 2) for s in HB_SEL]); pp = np.array([np.sum(np.abs(P[:, s]) ** 2) for s in HB_SEL])
+    yp = np.array([np.sum((Y[:, s] * np.conj(P[:, s])).real) for s in HB_SEL])
+    bb = _FREQS < CFG.fs_lo / 2
+    bb_yp = np.sum((Y[:, bb] * np.conj(P[:, bb])).real)
+    return (yp / np.maximum(yy, 1e-20), yp / np.maximum(pp, 1e-20), float(yy.sum() / max(np.sum(np.abs(Y) ** 2), 1e-20)),
+            float(bb_yp / max(np.sum(np.abs(Y[:, bb]) ** 2), 1e-20)))
+
 def wave_metrics(y, w):
     b = band_energy_ratio(y, w, CFG.fs_hi, CFG.eval_n_fft, CFG.eval_hop, 200.0, CFG.fs_hi / 2)
     hb = b[:, 0] >= CFG.fs_lo / 2
+    coh, kappa, hb_frac, bb_coh = coherent(y, w)
     return dict(snr=snr_db(y, w), lsd=lsd_db(y, w, CFG.eval_n_fft, CFG.eval_hop),
                 hb_lsd=lsd_db(y, w, CFG.eval_n_fft, CFG.eval_hop, CFG.eval_k_cut),
-                deficit=float(b[hb, 1].mean()), baseband=float(b[~hb, 1].mean()), curve=b[:, 1].tolist())
+                deficit=float(b[hb, 1].mean()), baseband=float(b[~hb, 1].mean()), curve=b[:, 1].tolist(),
+                hb_coh=float(np.mean(coh)), hb_kappa=float(np.mean(kappa)),
+                hb_frac=hb_frac, bb_coh=bb_coh, coh=coh.tolist(), kappa=kappa.tolist())
 
 def agg(rows, keys=None):
-    keys = keys or [k for k in rows[0] if k != "curve"]
+    keys = keys or [k for k in rows[0] if k not in ("curve", "coh", "kappa")]
     out = {k: float(np.mean([r[k] for r in rows])) for k in keys}
-    if "curve" in rows[0]:
-        out["curve"] = np.mean([r["curve"] for r in rows], 0).tolist()
+    for arr in ("curve", "coh", "kappa"):
+        if arr in rows[0]:
+            out[arr] = np.mean([r[arr] for r in rows], 0).tolist()
     out["n"] = len(rows)
     return out
 
@@ -76,10 +98,10 @@ def ensemble_eval(m, utts, M, tau, label, corr_pool=None):
         res["spread_skill"] = np.mean(sk, axis=0).tolist()
     s = res["single"]
     line = (f"{label:<34} SNR {s['snr']:6.2f} LSD {s['lsd']:.3f} HB-LSD {s['hb_lsd']:.3f} def {s['deficit']:+6.2f} "
-            f"| CRPS {res['crps']:.4f} sCRPS {res['sliced_crps']:.4f} corr {corr_err:.3f}")
+            f"| CRPS {res['crps']:.4f} sCRPS {res['sliced_crps']:.4f} corr {corr_err:.3f} | HB coh {s['hb_coh']:+.3f} kappa {s['hb_kappa']:+.3f} (BB coh {s['bb_coh']:.3f})")
     if M > 1:
         mm = res["mean"]
-        line += f" | mean: SNR {mm['snr']:6.2f} def {mm['deficit']:+6.2f} HB-LSD {mm['hb_lsd']:.3f}"
+        line += f" | mean: SNR {mm['snr']:6.2f} def {mm['deficit']:+6.2f} HB-LSD {mm['hb_lsd']:.3f} HB coh {mm['hb_coh']:+.3f}"
     print(line, flush=True)
     return res
 
