@@ -216,6 +216,11 @@ from a better *envelope*; SNR does not move (18.39 vs 18.35, ceiling 19.5). The 
 over-dispersed on this set (+3.4 dB, SNR gap 4.46 against 2.88, τ* = 0.75) where the narrow one was
 calibrated (+0.6 dB, 2.85) — the extra capacity went into spread, not coherence.
 
+The Colab evaluation on the Hub sets (`overnight2/colab_results/results_OV2_wide.json`) says the same:
+`wide_det` coherent fraction 0.008 / 0.014 / 0.019 and κ 0.05–0.08 on the three splits, SNR 18.82 vs
+18.86 for the narrow model; `wide_es_marg` single-draw deficit −6.1 dB in-distribution (narrow −7.9),
++0.2 dB on the paper split, CRPS 0.606 (narrow 0.583).
+
 So within this model family, the high band of speech is incoherent with the input regardless of
 context, at least out to 22 ms and 6 epochs. That is consistent with what the band physically contains
 — fricative and breath noise, and harmonics whose period-to-period phase is not stable — and it
