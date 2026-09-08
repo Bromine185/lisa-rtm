@@ -26,4 +26,5 @@ XL = Path("/content/drive/MyDrive/lisa_rtm/ov2/xl")
 for f in ("cell1_corpus.py", "cell2_trainer.py", "cell3_eval.py"):
     print(f"--- xl cell: {f}", flush=True)
     exec(compile((XL / f).read_text(), f"<xl {f}>", "exec"), globals())
+OV2 = str(OV2).rstrip("/") + "/"           # later cells concatenate OV2 + "file.py"
 print("BOOT DONE  corpus:", len(train_utts), "train utts", flush=True)
