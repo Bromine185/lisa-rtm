@@ -1,6 +1,7 @@
 # Research note — the network is the transport map: proper scoring rules end regression to the mean at zero inference cost
 
 **Date:** 2026-09-08 (overnight run, unattended)
+**Names:** every arm, rung, condition and metric abbreviation below is expanded in `model-names.md`.
 **Question:** the deterministic ladder failed on an honest source (T1 moved HB-LSD 1.7 %), while the
 zero-parameter stochastic rung moved CRPS 21 %. If a hand-built conditional transport map on noise is
 the only thing that works, what happens when the *network itself* is trained to be that map?

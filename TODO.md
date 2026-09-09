@@ -1,5 +1,8 @@
 # lisa-rtm — todo
 
+Name lookup: every model / arm / rung / condition / set / metric name is expanded in
+`notes/model-names.md`.
+
 **2026-09-08 overnight run supersedes the ladder programme.** See
 `notes/2026-09-08-network-as-transport-map.md`. Headline: the same 88k-parameter LISA trained under the
 energy score (two draws per step, noise channels at the input) is a conditional sampler at zero

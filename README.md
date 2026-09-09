@@ -58,6 +58,7 @@ structure at all). Plus HB-LSD recomputed in a second STFT basis, and a latency 
 lisa_rtm.ipynb       the deliverable
 build_notebook.py    regenerates the notebook deterministically -- edit here, not the JSON
 validate.py          runs every code cell end-to-end on synthetic audio, no network
+notes/model-names.md full expansion of every model, arm, rung, condition, set and metric name
 ```
 
 ## Local development
