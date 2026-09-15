@@ -58,6 +58,10 @@ structure at all). Plus HB-LSD recomputed in a second STFT basis, and a latency 
 lisa_rtm.ipynb       the deliverable
 build_notebook.py    regenerates the notebook deterministically -- edit here, not the JSON
 validate.py          runs every code cell end-to-end on synthetic audio, no network
+sampler/             the sampler on its own: LISAS trained under the energy score
+  lisa_rtm_sampler.ipynb     self-contained Colab notebook (SMOKE / QUICK / FULL presets)
+  build_sampler_notebook.py  regenerates it -- edit here, not the JSON
+  validate_sampler.py        runs every cell on CPU with a synthetic corpus, no network
 ```
 
 ## Local development
