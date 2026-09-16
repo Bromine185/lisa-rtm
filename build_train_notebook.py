@@ -82,6 +82,51 @@ independent numpy generator per component, so re-running one cell does not distu
 """)
 code(inlined("lisa_rtm.ipynb §0", nb_cell("import importlib, subprocess, sys")))
 
+# ============================================================ 0a kernel selection
+md(r"""
+### 0a. Kernel selection — determinism off for **training**, back on for **evaluation**
+
+`seed_everything()` above sets `cudnn.deterministic = True`, `cudnn.benchmark = False` and
+`use_deterministic_algorithms(True, warn_only=True)`. That is the right default for a notebook you read
+numbers off, and it is very expensive for this model. Under the flag, ATen replaces the fused atomic-add
+kernel behind the backward of `torch.gather` (`scatter_add_`) with `_scatter_via_index_put`, which
+materialises one int64 key per gathered element — about 147 million keys per arm-draw at batch 32 — and
+radix-sorts them. Measured on this repo's own sequential trainer, seven arms, batch 32 × 1 s, A100-80GB:
+
+| setting | ms/step |
+| --- | --- |
+| deterministic on, `cudnn.benchmark` off (the cell above) | **2261** |
+| deterministic off, `cudnn.benchmark` on (`overnight/cell2_trainer.py`) | **587** |
+
+That is 3.9×, for one flag. The seeds, the data order, the noise draws, the jitter draws, the initialisation
+and the arm pairing are all untouched, so the seven arms still see identical batches and stay comparable;
+what moves is the float reduction order inside the gradient atomics, about $10^{-7}$ relative in fp32, well
+under the bf16 rounding the run already carries. The price is run-to-run bitwise reproducibility of the
+gradients.
+
+The flag is also mirrored into `torch._inductor.config.deterministic`, which switches Inductor's on-device
+autotuning off — so it has to be flipped **before** anything is compiled. It is flipped here, and again in
+the stacked trainer's flag block (which sits above its `torch.compile`), so exec order cannot defeat it.
+
+Evaluation puts the strict pair back: §14 and §15 run under `no_grad`, the scatter backward never runs
+there, and the sub-pixel decoder's `perturb=False` path has no scatter at all, so determinism costs
+essentially nothing on that side.
+""")
+code(r"""
+# ---- TRAINING kernel selection: see the markdown above (587 vs 2261 ms/step, measured) ----
+seed_everything()                     # keep the seeds section 0 set; only the kernel flags change below
+torch.use_deterministic_algorithms(False)
+torch.backends.cudnn.deterministic = False
+torch.backends.cudnn.benchmark = True
+if torch.cuda.is_available():
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    torch.set_float32_matmul_precision("high")
+print("training kernels: deterministic", torch.are_deterministic_algorithms_enabled(),
+      "| cudnn.benchmark", torch.backends.cudnn.benchmark,
+      "| tf32", torch.backends.cuda.matmul.allow_tf32, flush=True)
+""")
+
 # ============================================================ 1 config
 md(r"""
 ## 1. Config
@@ -204,8 +249,17 @@ decoder one batched matmul per layer. Losses are independent per arm, so a backw
 arm its own gradient; one Adam over the stacked tensors is one Adam per arm; clipping is per arm.
 
 Also: bf16 autocast (losses stay fp32), TF32, a compiled decoder MLP, pinned non-blocking batches, fused Adam,
-two CUDA streams for the two classes, one gather on a replicate-padded latent, target STFT features computed
-once per step and shared by every arm, and no `.item()` between callbacks.
+target STFT features computed once per step and shared by every arm, and no `.item()` between callbacks.
+
+Two things in that file are worth reading before changing them. Its flag block repeats §0a's kernel
+selection, because it sits **above** the `torch.compile` and the deterministic flag is mirrored into
+Inductor's config at compile time. And decoder layer 1 is evaluated at the 12 kHz **input** rate:
+$W_1 = [\,w_c \mid W_z \mid w_d\,]$ is linear in its blocks and the latent block depends only on the anchor,
+so $u[i] = A_{-1}z_{i-1} + A_0 z_i + A_{+1} z_{i+1}$ is one grouped `conv1d` over the replicate-padded
+latents rather than a $3N$-row gather at 48 kHz. Anchor jitter survives this exactly: the jittered anchor is
+$i = n + m$ and the coordinate $c = 2(q-i)-1 = c_p - 2m$, so the jitter only chooses which row of $u$ is
+read. With `perturb=False` there is no gather at all — the $R$ outputs of a cell share one row and differ by
+$c_p w_c$, which is the periodic shuffle, and its backward is a sum-reduction rather than a scatter.
 """)
 code(inlined("overnight3/e2b_fast.py", repo_file("overnight3/e2b_fast.py")))
 
@@ -364,8 +418,16 @@ at $\lambda = 10^{-2}$; the five new arms sit at $\lambda = 10^{-1}$ and vary on
 weight alone, the waveform term restricted to the low band, the ERB aggregate term, decoder-side noise, and
 both together.
 
-Set `BATCH_OVERRIDE`, `BUDGET_H` or `OV3_TAG` in a cell above to change the recipe. Memory scales with
-batch × arms-per-stack, so `GROUP_MAX = 2` chunks each stack to two arms.
+Set `BATCH_OVERRIDE`, `BUDGET_H` or `OV3_TAG` in a cell above to change the recipe.
+
+`GROUP_MAX = 1` — **one arm per stack**. The measured table is not ambiguous: one arm per stack is the only
+configuration above 16 audio-seconds per compute-second (16.6 at batch 16, 16.4 at batch 32), while two per
+stack (13.5, 13.6) and seven per stack (14.3, 14.4) are *slower* and use two and four times the memory. The
+per-group GEMMs are only 144 wide, so they tile-quantise badly on an A100 and stacking arms buys nothing but
+activation memory. The old default (two per stack at batch 64) landed at ~61 GB, which is the allocator-thrash
+row: 8122 ms/step, 7.9 audio-s per compute-s, half of everything else. `STREAMS = False` for the same reason —
+streams measured as no-effect-or-worse, and turning them off drops the `record_stream`/`wait_stream`
+bookkeeping. `BATCH` stays at 64 so the batch stream is unchanged.
 """)
 code(r"""
 # ---- the seven paired arms (overnight3/e3_launch.py) ----
@@ -386,7 +448,8 @@ BATCH = int(globals().get("BATCH_OVERRIDE", 64))
 SEG = int(globals().get("SEG_OVERRIDE", 48000))
 OV3_TAG = globals().get("OV3_TAG", "OV3_fast")
 BUDGET_H = float(globals().get("BUDGET_H", 3.0))
-FAST["GROUP_MAX"] = globals().get("GROUP_MAX", 2)
+FAST["GROUP_MAX"] = globals().get("GROUP_MAX", 1)   # measured: 1 arm/stack is the fastest AND the smallest
+FAST["STREAMS"] = globals().get("STREAMS", False)   # measured: no effect or worse
 
 import gc, sys, json
 for _n in ("models_ov3", "hist_ov3"):
@@ -438,7 +501,15 @@ Every arm on the held-out Hub set: one draw and the 16-draw ensemble (CRPS, slic
 ensemble-mean metrics, coherent fraction and $\kappa$), the log-magnitude ensemble readouts, and every
 condition again with the given baseband passed through.
 """)
-code("OV3_RUN_EVAL = True\nOV3_TAG = globals().get(\"OV3_TAG\", \"OV3_fast\")\n\n"
+_EVAL_DET = (
+    "# ---- EVALUATION keeps the repo's reproducibility: section 0a turned the strict pair off for TRAINING\n"
+    "# only.  Everything below runs under no_grad (and the decoder's perturb=False path has no scatter at\n"
+    "# all), so determinism is nearly free here.\n"
+    "seed_everything()\n"
+    "torch.use_deterministic_algorithms(True, warn_only=True)\n"
+    "torch.backends.cudnn.deterministic = True\n"
+    "torch.backends.cudnn.benchmark = False\n\n")
+code("OV3_RUN_EVAL = True\nOV3_TAG = globals().get(\"OV3_TAG\", \"OV3_fast\")\n\n" + _EVAL_DET
      + inlined("overnight3/e4_eval.py", repo_file("overnight3/e4_eval.py")))
 
 md(r"""
@@ -449,7 +520,7 @@ whole reconstructed band), and wideband PESQ, for every condition with and witho
 (passthrough with an empty high band) and ceiling (passthrough with the true high band) rows. Requires the
 ViSQOL install cells to have been run in this kernel.
 """)
-code("OV3_RUN_EVAL = True\nOV3_TAG = globals().get(\"OV3_TAG\", \"OV3_fast\")\n\n"
+code("OV3_RUN_EVAL = True\nOV3_TAG = globals().get(\"OV3_TAG\", \"OV3_fast\")\n\n" + _EVAL_DET
      + inlined("overnight3/e5_visqol.py", repo_file("overnight3/e5_visqol.py")))
 
 

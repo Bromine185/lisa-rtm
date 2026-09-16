@@ -17,16 +17,35 @@
 #   PIN        pinned-memory, non_blocking batches (same RNG consumption as HostCorpus.batch -> same batches).
 #   FUSED      torch.optim.Adam(fused=True).
 #   STREAMS    LISAS and LISASD groups on two CUDA streams; both synced to the default stream before the step.
+#              DEFAULT OFF: measured as no-effect-or-worse, and off removes the record_stream/wait_stream
+#              bookkeeping in _fwd_bwd.
 #   CUDA_GRAPHS EXPERIMENTAL, default False: capture forward+backward+clip of the fixed-shape step into a CUDA
 #              graph (optimiser step stays eager).  Untested on the day it was written.
-#   GROUP_MAX  chunk a stack into at most this many arms (bounds activation memory).
+#   GROUP_MAX  chunk a stack into at most this many arms (bounds activation memory).  DEFAULT 1: measured, one
+#              arm per stack is both the FASTEST and the smallest row of the table (16.6 / 16.4 audio-s per
+#              compute-s at batch 16 / 32, against 13.5 / 13.6 at two per stack and 14.3 / 14.4 at seven), and
+#              per-group N = 144 grouped GEMMs tile-quantise badly on an A100, so stacking arms buys nothing.
+#   DETERMINISTIC  default False.  See the flag block below: 587 vs 2261 ms/step, measured.
+#   SUBPIXEL   default True, EXACT: decoder layer 1 evaluated at the 12 kHz input rate as one grouped conv1d
+#              over the latents plus a rank-1 coordinate term (ArmStack._layer1).  Anchor jitter stays per
+#              output sample and stays bit-for-bit the gather path's; set False for the A/B.
+#   JITTER_PER_CELL  default False, CHANGES MATH: one anchor draw per INPUT cell instead of per output sample.
+#              Do not switch this on inside the seven-arm comparison; run it as an eighth paired arm.
 #   index gather: base index precomputed once per (L, R); jitter added on the GPU; the three neighbours come from
-#              ONE gather on a replicate-padded (A, S, L+2, C) latent.
+#              ONE gather on a replicate-padded (A, S, L+2, C) latent (SUBPIXEL=False path only).
 #   STFT work: target features once per step, shared by every arm; both draws of every arm in one STFT call.
 # Memory (activations saved for backward, decoder dominates): per arm and per output sequence of N = R*L
 # samples ~ N * (97 + 4*144) * bytes, i.e. at batch 32 x 1 s (two draws = 64 sequences) ~8.3 GB fp32 / 4.2 GB bf16
 # per arm.  A 5-arm LISAS stack at batch 32 bf16 ~21 GB; batch 64 ~42 GB; batch 128 needs GROUP_MAX 2 (~33 GB
 # per chunk).  The step is no longer overhead-bound once stacked, so the batch only needs to fill the card.
+# NOT gradient checkpointing, deliberately.  Saved activations are ~1.35 kB bf16 per output row (4 hidden x 144
+# plus the 97-wide input), which reproduces the measured 8.1 / 15.7 / 30.8 GB at 1 / 2 / 7 arms per stack.
+# torch.utils.checkpoint.checkpoint(_mlp_eager, ..., use_reentrant=False, preserve_rng_state=False) would drop
+# ~6x of that -- preserve_rng_state=False is safe here only because the MLP block draws no randomness, jitter
+# and noise being sampled outside it -- but it costs one extra forward, i.e. +20-40% on a bandwidth-bound step.
+# Throughput is FLAT in batch in every measured row, so the headroom buys nothing today, and GROUP_MAX = 1 plus
+# SUBPIXEL already cut memory 2-4x.  Revisit ONLY if a re-measured roofline shows the step compute-bound AND a
+# larger batch is shown to raise audio-seconds per compute-second.
 # Requires in the kernel: c0 boot, c1_model, e1_model, e2_trainer (val_batches, plot_curves, _nan, _f).
 import copy, math, time, json, contextlib, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
 from torch.optim.lr_scheduler import MultiStepLR
@@ -34,15 +53,51 @@ from torch.optim.lr_scheduler import MultiStepLR
 assert "plot_curves" in globals() and "val_batches" in globals(), "exec overnight3/e2_trainer.py before e2b_fast.py"
 _CUDA = torch.cuda.is_available() and DEVICE.type == "cuda"
 FAST = {"STACK": True, "AMP": _CUDA, "TF32": _CUDA, "COMPILE": _CUDA, "PIN": _CUDA, "FUSED": _CUDA,
-        "STREAMS": _CUDA, "CUDA_GRAPHS": False, "GROUP_MAX": None}
+        "STREAMS": False, "CUDA_GRAPHS": False, "GROUP_MAX": 1, "DETERMINISTIC": False,
+        "COMPILE_MODE": "max-autotune", "SUBPIXEL": True, "JITTER_PER_CELL": False}
 for _k in list(FAST):
     if _k in globals():
         FAST[_k] = globals()[_k]
+
+# ============================================================ kernel selection (READ THIS BEFORE MOVING IT)
+# This block must run BEFORE the torch.compile below.  torch.__init__ mirrors use_deterministic_algorithms()
+# into torch._inductor.config.deterministic, which switches Inductor's on-device autotuning off, so a compiled
+# object built while the flag is on stays on heuristic kernels no matter what the flag does afterwards.
+#
+# WHY TRAINING RUNS WITH DETERMINISM OFF.  The notebook's boot cell (lisa_rtm.ipynb section 0, seed_everything)
+# sets cudnn.deterministic = True, cudnn.benchmark = False and use_deterministic_algorithms(True, warn_only=True).
+# Under that flag ATen replaces the fused fastAtomicAdd kernel behind the backward of torch.gather (scatter_add_)
+# with _scatter_via_index_put -> index_put_with_sort_kernel, which materialises one int64 key per gathered
+# element -- ~147M keys, ~1.2 GB per buffer, per arm-draw at batch 32 -- and radix-sorts them, thirteen
+# sequence-passes per step.  It also slows the encoder's conv backward.  The repo's own A/B, same sequential
+# trainer, 7 arms, batch 32 x 1 s, A100-80GB:
+#
+#       flag ON,  cudnn.benchmark off (notebook boot cell)        2261 ms/step
+#       flag OFF, cudnn.benchmark on  (overnight/cell2_trainer.py:8-12)   587 ms/step     -> 3.9x
+#
+# What this does NOT change: seeds, data order, noise draws, jitter draws, initialisation and arm pairing are
+# all untouched, so the seven arms still see identical batches and stay comparable.  What it does change: the
+# float reduction ORDER inside the gradient atomics, i.e. ~1e-7 relative in fp32, far below the bf16 rounding
+# the run already carries.  Run-to-run bitwise reproducibility of the gradients is the price.
+# THE EVALUATION PATH KEEPS THE REPO'S REPRODUCIBILITY.  e4_eval / e5_visqol run under no_grad, so the scatter
+# backward never runs there and determinism is nearly free; the built notebook re-enables the strict pair in a
+# cell above the evaluation sections (build_train_notebook.py), and seed_everything() is unchanged.
+# Set DETERMINISTIC = True in a cell above this file to put the strict pair back for training too.
+if FAST["DETERMINISTIC"]:
+    torch.use_deterministic_algorithms(True, warn_only=True)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+else:
+    torch.use_deterministic_algorithms(False)
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = True
 if FAST["TF32"] and _CUDA:
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
+    torch.set_float32_matmul_precision("high")
 _OFF3 = None
 _IDX_CACHE = {}
+_PHASE_CACHE = {}
 
 
 def _autocast():
@@ -58,7 +113,27 @@ def _base_index(L, R, device):
     return _IDX_CACHE[key]
 
 
+def _phase_coord(R, device):
+    '''c_p = 2p/R - 1, p = 0..R-1: the coordinate of the R outputs of one input cell when the anchor is
+    floor(q), i.e. the jitter-free case.  Cached per (R, device).'''
+    key = (int(R), str(device))
+    if key not in _PHASE_CACHE:
+        _PHASE_CACHE[key] = 2.0 * torch.arange(R, device=device, dtype=torch.float32) / R - 1.0
+    return _PHASE_CACHE[key]
+
+
 def _mlp_eager(X, Ws, bs, relus):
+    '''(A, rows, in) -> (A, rows, out).  A == 1 (GROUP_MAX = 1, the default) takes the 2-D F.linear path:
+    Inductor's mm templating is stronger than its bmm templating, and the ReLU epilogue is fused into the
+    GEMM only when a Triton mm template wins autotuning -- each fused epilogue removes two of the four HBM
+    traffic terms of a layer, and the decoder is bandwidth-bound (~72 FLOP/byte at bf16 vs A100's ~153).'''
+    if X.shape[0] == 1:
+        Y = X[0]
+        for W, b, r in zip(Ws, bs, relus):
+            Y = F.linear(Y, W[0], b[0])
+            if r:
+                Y = F.relu(Y)
+        return Y.unsqueeze(0)
     for W, b, r in zip(Ws, bs, relus):
         X = torch.baddbmm(b.unsqueeze(1), X, W.transpose(1, 2))
         if r:
@@ -69,7 +144,17 @@ def _mlp_eager(X, Ws, bs, relus):
 _MLP = {"fn": _mlp_eager, "compiled": False}
 if FAST["COMPILE"]:
     try:
-        _MLP = {"fn": torch.compile(_mlp_eager, dynamic=False), "compiled": True}
+        # _mlp is called at several shapes per step: A varies per stack, rows = S*N with S = B (det arms),
+        # 2B (es arms) and the validation batch, and in_features is 97 (LISAS) or 101 (LISASD).  With
+        # dynamic=False every distinct size is a fresh graph, and once the recompile limit is hit Dynamo
+        # SKIPS the function and everything nested in it -- the compile silently becomes eager, which is
+        # consistent with the stacked runs showing no benefit from COMPILE at all.  Raise the limit and mark
+        # the row axis dynamic; the last axis stays static so the template still specialises on width.
+        import torch._dynamo
+        for _attr in ("recompile_limit", "cache_size_limit"):           # cache_size_limit is now an alias
+            if hasattr(torch._dynamo.config, _attr):
+                setattr(torch._dynamo.config, _attr, 32)
+        _MLP = {"fn": torch.compile(_mlp_eager, dynamic=False, mode=FAST["COMPILE_MODE"]), "compiled": True}
     except Exception as _e:                                            # no compiler: eager
         print("torch.compile unavailable, eager MLP:", repr(_e), flush=True)
 
@@ -77,6 +162,9 @@ if FAST["COMPILE"]:
 def _mlp(X, Ws, bs, relus):
     if _MLP["compiled"]:
         try:
+            for _d in (0, 1):                  # never mark a size-1 axis: Dynamo specialises on 0/1 anyway
+                if X.shape[_d] > 1:
+                    torch._dynamo.mark_dynamic(X, _d)
             return _MLP["fn"](X, Ws, bs, relus)
         except Exception as e:                                          # backend failed at first call: eager
             print("torch.compile failed, falling back to eager MLP:", repr(e)[:200], flush=True)
@@ -151,23 +239,80 @@ class ArmStack:
             z = h.view(S, A, C, L).permute(1, 0, 3, 2)                                     # (A, S, L, C)
             zp = torch.cat([z[:, :, :1], z, z[:, :, -1:]], 2)                                # replicate pad: (A, S, L+2, C)
             q, idx0 = _base_index(L, R, x_in.device)
-            if perturb:
-                jit = torch.randn(A, S, N, device=x_in.device) * 0.5 if jitter is None else jitter
-                idx = torch.floor(q + jit).long().clamp_(0, L - 1)                         # (A, S, N)
+            Ws = [self.p(w) for w, _, _ in self.dec_plan]
+            bs = [self.p(b) for _, b, _ in self.dec_plan]
+            if FAST["SUBPIXEL"]:
+                X = self._layer1(zp, Ws[0], bs[0], eps_dec, q, S, L, N, perturb, jitter)
+                X = _mlp(X, Ws[1:], bs[1:], self.relus[1:])
             else:
-                idx = idx0.view(1, 1, N).expand(A, S, N)
-            coord = (2.0 * (q - idx.float()) - 1.0).unsqueeze(-1)                          # (A, S, N, 1)
-            global _OFF3
-            if _OFF3 is None or _OFF3.device != x_in.device:
-                _OFF3 = torch.arange(3, device=x_in.device)
-            gidx = (idx.unsqueeze(-1) + _OFF3).reshape(A, S, 3 * N)                        # padded rows i-1, i, i+1
-            g = torch.gather(zp, 2, gidx.unsqueeze(-1).expand(A, S, 3 * N, C)).reshape(A, S, N, 3 * C)
-            parts = [coord.to(g.dtype), g]
-            if self.n_dec:
-                parts.append((eps_dec if eps_dec is not None else g.new_zeros(A, S, N, self.n_dec)).to(g.dtype))
-            X = torch.cat(parts, -1).reshape(A, S * N, -1)
-            X = _mlp(X, [self.p(w) for w, _, _ in self.dec_plan], [self.p(b) for _, b, _ in self.dec_plan], self.relus)
+                if perturb:
+                    jit = torch.randn(A, S, N, device=x_in.device) * 0.5 if jitter is None else jitter
+                    idx = torch.floor(q + jit).long().clamp_(0, L - 1)                     # (A, S, N)
+                else:
+                    idx = idx0.view(1, 1, N).expand(A, S, N)
+                coord = (2.0 * (q - idx.float()) - 1.0).unsqueeze(-1)                      # (A, S, N, 1)
+                global _OFF3
+                if _OFF3 is None or _OFF3.device != x_in.device:
+                    _OFF3 = torch.arange(3, device=x_in.device)
+                gidx = (idx.unsqueeze(-1) + _OFF3).reshape(A, S, 3 * N)                    # padded rows i-1, i, i+1
+                g = torch.gather(zp, 2, gidx.unsqueeze(-1).expand(A, S, 3 * N, C)).reshape(A, S, N, 3 * C)
+                parts = [coord.to(g.dtype), g]
+                if self.n_dec:
+                    parts.append((eps_dec if eps_dec is not None else g.new_zeros(A, S, N, self.n_dec)).to(g.dtype))
+                X = torch.cat(parts, -1).reshape(A, S * N, -1)
+                X = _mlp(X, Ws, bs, self.relus)
         return X.reshape(A, S, N).float()
+
+    # ---- decoder layer 1 at the INPUT rate (exact; see the module note) --------------------------------
+    def _layer1(self, zp, W1, b1, eps_dec, q, S, L, N, perturb, jitter):
+        '''W1 = [w_c | W_z | w_d] is linear in its blocks, and the latent block depends only on the anchor i,
+        so its contribution u[i] = A_-1 z_{i-1} + A_0 z_i + A_+1 z_{i+1} is ONE grouped conv1d over the
+        replicate-padded latents at 12 kHz instead of a 3N-row gather at 48 kHz.  Layer-1 MACs per audio
+        second fall from 48,000 x 97 x 144 to 12,000 x 96 x 144, and the 97-wide HR feature tensor and its
+        backward leave the graph entirely.  (This is Shi et al.'s sub-pixel convolution: LISA's first layer
+        is a sub-pixel conv whose R phase filters share one filter bank and differ only by a rank-1 bias.)
+
+        The anchor jitter does NOT have to be disabled and does NOT break exactness.  For output j in cell
+        n = floor(q) with phase p, the jittered anchor is i = clamp(floor(q + eta), 0, L-1) = n + m, and the
+        coordinate is c = 2(q - i) - 1 = c_p - 2m.  The jitter only selects WHICH row of u is read; the
+        arithmetic is untouched, so computing c from the gathered i keeps this bit-for-bit the gather path.
+        What jitter costs is that the u gather stays at the output rate, which is why it is a FLOP win and
+        roughly traffic-neutral at HR.  FAST["JITTER_PER_CELL"] (changes-math, default off) is what moves the
+        gather down to 12 kHz as well.'''
+        A, C, R, dev = self.A, self.C, self.R, zp.device
+        H = W1.shape[1]
+        # W_z columns are ordered [i-1, i, i+1] x C, so (H, 3, C) -> (H, C, 3) puts the conv taps in the
+        # order (A_-1, A_0, A_+1); conv1d's out[o, n] = sum_{c,k} W[o, c, k] * in[c, n+k] then reads
+        # zp[n], zp[n+1], zp[n+2] = z[n-1], z[n], z[n+1] under the replicate padding.
+        W_z = W1[:, :, 1:1 + 3 * C].reshape(A, H, 3, C).transpose(2, 3).reshape(A * H, C, 3)
+        u = F.conv1d(zp.permute(1, 0, 3, 2).reshape(S, A * C, L + 2), W_z, groups=A)        # (S, A*H, L)
+        u = u.view(S, A, H, L).permute(1, 0, 3, 2)                                          # (A, S, L, H)
+        dt = u.dtype
+        w_c, bb = W1[:, :, 0].view(A, 1, 1, H).to(dt), b1.view(A, 1, 1, H).to(dt)
+        if perturb and FAST["JITTER_PER_CELL"]:                 # CHANGES MATH: one draw per input cell
+            jit = torch.randn(A, S, L, device=dev) * 0.5 if jitter is None else jitter
+            cell = torch.arange(L, device=dev, dtype=torch.float32)
+            idx = torch.floor(cell + jit).long().clamp_(0, L - 1)                           # (A, S, L)
+            m = (idx.float() - cell).unsqueeze(-1).unsqueeze(-1)                            # (A, S, L, 1, 1)
+            g = torch.gather(u, 2, idx.unsqueeze(-1).expand(A, S, L, H)).unsqueeze(3)       # (A, S, L, 1, H)
+            cp = _phase_coord(R, dev).view(1, 1, 1, R, 1)
+            X = (g + (cp - 2.0 * m).to(dt) * w_c.unsqueeze(3) + bb.unsqueeze(3)).reshape(A, S, N, H)
+        elif perturb:
+            jit = torch.randn(A, S, N, device=dev) * 0.5 if jitter is None else jitter
+            idx = torch.floor(q + jit).long().clamp_(0, L - 1)                              # (A, S, N)
+            coord = (2.0 * (q - idx.float()) - 1.0).unsqueeze(-1)                           # (A, S, N, 1)
+            g = torch.gather(u, 2, idx.unsqueeze(-1).expand(A, S, N, H))
+            X = g + coord.to(dt) * w_c + bb
+        else:
+            # perturb=False: i = floor(q) = n, so there is no gather at all -- the periodic shuffle.  expand's
+            # backward is a sum-reduction (no atomics, no index tensor, no scatter), which is why this path is
+            # immune to the determinism flag whichever way it is set, and why eval can keep the strict pair.
+            cp = _phase_coord(R, dev).view(1, 1, 1, R, 1)
+            X = (u.unsqueeze(3) + cp.to(dt) * w_c.unsqueeze(3) + bb.unsqueeze(3)).reshape(A, S, N, H)
+        if self.n_dec and eps_dec is not None:      # eps_dec=None is a zero block: exactly a no-op, so skip it
+            X = X + torch.matmul(eps_dec.to(dt), W1[:, :, 1 + 3 * C:].transpose(1, 2).unsqueeze(1).to(dt))
+        X = X.reshape(A, S * N, H)
+        return F.relu(X) if self.relus[0] else X
 
     def sample_eps(self, S, L, gen=None):
         A, dev = self.A, self.device

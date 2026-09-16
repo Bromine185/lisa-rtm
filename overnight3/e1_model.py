@@ -49,20 +49,92 @@ class LISASD(LISAS):
         return super().encode(x_lo, e)
 
     def decode(self, z, j0=0, j1=None, perturb=False):
-        B, L_lo, C = z.shape
-        j1 = L_lo * self.R if j1 is None else j1
-        q = (torch.arange(j0, j1, device=z.device, dtype=torch.float32) / self.R).unsqueeze(0).expand(B, -1)
+        return _decode(self, z, j0, j1, perturb)
+
+
+# ---- the decoder's first layer, two ways ------------------------------------------------------------
+# LISA's decoder feature is [c, z_{i-1}, z_i, z_{i+1}, eps_dec] and the first Linear is linear in those
+# blocks, so W1 splits as [w_c | W_z | w_d].  The latent block depends only on the anchor i, so it can be
+# evaluated once per INPUT cell -- one length-3 conv1d over the replicate-padded latents at 12 kHz -- instead
+# of once per OUTPUT sample at 48 kHz.  Layer-1 MACs per audio second fall from 48,000 x 97 x 144 to
+# 12,000 x 96 x 144, and the 97-wide high-rate feature tensor never exists.  This is Shi et al.'s sub-pixel
+# convolution: the first layer is a sub-pixel conv whose R phase filters share one bank and differ only by a
+# rank-1 bias along w_c.  Anchor jitter is fine: for output j in cell n with phase p the jittered anchor is
+# i = n + m and the coordinate is c = 2(q - i) - 1 = c_p - 2m, so the jitter only chooses WHICH row of u is
+# read.  Computing c from the gathered i (as below) keeps the arithmetic bit-for-bit the gather path's.
+# Both paths stay here so the A/B is one flag, and the RNG draw (randn_like(q)) is identical in both.
+LISA_SUBPIXEL = True           # exact; set False for the gather path
+LISA_JITTER_PER_CELL = False   # CHANGES MATH: one anchor draw per input cell (see overnight3/e2b_fast.py)
+
+
+def _decode_gather(self, z, j0=0, j1=None, perturb=False):
+    '''The original path: three gathers (one per neighbour) at the output rate, then the full 97/101-wide
+    first Linear.  Works for LISAS (n_dec = 0) and LISASD alike.'''
+    B, L_lo, C = z.shape
+    j1 = L_lo * self.R if j1 is None else j1
+    q = (torch.arange(j0, j1, device=z.device, dtype=torch.float32) / self.R).unsqueeze(0).expand(B, -1)
+    anchor = q + torch.randn_like(q) * 0.5 if perturb else q
+    idx = torch.floor(anchor).long().clamp(0, L_lo - 1)
+    coord = (2.0 * (q - idx.float()) - 1.0).unsqueeze(-1)
+
+    def take(ii):
+        ii = ii.clamp(0, L_lo - 1).unsqueeze(-1).expand(-1, -1, C)
+        return torch.gather(z, 1, ii)
+
+    parts = [coord, take(idx - 1), take(idx), take(idx + 1)]
+    if getattr(self, "n_dec", 0):
+        d = self._eps_dec
+        parts.append(torch.zeros(B, j1 - j0, self.n_dec, device=z.device, dtype=z.dtype)
+                     if d is None else d[:, j0:j1].to(z.dtype))
+    return self.dec(torch.cat(parts, -1))
+
+
+def _decode_subpixel(self, z, j0=0, j1=None, perturb=False):
+    '''Layer 1 lifted to the input rate; layers 2-5 unchanged.  Exactly _decode_gather, up to the summation
+    order of layer 1 (~1e-7 relative in fp32).'''
+    B, L_lo, C = z.shape
+    R = self.R
+    j1 = L_lo * R if j1 is None else j1
+    net = self.dec.net
+    W1, b1 = net[0].weight, net[0].bias                                  # (H, 1 + 3C + n_dec), (H,)
+    H, n_dec = W1.shape[0], getattr(self, "n_dec", 0)
+    q = (torch.arange(j0, j1, device=z.device, dtype=torch.float32) / R).unsqueeze(0).expand(B, -1)
+    if perturb and LISA_JITTER_PER_CELL:                                 # CHANGES MATH: one draw per cell
+        cell = torch.arange(L_lo, device=z.device, dtype=torch.float32)
+        a = torch.floor(cell + torch.randn(B, L_lo, device=z.device) * 0.5).clamp(0, L_lo - 1)
+        idx = a.long().gather(1, torch.div(torch.arange(j0, j1, device=z.device), R,
+                                           rounding_mode="floor").unsqueeze(0).expand(B, -1))
+    else:
         anchor = q + torch.randn_like(q) * 0.5 if perturb else q
         idx = torch.floor(anchor).long().clamp(0, L_lo - 1)
+    # anchors actually reachable: the whole latent when jittered, only this chunk's cells otherwise
+    a0, a1 = (0, L_lo - 1) if perturb else (j0 // R, (j1 - 1) // R)
+    zp = torch.cat([z[:, :1], z, z[:, -1:]], 1)                          # replicate pad: (B, L+2, C)
+    W_z = W1[:, 1:1 + 3 * C].reshape(H, 3, C).transpose(1, 2)            # taps (A_-1, A_0, A_+1)
+    u = F.conv1d(zp[:, a0:a1 + 3].transpose(1, 2), W_z).transpose(1, 2)  # (B, a1-a0+1, H)
+    if (not perturb) and j0 % R == 0 and (j1 - j0) % R == 0:
+        # gather-free: i = floor(q) = n, so the R outputs of a cell share one row of u and differ only by
+        # c_p * w_c.  expand/broadcast backward is a sum-reduction: no atomics, no scatter, no index tensor.
+        cp = (2.0 * torch.arange(R, device=z.device, dtype=torch.float32) / R - 1.0).view(1, 1, R, 1)
+        h = (u.unsqueeze(2) + cp * W1[:, 0] + b1).reshape(B, j1 - j0, H)
+    else:
         coord = (2.0 * (q - idx.float()) - 1.0).unsqueeze(-1)
-
-        def take(ii):
-            ii = ii.clamp(0, L_lo - 1).unsqueeze(-1).expand(-1, -1, C)
-            return torch.gather(z, 1, ii)
-
+        h = torch.gather(u, 1, (idx - a0).unsqueeze(-1).expand(B, j1 - j0, H)) + coord * W1[:, 0] + b1
+    if n_dec:
         d = self._eps_dec
-        d = torch.zeros(B, j1 - j0, self.n_dec, device=z.device, dtype=z.dtype) if d is None else d[:, j0:j1].to(z.dtype)
-        return self.dec(torch.cat([coord, take(idx - 1), take(idx), take(idx + 1), d], -1))
+        d = torch.zeros(B, j1 - j0, n_dec, device=z.device, dtype=z.dtype) if d is None else d[:, j0:j1].to(z.dtype)
+        h = h + d @ W1[:, 1 + 3 * C:].t()
+    h = F.relu(h) if isinstance(net[1], nn.ReLU) else h
+    for mod in net[2:]:
+        h = mod(h)
+    return h.squeeze(-1)
+
+
+def _decode(self, z, j0=0, j1=None, perturb=False):
+    return (_decode_subpixel if LISA_SUBPIXEL else _decode_gather)(self, z, j0, j1, perturb)
+
+
+LISAS.decode = _decode          # c1_model's gather path -> the shared switchable one (LISASD.decode delegates)
 
 
 def copy_shared(src, dst):
