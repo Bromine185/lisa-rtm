@@ -140,6 +140,13 @@ as the target. Possible explanations: a different SNR convention, a different do
 (they use sinc interpolation; we use `resample_poly`), or their evaluation including the input band
 differently. Not resolved here.
 
+> **Resolved 2026-09-17** — `notes/2026-09-17-lisa-reported-numbers-audit.md`. It is the evaluation.
+> Their downsampling is honest; 24.16 dB is 3.16 dB above the ceiling measured under their own protocol;
+> and `eval_lisa.py` computes the metric on one batch of eight 1-second chunks, where a sinc
+> interpolator's batch-to-batch sd is 3.63 dB. The pattern flagged in the paragraph above — three
+> unrelated architectures all landing at the trivial baseline — was the right thing to notice: the
+> ceiling is real and they are all sitting on it.
+
 ## 2.5 The ladder, run on both sources — and this is the finding
 
 The transport ladder was run twice: once on the degenerate `relu_l1e-3` source (deficit −23.4 dB on

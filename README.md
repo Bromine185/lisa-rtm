@@ -66,10 +66,12 @@ CRPS by 21 %; the learned sampler moved CRPS by 43 % and dominates every rung. A
 prediction is still a point prediction. The notebook is kept for three things that survive:
 
 1. **LSD structurally rewards regression to the log-domain mean.** A perfect sampler scores ~2×
-   worse in expected squared error than the conditional-mean predictor. This is very likely why
+   worse in expected squared error than the conditional-mean predictor. That is one reason
    LISA (deterministic, 89k) reports LSD 0.81 against WSRGlow (a flow, 229M) at 1.01 *in LISA's own
-   table*. Band-energy ratio measures the disease, CRPS measures the cure, LSD is reported but never
-   trusted alone.
+   table*; the other is that their LSD code logs `|X|⁴` and pins 16.6 % of the spectrogram at its
+   epsilon floor (`notes/2026-09-17-lisa-reported-numbers-audit.md` §3.3). Band-energy ratio measures
+   the disease, CRPS measures the cure, LSD is reported but never trusted alone — and never compared
+   across papers, because no two of them define it the same way.
 2. **Gates before data.** §5 validates the transport code against closed-form optimal transport
    before anything is downloaded (`T1` to 1e-12, Bures identity `A·Σs·A = Σt` to 1e-10); §9 measures
    the deficit on held-out speakers and stops if there is no headroom.
@@ -89,7 +91,9 @@ build_notebook.py    regenerates it deterministically -- edit here, not the JSON
 validate.py          runs every code cell end-to-end on synthetic audio, no network
 overnight2/          the 8 Sep run: LISAS, losses, trainer, evaluation, graph toy, ViSQOL
 overnight/           the 4 Sep λ-frontier run on the full Hub corpus
-notes/               the three research notes, in date order
+audit/               protocol checks, no GPU: the task's SNR ceiling, LISA's reported numbers,
+                     whether the high band gates with the speech, whether the decoder is scale-free
+notes/               the research notes, in date order
 ```
 
 ## Local development

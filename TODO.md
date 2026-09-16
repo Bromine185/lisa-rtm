@@ -1,5 +1,29 @@
 # lisa-rtm — todo
 
+**2026-09-17: the paper's 24.16 dB is settled, and SNR is retired as a ranking metric.**
+`notes/2026-09-17-lisa-reported-numbers-audit.md` and `notes/2026-09-17-snr-ceiling-gating-and-scale.md`.
+24.16 dB sits 3.16 dB above the task's ceiling measured under LISA's own protocol; their evaluation
+reports one batch of eight seconds, where a sinc interpolator's sd is 3.63 dB. Naive upsampling *is* the
+optimal point predictor to within 0.1 dB, and every decibel of high band a model restores costs it SNR,
+so the whole achievable range is about 1 dB. New defect found in our own sampler: its high band does not
+gate with the speech (−11.7 dB on loud frames, +1.0 dB in the gaps), which the mean deficit hides.
+
+## Next, from the 17 Sep audit
+
+- [ ] **Add the gated deficit to `overnight3/e4_eval.py`** — `band_energy_ratio` already takes a
+      `frame_mask`; split frames into loud / mid / quiet by energy and report all three. This is the
+      defect a listener hears and no current metric reports it.
+- [ ] **Energy-weighted ERB arm.** Weight `d_erb` by frame energy, or add a term on the high-band
+      envelope against the low-band envelope: score the conditional, not the marginal. Prediction
+      pre-registered in `notes/2026-09-17-snr-ceiling-gating-and-scale.md` §2.2.
+- [ ] **Print the probe's naive SNR in the dashboard**, next to `SNR0`. The trainer already computes it
+      and prints it on the `step` lines; without it `SNR0 14.3` reads as a failure when it is 0.05 dB
+      off that utterance's ceiling.
+- [ ] **Repeat `audit/scale_freedom.py` across all seven arms** after the run. A fixed-scale local INR
+      generalising off its training coordinate lattice is publishable on its own and nobody has checked.
+- [ ] **A/B our `resample_poly` decimation against torchaudio's looser sinc** (`audit/` has both). Worth
+      ≤ 1.6 dB of oracle head-room and it is the one genuine asymmetry between our protocol and LISA's.
+
 **2026-09-08 overnight run supersedes the ladder programme.** See
 `notes/2026-09-08-network-as-transport-map.md`. Headline: the same 88k-parameter LISA trained under the
 energy score (two draws per step, noise channels at the input) is a conditional sampler at zero
@@ -43,9 +67,12 @@ audio-mode range between empty and true high band.
       same batches would settle whether the proper-score sampler matches it without a discriminator.
 - [ ] Fold `LISAS`, the energy-score losses, `HostCorpus` and the coherence metrics into
       `build_notebook.py`; they are overnight-only (`overnight2/c*.py`).
-- [ ] With coherent prediction excluded (§1.4: 22 ms of context leaves the coherent fraction at zero),
-      settle the paper's 24.16 dB by its SNR convention and down-sampling operator against
-      ml-postech/LISA, not by more training.
+- [x] **Settled 17 Sep.** With coherent prediction excluded (§1.4), the paper's 24.16 dB was settled
+      against ml-postech/LISA, not by more training. See `notes/2026-09-17-lisa-reported-numbers-audit.md`.
+      Their down-sampling is honest (Kaldi windowed sinc, anti-aliased); the number is 3.16 dB above the
+      protocol's own ceiling (21.00 dB, measured their way on their own held-out speakers); and
+      `eval_lisa.py` computes it on one batch of eight 1-second chunks, where a sinc interpolator's
+      batch-to-batch sd is 3.63 dB. Reproduce: `venv/bin/python audit/lisa_paper_protocol.py`.
 
 ## Settled by the 2026-09-08 run
 
@@ -88,8 +115,9 @@ still unreproduced.
 - [ ] **Finish the budget**: 105k steps (50 epochs) at lambda=1e-3, one arm, ~10 h. Does an
       L1-only model eventually learn the high band? That is the paper's implicit claim and the
       remaining explanation for the SNR gap.
-- [ ] **Settle the SNR convention** against ml-postech/LISA before treating 24.16 dB as a target.
-      Note all three of the paper's baselines land within ~1 dB of naive upsampling on our data.
+- [x] **Settled 17 Sep** — see the entry above and `notes/2026-09-17-lisa-reported-numbers-audit.md`.
+      The observation that all three of the paper's baselines land within ~1 dB of naive on our data
+      turned out to be the tell: the ceiling is real and they are all sitting on it.
 - [ ] Fold `LISAFF`, `GPUCorpus` and the paired trainer into `build_notebook.py`; they are
       currently overnight-only (`overnight/cell*.py`).
 - [ ] `fetch_vctk` still points at a 403 URL. The Hub route in `overnight/cell1_corpus.py` works;
