@@ -11,6 +11,7 @@
 #               the geometry ViSQOL's audio-mode neurogram lives in.  Properness holds for the law of
 #               phi(y) whenever d = ||phi(a) - phi(b)||, so this is "score the judge's own space".
 #   es_marg_erb d = L1(wave) + lam * (d_logmag + d_erb) / 2.
+#   es_split_*  the same with the waveform term on the low-passed band only (det_split for the sampler).
 #   logmag_ensemble_readout  mean of log|STFT| over M draws, phase of draw 0, baseband passed through.
 import math, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
 
