@@ -563,6 +563,14 @@ def train_ov3_fast(corpus, val_corpus, arms, steps, batch, lr, milestones, gamma
             except Exception as e:
                 print("plot_curves failed:", repr(e), flush=True)
     flush()
+    if steps and (on_step is not None or on_epoch is not None):      # the log grid rarely lands on the last step
+        info = _info(steps - 1, terms, scheds[0].get_last_lr()[0])
+        for cb in (on_step, on_epoch if (on_epoch is not None and spe and steps // spe > epoch_mark) else None):
+            if cb is not None:
+                try:
+                    cb(info)
+                except Exception as e:
+                    print("final callback failed:", repr(e)[:200], flush=True)
     logf.close()
     for k in names:
         si, a, _ = where[k]

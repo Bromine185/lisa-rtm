@@ -319,10 +319,10 @@ def make_dashboard(tag, arms, every=2.0):
 
     def _text(info):
         g = info["gpu"]
-        return ("[%s] step %d/%d (%.1f%%)  epoch %s  %.0f ms/step  ETA %s  gpu %.1f/%.1f GB (peak %.1f)"
+        return ("[%s] step %d/%d (%.1f%%)  epoch %s  %s ms/step  ETA %s  gpu %.1f/%.1f GB (peak %.1f)"
                 % (tag, info["step"], info["steps"], 100 * info["frac"],
-                   _num(info.get("epoch"), "%.2f"), info["ms_per_step"], _hms(info.get("eta_s")),
-                   g["alloc_gb"], g["total_gb"], g["peak_gb"]))
+                   _num(info.get("epoch"), "%.2f", "-"), _num(info["ms_per_step"], "%.0f", "-"),
+                   _hms(info.get("eta_s")), g["alloc_gb"], g["total_gb"], g["peak_gb"]))
 
     def _render(info, force=False):
         now = _time.time()
