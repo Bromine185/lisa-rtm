@@ -29,7 +29,8 @@ sys.last_traceback = sys.last_value = sys.last_type = None
 gc.collect(); torch.cuda.empty_cache()
 print(f"GPU before corpus: {torch.cuda.memory_allocated()/1e9:.2f} GB allocated, {torch.cuda.memory_reserved()/1e9:.2f} GB reserved", flush=True)
 
-if "corpus" not in globals():                  # a previous cell may have built these already
+# The Hub loader leaves a dict named `corpus`, so test the TYPE, not the name.
+if not isinstance(globals().get("corpus"), HostCorpus):
     corpus = HostCorpus(train_utts, CFG, seg_hi=SEG)
     val_corpus = HostCorpus(test_utts[12:52], CFG, seg_hi=SEG)  # test speakers (28 of p236 + 12 of p237), utterances disjoint from EVAL12
     # keep only the 200-utterance fit subset the ladder needs; the full list is 26 GB of RAM
