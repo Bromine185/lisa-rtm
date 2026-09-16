@@ -279,21 +279,21 @@ import time as _time
 
 try:
     from IPython.display import display, update_display, HTML
-    _HAS_IPY = True
+    _dash_HAS_IPY = True
 except Exception:
-    _HAS_IPY = False
+    _dash_HAS_IPY = False
 
-_MONO = "font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.45"
+_dash_MONO = "font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.45"
 
 
-def _hms(s):
+def _dash_hms(s):
     if s is None or s != s:
         return "--:--:--"
     s = int(max(0.0, s))
     return "%d:%02d:%02d" % (s // 3600, (s // 60) % 60, s % 60)
 
 
-def _num(v, spec="%.4f", dash="&mdash;"):
+def _dash_num(v, spec="%.4f", dash="&mdash;"):
     if v is None or (isinstance(v, float) and v != v):
         return dash
     try:
@@ -302,17 +302,17 @@ def _num(v, spec="%.4f", dash="&mdash;"):
         return str(v)
 
 
-def _bar(frac, n=34):
+def _dash_bar(frac, n=34):
     frac = 0.0 if (frac is None or frac != frac) else min(max(float(frac), 0.0), 1.0)
     k = int(round(frac * n))
     return "&#9608;" * k + "&#9617;" * (n - k)
 
 
-def _td(x, style=""):
+def _dash_td(x, style=""):
     return "<td style='padding:1px 7px;text-align:right;" + style + "'>" + str(x) + "</td>"
 
 
-def _th(x):
+def _dash_th(x):
     return "<th style='padding:1px 7px;text-align:right;border-bottom:1px solid #8884'>" + str(x) + "</th>"
 
 
@@ -329,44 +329,44 @@ def make_dashboard(tag, arms, every=2.0):
         a = info["arms"]
         vals = [a[k].get("val_loss") for k in names if a[k].get("val_loss") is not None]
         best = min(vals) if vals else None
-        h = ["<div style='" + _MONO + "'>"]
+        h = ["<div style='" + _dash_MONO + "'>"]
         h.append("<div style='font-weight:600'>" + str(tag) + " &middot; " + str(len(names)) + " arms &middot; batch "
-                 + str(info["batch"]) + " &times; " + _num(info["seg_s"], "%.1f") + " s &middot; " + dev + "</div>")
+                 + str(info["batch"]) + " &times; " + _dash_num(info["seg_s"], "%.1f") + " s &middot; " + dev + "</div>")
         ep, ept = info.get("epoch"), info.get("epochs_total")
-        h.append("<div>" + _bar(info["frac"]) + "  " + str(info["step"]) + "/" + str(info["steps"])
-                 + "  " + _num(100 * info["frac"], "%.1f") + "%"
-                 + ("  &middot; epoch " + _num(ep, "%.2f") + " / " + _num(ept, "%.2f") if ep is not None else "")
-                 + "  &middot; elapsed " + _hms(info["t_elapsed"]) + "  &middot; ETA " + _hms(info.get("eta_s")) + "</div>")
-        h.append("<div>throughput: " + _num(info["ms_per_step"], "%.0f") + " ms/step &middot; "
-                 + _num(1000.0 / info["ms_per_step"] if info["ms_per_step"] else float("nan"), "%.2f") + " steps/s &middot; "
-                 + _num(info["samples_per_s"], "%.1f") + " samples/s &middot; "
-                 + _num(info["audio_s_per_s"], "%.1f") + " audio-s per compute-s &middot; lr "
-                 + _num(info["lr"], "%.2e") + "</div>")
+        h.append("<div>" + _dash_bar(info["frac"]) + "  " + str(info["step"]) + "/" + str(info["steps"])
+                 + "  " + _dash_num(100 * info["frac"], "%.1f") + "%"
+                 + ("  &middot; epoch " + _dash_num(ep, "%.2f") + " / " + _dash_num(ept, "%.2f") if ep is not None else "")
+                 + "  &middot; elapsed " + _dash_hms(info["t_elapsed"]) + "  &middot; ETA " + _dash_hms(info.get("eta_s")) + "</div>")
+        h.append("<div>throughput: " + _dash_num(info["ms_per_step"], "%.0f") + " ms/step &middot; "
+                 + _dash_num(1000.0 / info["ms_per_step"] if info["ms_per_step"] else float("nan"), "%.2f") + " steps/s &middot; "
+                 + _dash_num(info["samples_per_s"], "%.1f") + " samples/s &middot; "
+                 + _dash_num(info["audio_s_per_s"], "%.1f") + " audio-s per compute-s &middot; lr "
+                 + _dash_num(info["lr"], "%.2e") + "</div>")
         used = (g["alloc_gb"] / g["total_gb"]) if g.get("total_gb") else None
-        h.append("<div>GPU mem: " + _num(g["alloc_gb"], "%.1f") + " alloc / " + _num(g["reserved_gb"], "%.1f")
-                 + " reserved / " + _num(g["peak_gb"], "%.1f") + " peak / " + _num(g["total_gb"], "%.1f")
-                 + " GB total &middot; free " + _num(g["free_gb"], "%.1f") + " GB &middot; util "
-                 + _num(g.get("util_pct"), "%.0f") + "%  " + _bar(used, 18) + "</div>")
-        h.append("<table style='border-collapse:collapse;margin-top:6px;" + _MONO + "'><tr>"
-                 + "".join(_th(c) for c in ("arm", "class", "kind", "lambda", "train EMA", "val loss", "val wave",
+        h.append("<div>GPU mem: " + _dash_num(g["alloc_gb"], "%.1f") + " alloc / " + _dash_num(g["reserved_gb"], "%.1f")
+                 + " reserved / " + _dash_num(g["peak_gb"], "%.1f") + " peak / " + _dash_num(g["total_gb"], "%.1f")
+                 + " GB total &middot; free " + _dash_num(g["free_gb"], "%.1f") + " GB &middot; util "
+                 + _dash_num(g.get("util_pct"), "%.0f") + "%  " + _dash_bar(used, 18) + "</div>")
+        h.append("<table style='border-collapse:collapse;margin-top:6px;" + _dash_MONO + "'><tr>"
+                 + "".join(_dash_th(c) for c in ("arm", "class", "kind", "lambda", "train EMA", "val loss", "val wave",
                                             "val spec", "SNR t0", "SNR t1", "def t0", "def t1")) + "</tr>")
         for k in names:
             kind, lam, cls = spec[k]
             r = a[k]
             hl = "background:#2e7d3222;font-weight:600" if (best is not None and r.get("val_loss") == best) else ""
-            h.append("<tr>" + _td(k, "text-align:left") + _td(cls) + _td(kind) + _td(_num(lam, "%g"))
-                     + _td(_num(r.get("loss_ema"))) + _td(_num(r.get("val_loss")), hl) + _td(_num(r.get("val_wave")))
-                     + _td(_num(r.get("val_spec"), "%.3f")) + _td(_num(r.get("snr0"), "%.2f"))
-                     + _td(_num(r.get("snr1"), "%.2f")) + _td(_num(r.get("def0"), "%+.2f"))
-                     + _td(_num(r.get("def1"), "%+.2f")) + "</tr>")
+            h.append("<tr>" + _dash_td(k, "text-align:left") + _dash_td(cls) + _dash_td(kind) + _dash_td(_dash_num(lam, "%g"))
+                     + _dash_td(_dash_num(r.get("loss_ema"))) + _dash_td(_dash_num(r.get("val_loss")), hl) + _dash_td(_dash_num(r.get("val_wave")))
+                     + _dash_td(_dash_num(r.get("val_spec"), "%.3f")) + _dash_td(_dash_num(r.get("snr0"), "%.2f"))
+                     + _dash_td(_dash_num(r.get("snr1"), "%.2f")) + _dash_td(_dash_num(r.get("def0"), "%+.2f"))
+                     + _dash_td(_dash_num(r.get("def1"), "%+.2f")) + "</tr>")
         h.append("</table>")
         if state["epochs"]:
             h.append("<div style='margin-top:6px;font-weight:600'>per epoch</div>")
-            h.append("<table style='border-collapse:collapse;" + _MONO + "'><tr>"
-                     + "".join(_th(c) for c in ("epoch", "step", "wall")) + "".join(_th(k) for k in names) + "</tr>")
+            h.append("<table style='border-collapse:collapse;" + _dash_MONO + "'><tr>"
+                     + "".join(_dash_th(c) for c in ("epoch", "step", "wall")) + "".join(_dash_th(k) for k in names) + "</tr>")
             for row in state["epochs"]:
-                h.append("<tr>" + _td(_num(row["epoch"], "%.2f")) + _td(row["step"]) + _td(_hms(row["t"]))
-                         + "".join(_td(_num(row["train"][k]) + " / " + _num(row["val"][k])) for k in names) + "</tr>")
+                h.append("<tr>" + _dash_td(_dash_num(row["epoch"], "%.2f")) + _dash_td(row["step"]) + _dash_td(_dash_hms(row["t"]))
+                         + "".join(_dash_td(_dash_num(row["train"][k]) + " / " + _dash_num(row["val"][k])) for k in names) + "</tr>")
             h.append("</table><div style='color:#8888'>cell: train EMA / val loss at the epoch boundary</div>")
         h.append("</div>")
         return "".join(h)
@@ -375,15 +375,15 @@ def make_dashboard(tag, arms, every=2.0):
         g = info["gpu"]
         return ("[%s] step %d/%d (%.1f%%)  epoch %s  %s ms/step  ETA %s  gpu %.1f/%.1f GB (peak %.1f)"
                 % (tag, info["step"], info["steps"], 100 * info["frac"],
-                   _num(info.get("epoch"), "%.2f", "-"), _num(info["ms_per_step"], "%.0f", "-"),
-                   _hms(info.get("eta_s")), g["alloc_gb"], g["total_gb"], g["peak_gb"]))
+                   _dash_num(info.get("epoch"), "%.2f", "-"), _dash_num(info["ms_per_step"], "%.0f", "-"),
+                   _dash_hms(info.get("eta_s")), g["alloc_gb"], g["total_gb"], g["peak_gb"]))
 
     def _render(info, force=False):
         now = _time.time()
         if not force and now - state["last"] < every:
             return
         state["last"] = now
-        if not _HAS_IPY:
+        if not _dash_HAS_IPY:
             print(_text(info), flush=True)
             return
         if state["shown"]:
@@ -406,7 +406,7 @@ def make_dashboard(tag, arms, every=2.0):
     return on_step, on_epoch
 
 
-print("dashboard ready (make_dashboard); IPython display:", _HAS_IPY)
+print("dashboard ready (make_dashboard); IPython display:", _dash_HAS_IPY)
 """)
 
 # ============================================================ 13 launch
@@ -448,6 +448,7 @@ BATCH = int(globals().get("BATCH_OVERRIDE", 64))
 SEG = int(globals().get("SEG_OVERRIDE", 48000))
 OV3_TAG = globals().get("OV3_TAG", "OV3_fast")
 BUDGET_H = float(globals().get("BUDGET_H", 3.0))
+CKPT_EVERY = int(globals().get("CKPT_EVERY", 500))   # checkpoints + history JSON + curves to Drive this often
 FAST["GROUP_MAX"] = globals().get("GROUP_MAX", 1)   # measured: 1 arm/stack is the fastest AND the smallest
 FAST["STREAMS"] = globals().get("STREAMS", False)   # measured: no effect or worse
 
@@ -487,7 +488,7 @@ print(plan, flush=True)
 
 on_step, on_epoch = make_dashboard(OV3_TAG, ARMS)
 models_ov3, hist_ov3 = train_ov3_fast(corpus, val_corpus, ARMS, steps, BATCH, 1e-3,
-                                      (0.2, 0.4, 0.5, 0.6, 0.7, 0.8), 0.5, 1e-3, 1000, OV3_TAG, test_utts[0],
+                                      (0.2, 0.4, 0.5, 0.6, 0.7, 0.8), 0.5, 1e-3, CKPT_EVERY, OV3_TAG, test_utts[0],
                                       on_step=on_step, on_epoch=on_epoch, steps_per_epoch=steps_per_epoch)
 json.dump({k: hist_ov3[k] for k in ARMS}, open(ROOT / ("ov3_history_%s.json" % OV3_TAG), "w"))
 print("TRAINING DONE", OV3_TAG, flush=True)
