@@ -52,9 +52,17 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 assert "plot_curves" in globals() and "val_batches" in globals(), "exec overnight3/e2_trainer.py before e2b_fast.py"
 _CUDA = torch.cuda.is_available() and DEVICE.type == "cuda"
+# torch.compile mode.  "max-autotune" turns on Inductor's CUDA-graph trees, whose output tensors live in a
+# graph-owned pool that the next replay overwrites; the gradients derived from them are then stale when the
+# FUSED Adam reads them, which fails with
+#   RuntimeError: accessing tensor output of CUDAGraphs that has been overwritten by a subsequent run
+# Measured on this A100 (from the autotune log), ATen already wins the shapes that matter:
+#   addmm(3072000x144, 144x144)  bias_addmm 1.73 ms  vs best Triton 1.81 ms
+#   mm(144x3072000, 3072000x144) ATen mm    1.34 ms  vs best Triton 18.14 ms  (13x)
+# so the sweep buys nothing here and costs minutes of compilation.  Default mode, no CUDA graphs.
 FAST = {"STACK": True, "AMP": _CUDA, "TF32": _CUDA, "COMPILE": _CUDA, "PIN": _CUDA, "FUSED": _CUDA,
         "STREAMS": False, "CUDA_GRAPHS": False, "GROUP_MAX": 1, "DETERMINISTIC": False,
-        "COMPILE_MODE": "max-autotune", "SUBPIXEL": True, "JITTER_PER_CELL": False}
+        "COMPILE_MODE": "default", "SUBPIXEL": True, "JITTER_PER_CELL": False}
 for _k in list(FAST):
     if _k in globals():
         FAST[_k] = globals()[_k]
@@ -151,6 +159,8 @@ if FAST["COMPILE"]:
         # consistent with the stacked runs showing no benefit from COMPILE at all.  Raise the limit and mark
         # the row axis dynamic; the last axis stays static so the template still specialises on width.
         import torch._dynamo
+        import torch._inductor.config as _ind_cfg
+        _ind_cfg.triton.cudagraphs = False      # fused Adam + cudagraph trees = stale grads
         for _attr in ("recompile_limit", "cache_size_limit"):           # cache_size_limit is now an alias
             if hasattr(torch._dynamo.config, _attr):
                 setattr(torch._dynamo.config, _attr, 32)
