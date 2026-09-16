@@ -392,13 +392,43 @@ def val_loss_fast(stacks, vb, seed=1234):
     return out
 
 
+def gpu_stats():
+    '''allocated / reserved / peak / total / free GB and utilisation %, all best-effort.'''
+    g = {"alloc_gb": 0.0, "reserved_gb": 0.0, "peak_gb": 0.0, "total_gb": 0.0, "free_gb": 0.0, "util_pct": None}
+    if not _CUDA:
+        return g
+    try:
+        g["alloc_gb"] = torch.cuda.memory_allocated() / 1e9
+        g["reserved_gb"] = torch.cuda.memory_reserved() / 1e9
+        g["peak_gb"] = torch.cuda.max_memory_allocated() / 1e9
+        free, total = torch.cuda.mem_get_info()
+        g["free_gb"], g["total_gb"] = free / 1e9, total / 1e9
+    except Exception:
+        pass
+    try:
+        g["util_pct"] = float(torch.cuda.utilization())
+    except Exception:
+        pass
+    return g
+
+
 def train_ov3_fast(corpus, val_corpus, arms, steps, batch, lr, milestones, gamma, clip, ckpt_every, tag, probe,
-                   val_every=500, n_val_batches=8, log_every=25):
+                   val_every=500, n_val_batches=8, log_every=25,
+                   on_step=None, on_epoch=None, steps_per_epoch=None):
     '''Drop-in for train_ov3: same signature, history keys, checkpoints, log lines, plot.  One init per class
-    (LISASD shares the LISAS weights via copy_shared), one batch stream, arms stacked per class.'''
+    (LISASD shares the LISAS weights via copy_shared), one batch stream, arms stacked per class.
+
+    on_step(info) fires every log_every steps and on_epoch(info) whenever steps_per_epoch is crossed; `info`
+    carries progress, throughput, GPU memory and the per-arm terms.  The per-arm numbers reach the host in ONE
+    .cpu().tolist() at the callback step, so the no-sync design between callbacks is unchanged.'''
     names, specs, base, models = _make_models(arms)
     stacks = build_stacks(names, specs, base, DEVICE)
-    where = {k: (si, a) for si, s in enumerate(stacks) for a, k in enumerate(s.names)}
+    # (stack index, index within the stack, index in the concatenated (sum A, 4) terms tensor)
+    _off, where = 0, {}
+    for si, s in enumerate(stacks):
+        for a, k in enumerate(s.names):
+            where[k] = (si, a, _off + a)
+        _off += s.A
     opts, scheds = _make_opts(stacks, lr, steps, milestones, gamma)
     hist = {k: {"step": [], "wave": [], "spec": [], "spread": [], "lr": [],
                 "val_step": [], "val_loss": [], "val_wave": [], "val_spec": [], "train_loss_ema": [],
@@ -414,6 +444,32 @@ def train_ov3_fast(corpus, val_corpus, arms, steps, batch, lr, milestones, gamma
     pending = []                                                             # (step, lr, terms tensor) -> host at val/ckpt
     graphed = None
     t0 = time.time()
+    # ---- callback state: rolling step time, and the most recent val / probe numbers per arm ----------------
+    _VAL_KEYS = ("val_loss", "val_wave", "val_spec")
+    _DEV_KEYS = ("snr0", "def0", "snr1", "def1")
+    last = {k: {kk: None for kk in _VAL_KEYS + _DEV_KEYS} for k in names}
+    dt_hist, t_last, epoch_mark = [], time.time(), 0
+    seg_s = corpus.seg_hi / CFG.fs_hi
+    spe = float(steps_per_epoch) if steps_per_epoch else None
+
+    def _info(step, terms, lr_):
+        '''One host transfer: (sum A, 5) = [ema, loss, wave, spec, spread] per arm.'''
+        rows = torch.cat([torch.cat([s.ema.unsqueeze(1) for s in stacks], 0),
+                          torch.cat([t.reshape(-1, 4) for t in terms], 0)], 1).cpu().tolist()
+        el = time.time() - t0
+        ms = 1000 * (sum(dt_hist) / len(dt_hist)) if dt_hist else float("nan")
+        sps = 1000.0 / ms if ms and ms == ms and ms > 0 else float("nan")
+        done = step + 1
+        arms_info = {}
+        for k in names:
+            r = rows[where[k][2]]
+            arms_info[k] = {"loss_ema": r[0], "loss": r[1], "wave": r[2], "spec": r[3], "spread": r[4],
+                            **{kk: last[k][kk] for kk in _VAL_KEYS + _DEV_KEYS}}
+        return {"tag": tag, "step": done, "steps": steps, "frac": done / steps,
+                "epoch": done / spe if spe else None, "epochs_total": steps / spe if spe else None,
+                "t_elapsed": el, "ms_per_step": ms, "eta_s": (steps - done) * ms / 1000 if ms == ms else None,
+                "samples_per_s": sps * batch, "audio_s_per_s": sps * batch * seg_s,
+                "batch": batch, "seg_s": seg_s, "lr": lr_, "gpu": gpu_stats(), "arms": arms_info}
 
     def flush():
         if not pending:
@@ -421,8 +477,7 @@ def train_ov3_fast(corpus, val_corpus, arms, steps, batch, lr, milestones, gamma
         T = torch.stack([t for _, _, t in pending]).cpu().tolist()           # one transfer for all pending steps
         for (st, lr_, _), rows in zip(pending, T):
             for k in names:
-                si, a = where[k]
-                r = rows[si][a] if isinstance(rows[0][0], list) else rows[a]
+                r = rows[where[k][2]]
                 h = hist[k]
                 h["step"].append(st); h["wave"].append(r[1]); h["spec"].append(r[2]); h["spread"].append(r[3]); h["lr"].append(lr_)
         pending.clear()
@@ -443,8 +498,25 @@ def train_ov3_fast(corpus, val_corpus, arms, steps, batch, lr, milestones, gamma
             o.step(); sc.step()
         for s, t in zip(stacks, terms):
             s.ema = t[:, 0].clone() if s.ema is None else s.ema * 0.98 + t[:, 0] * 0.02
+        _now = time.time(); dt_hist.append(_now - t_last); t_last = _now
+        if len(dt_hist) > 50:
+            del dt_hist[:-50]
         if step % log_every == 0:
-            pending.append((step, scheds[0].get_last_lr()[0], torch.cat([t.reshape(-1, 4) for t in terms], 0)))
+            lr_now = scheds[0].get_last_lr()[0]
+            pending.append((step, lr_now, torch.cat([t.reshape(-1, 4) for t in terms], 0)))
+            if on_step is not None or (on_epoch is not None and spe and (step + 1) // spe > epoch_mark):
+                info = _info(step, terms, lr_now)
+                if on_step is not None:
+                    try:
+                        on_step(info)
+                    except Exception as e:
+                        print("on_step failed:", repr(e)[:200], flush=True)
+                if on_epoch is not None and spe and (step + 1) // spe > epoch_mark:
+                    epoch_mark = int((step + 1) // spe)
+                    try:
+                        on_epoch(info)
+                    except Exception as e:
+                        print("on_epoch failed:", repr(e)[:200], flush=True)
         if (step + 1) % val_every == 0 or step + 1 == steps:
             vals = val_loss_fast(stacks, vb)
             emas = torch.cat([s.ema for s in stacks]).cpu().tolist()
@@ -455,6 +527,7 @@ def train_ov3_fast(corpus, val_corpus, arms, steps, batch, lr, milestones, gamma
                     vl, vw, vs = vals[k]; h = hist[k]
                     h["val_step"].append(step + 1); h["val_loss"].append(float(vl)); h["val_wave"].append(float(vw))
                     h["val_spec"].append(float(vs)); h["train_loss_ema"].append(float(emas[i]))
+                    last[k].update(val_loss=float(vl), val_wave=float(vw), val_spec=float(vs))
                     vline += f" | {k}: train {emas[i]:.4f} val {vl:.4f}"
                     i += 1
             print(vline, flush=True); logf.write(vline + chr(10)); logf.flush()
@@ -463,7 +536,7 @@ def train_ov3_fast(corpus, val_corpus, arms, steps, batch, lr, milestones, gamma
             line = f"step {step+1:>6}/{steps} [{time.time()-t0:.0f}s]"
             for k in names:
                 kind, lam, cls_name = specs[k]
-                si, a = where[k]
+                si, a, _ = where[k]
                 m = stacks[si].export(a, models[k])
                 pm = probe_metrics(m, probe, CFG, naive)
                 h = hist[k]
@@ -471,6 +544,7 @@ def train_ov3_fast(corpus, val_corpus, arms, steps, batch, lr, milestones, gamma
                 h["snr0"].append(pm[0.0][0]); h["def0"].append(pm[0.0][1])
                 s1, d1 = pm.get(1.0, (None, None))
                 h["snr1"].append(s1); h["def1"].append(d1)
+                last[k].update(snr0=pm[0.0][0], def0=pm[0.0][1], snr1=s1, def1=d1)
                 save_ckpt({"model": m.state_dict(), "step": step + 1, "history": h, "arm": (kind, lam, cls_name),
                            "n_noise": m.n_noise, "n_dec": getattr(m, "n_dec", 0), "cls": cls_name,
                            "batch": batch, "seg": corpus.seg_hi, "tag": tag}, run_dir / f"{k}.pt")
@@ -491,7 +565,7 @@ def train_ov3_fast(corpus, val_corpus, arms, steps, batch, lr, milestones, gamma
     flush()
     logf.close()
     for k in names:
-        si, a = where[k]
+        si, a, _ = where[k]
         stacks[si].export(a, models[k])
     return models, hist
 
