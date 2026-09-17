@@ -93,8 +93,31 @@ overnight2/          the 8 Sep run: LISAS, losses, trainer, evaluation, graph to
 overnight/           the 4 Sep λ-frontier run on the full Hub corpus
 audit/               protocol checks, no GPU: the task's SNR ceiling, LISA's reported numbers,
                      whether the high band gates with the speech, whether the decoder is scale-free
+web/                 "The Missing Band": the Next.js demo. Pick a speaker, watch the 88k network run
+                     in the browser, hear the readouts, open a 3D view of any arm
+demo/                the demo's sources: SPEC.md, the plain-JS engine and 3D scene that web/public
+                     serves, and the Python tools that render its audio, weights and numbers
 notes/               the research notes, in date order
 ```
+
+## The demo
+
+```bash
+cd web && npm install && npm run dev        # http://localhost:3000
+```
+
+**Deploying it.** The app is a subdirectory of a research repo, so Vercel needs one setting that is
+not in any file: **Project Settings → Build and Deployment → Root Directory = `web`**. Everything
+else auto-detects. Root Directory is a project setting, not a `vercel.json` key, so it cannot be
+committed — and changing it does **not** rebuild what is already live. A production deployment made
+before that setting existed was built from the repo root, found no app, and 404s on every route; the
+dashboard flags this as *"Configuration Settings in the current Production deployment differ from
+your current Project Settings."* Push a commit to get a fresh build rather than redeploying the old
+one, which can carry its own Production Overrides forward.
+
+`web/public/assets` is committed on purpose — 168 WAVs, seven weight files, and the evaluation JSON,
+about 60 MB. The build needs no Python and no GPU; `npm ci && next build` from a clean clone is the
+whole of it.
 
 ## Local development
 
