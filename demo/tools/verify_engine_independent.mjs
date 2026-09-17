@@ -289,7 +289,14 @@ ok(refsMeta.cfg.upsample === 4 && refsMeta.cfg.fs_hi === 48000 && refsMeta.cfg.d
   'the torch reference ran at the FULL config', JSON.stringify(refsMeta.cfg));
 let worstSub = 0;
 for (const r of Object.values(refsMeta.arms)) for (const j of Object.values(r.jobs)) worstSub = Math.max(worstSub, j.subpixel_vs_gather_max);
-ok(worstSub < 1e-4, 'torch: _decode_subpixel agrees with _decode_gather on every reference', `max ${ex(worstSub)}`);
+{
+  const byJob = {};
+  for (const r of Object.values(refsMeta.arms)) for (const [n, j] of Object.entries(r.jobs)) byJob[n] = Math.max(byJob[n] || 0, j.subpixel_vs_gather_max);
+  const bad = Object.entries(byJob).filter(([, v]) => v >= 1e-4).map(([n, v]) => `${n} ${ex(v, 1)}`);
+  ok(bad.length === 0, 'torch: _decode_subpixel agrees with _decode_gather on every reference',
+    bad.length ? `disagrees on ${bad.join(', ')} — the reference itself is ambiguous there, so "js vs torch" has no single ground truth`
+      : `max ${ex(worstSub)}`);
+}
 
 async function ref(arm, name) {
   const b = await readFile(path.join(VDIR, 'refs', arm, `${name}.f32`));
@@ -586,21 +593,26 @@ console.log(`\n=== 4. abuse (${probeArm}, LISASD n_dec=4) ===`);
   const before = process.memoryUsage();
   const t0 = performance.now();
   let gaps = 0, last = performance.now(), maxGap = 0, firstGap = 0;
+  // a 1 ms ticker measures how long the event loop is actually blocked — onProgress only sees chunk boundaries
+  let tick = performance.now(), block = 0;
+  const iv = setInterval(() => { const n = performance.now(); block = Math.max(block, n - tick); tick = n; }, 1);
   const yBig = await E.run(pm, big, { R: 4, tau: 1, seed: 1, chunk: 2048,
     onProgress: () => {
       const n = performance.now();
       if (gaps === 0) firstGap = n - last; else maxGap = Math.max(maxGap, n - last);
       last = n; gaps++;
     } });
+  clearInterval(iv);
   const dt = (performance.now() - t0) / 1000;
   const after = process.memoryUsage();
   ok(yBig.length === big.length * 4 && allFinite(yBig), `${secs} s input -> ${yBig.length} samples, all finite`,
     `${dt.toFixed(2)} s wall`);
   ok(maxGap < 60, `longest gap BETWEEN decode chunks ${maxGap.toFixed(1)} ms`, `${gaps} chunks`);
-  console.log(`     noise draw + encode before the first chunk: ${firstGap.toFixed(0)} ms in ${4} conv layers with `
-    + `3 yields between them — one uninterruptible block of ~${(firstGap / 4).toFixed(0)} ms per layer`);
-  ok(firstGap < 600, `the pre-decode phase does not block the event loop for long`,
-    `${firstGap.toFixed(0)} ms for ${secs} s of audio (it scales linearly with clip length)`);
+  console.log(`     noise draw + encode before the first chunk: ${firstGap.toFixed(0)} ms `
+    + `(the encoder yields only between its 4 conv layers, so it is 4 blocks, not ${gaps})`);
+  ok(block < 250, `longest single event-loop block over the whole run: ${block.toFixed(0)} ms`,
+    block < 250 ? '' : `for ${secs} s of audio — one conv layer; it grows linearly with clip length `
+      + `(~43 ms at 1 s, ~210 ms at 5 s, ~420 ms at 10 s)`);
   const mb = (after.heapUsed - before.heapUsed + after.arrayBuffers - before.arrayBuffers) / 1e6;
   console.log(`     heap+buffers grew ${mb.toFixed(1)} MB, rss ${(after.rss / 1e6).toFixed(0)} MB `
     + `(out ${(yBig.length * 4 / 1e6).toFixed(1)} MB + eps_dec ${(yBig.length * 4 * 4 / 1e6).toFixed(1)} MB `
