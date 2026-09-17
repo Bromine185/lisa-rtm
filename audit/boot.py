@@ -29,6 +29,13 @@ def boot(preset="FULL", chdir=True):
     run("def snr_db(y, y_hat):")                            # snr_db, lsd_db, band_energy_ratio, crps
     run("VCTK_URL = ")                                      # decimate, load_utterance
     run("class LISAEncoder(nn.Module):")                    # LISA, LISADecoder, MultiScaleSTFTLoss
+    # naive_upsample lives in the notebook's §8 helper cell, which cannot be exec'd whole here: its tail
+    # runs training against a `test_utts` this namespace has no reason to build. It is three lines, and
+    # e1_model's logmag_ensemble_readout needs it for the baseband passthrough, so inline it verbatim.
+    exec("def naive_upsample(y, cfg):\n"
+         "    '''Polyphase (sinc-windowed) interpolation of the decimated input: the trivial baseline.'''\n"
+         "    y = np.asarray(y, np.float64)\n"
+         "    return sps.resample_poly(decimate(y, cfg.upsample), cfg.upsample, 1)[:len(y)]\n", G)
     exec(compile((REPO / "overnight2/c1_model.py").read_text(), "<c1>", "exec"), G)
     exec(compile((REPO / "overnight3/e1_model.py").read_text(), "<e1>", "exec"), G)
     return G

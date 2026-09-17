@@ -45,6 +45,31 @@ def visqol_row(vq, cond):
     return agg.get(cond) or {}
 
 
+# e5 names the deterministic arm's condition plainly, and each readout gets its own row.
+def conds(arm, det):
+    base = arm if det else f"{arm} tau=1"
+    out = {"draw": base, "draw_pt": base + " | passthrough"}
+    if not det:
+        for r in ("mean16", "logmean16"):
+            out[r] = f"{arm} {r}"
+            out[r + "_pt"] = f"{arm} {r} | passthrough"
+    return out
+
+
+def perceptual(vq, arm, det):
+    """Every readout of one arm, raw and with the baseband passed through."""
+    out = {}
+    for key, cond in conds(arm, det).items():
+        r = visqol_row(vq, cond)
+        if not r:
+            continue
+        out[key] = {"snr": num(r.get("snr")), "lsd": num(r.get("lsd")), "hb_lsd": num(r.get("hb_lsd")),
+                    "visqol_audio": num(r.get("visqol_audio48k")), "nsim_audio": num(r.get("nsim_audio48k")),
+                    "visqol_speech": num(r.get("visqol_speech16k")), "nsim_speech": num(r.get("nsim_speech16k")),
+                    "pesq": num(r.get("pesq_wb"))}
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default="lisa_rtm_cache/results")
@@ -67,8 +92,11 @@ def main():
         e = r["eval12"]
         det = kind.startswith("det")
         s, s_pt, m = e.get("single", {}), e.get("single_pt", {}), e.get("mean", {})
-        cond = f"{arm} tau=0" if det else f"{arm} tau=1"
-        v_raw, v_pt = visqol_row(vq, cond), visqol_row(vq, cond + " | passthrough")
+        perc = perceptual(vq, arm, det)
+        v_raw, v_pt = perc.get("draw", {}), perc.get("draw_pt", {})
+        # the readout that wins the perceptual judges is the one the page should lead with
+        best = max((k for k in perc if k.endswith("_pt") and perc[k].get("visqol_audio") is not None),
+                   key=lambda k: perc[k]["visqol_audio"], default=None)
         gt = (gated or {}).get(arm, {})
         gm = gt.get("mean", {}) if isinstance(gt, dict) else {}
         out["arms"][arm] = {
@@ -86,19 +114,34 @@ def main():
             "pit_end": None if det else num(e.get("pit_end")),
             "snr_gap": None if det else num(e.get("snr_gap")),
             "snr_gap_calibrated": None if det else num(e.get("snr_gap_calibrated")),
-            "visqol_speech": num(v_pt.get("visqol_speech16k")), "visqol_speech_raw": num(v_raw.get("visqol_speech16k")),
-            "visqol_audio": num(v_pt.get("visqol_audio48k")), "visqol_audio_raw": num(v_raw.get("visqol_audio48k")),
-            "nsim_audio": num(v_pt.get("nsim_audio48k")),
-            "pesq": num(v_pt.get("pesq_wb")),
+            "visqol_speech": v_pt.get("visqol_speech"), "visqol_speech_raw": v_raw.get("visqol_speech"),
+            "visqol_audio": v_pt.get("visqol_audio"), "visqol_audio_raw": v_raw.get("visqol_audio"),
+            "nsim_audio": v_pt.get("nsim_audio"),
+            "pesq": v_pt.get("pesq"),
+            "readouts": perc, "best_readout": best,
             "gated": ({"loud": num(gm.get("loud")), "mid": num(gm.get("mid")), "quiet": num(gm.get("quiet"))}
                       if gm and gm.get("loud") is not None else None),
         }
     fl, ce = res.get("_floor") or {}, res.get("_ceiling") or {}
-    nv = visqol_row(vq, "naive")
-    out["naive"] = {"snr": num(fl.get("snr")), "lsd": num(fl.get("lsd")),
+    nv, flv, cev = visqol_row(vq, "naive"), visqol_row(vq, "floor: passthrough + empty HB"), visqol_row(vq, "ceiling: passthrough + true HB")
+    out["naive"] = {"snr": num(nv.get("snr")) or num(fl.get("snr")), "lsd": num(nv.get("lsd")) or num(fl.get("lsd")),
                     "visqol_audio": num(nv.get("visqol_audio48k")), "visqol_speech": num(nv.get("visqol_speech16k"))}
-    out["floor"] = {"snr": num(fl.get("snr")), "lsd": num(fl.get("lsd"))}
-    out["ceiling"] = {"snr": num(ce.get("snr")), "lsd": num(ce.get("lsd"))}
+    out["floor"] = {"snr": num(fl.get("snr")), "lsd": num(fl.get("lsd")),
+                    "visqol_audio": num(flv.get("visqol_audio48k")), "nsim_audio": num(flv.get("nsim_audio48k"))}
+    out["ceiling"] = {"snr": num(ce.get("snr")), "lsd": num(ce.get("lsd")),
+                      "visqol_audio": num(cev.get("visqol_audio48k")), "nsim_audio": num(cev.get("nsim_audio48k"))}
+    # audio-mode ViSQOL is bounded below by an empty high band and above by the true one; report the share
+    # of that range each arm's best readout captures, which is the only scale on which the judge is readable.
+    lo, hi = out["floor"]["visqol_audio"], out["ceiling"]["visqol_audio"]
+    if lo is not None and hi is not None and hi > lo:
+        out["visqol_audio_range"] = {"floor": lo, "ceiling": hi}
+        for k, v in out["arms"].items():
+            va = v.get("visqol_audio")
+            b = v.get("best_readout")
+            vb = v["readouts"][b]["visqol_audio"] if b else None
+            v["visqol_audio_share"] = None if va is None else (va - lo) / (hi - lo)
+            v["visqol_audio_best"] = vb
+            v["visqol_audio_best_share"] = None if vb is None else (vb - lo) / (hi - lo)
     out["sources"] = {"results": True, "visqol": vq is not None, "gated": gated is not None}
     p = pathlib.Path(a.out)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -106,9 +149,11 @@ def main():
     have = [k for k in ("visqol", "gated") if out["sources"][k]]
     print(f"wrote {p} : {len(out['arms'])} arms; extra sources: {', '.join(have) or 'none yet'}")
     for k, v in out["arms"].items():
-        print(f"  {k:<17} deficit {v['deficit_draw']:+6.2f}  crps {v['crps']:.3f}  lsd {v['lsd_draw']:.3f}"
-              f"  logmean16 {v['lsd_logmean16'] if v['lsd_logmean16'] is None else round(v['lsd_logmean16'], 3)}"
-              f"  visqol_audio {v['visqol_audio']}")
+        b = v.get("best_readout") or "draw_pt"
+        r = v["readouts"].get(b, {})
+        print(f"  {k:<17} deficit {v['deficit_draw']:+6.2f}  CRPS {v['crps']:.3f}  "
+              f"LSD {r.get('lsd') or float('nan'):.3f}  ViSQOL-audio {r.get('visqol_audio') or float('nan'):.3f}"
+              f"  ({b.replace('_pt','')} + passthrough, {100*(v.get('visqol_audio_best_share') or 0):.0f} % of range)")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engine smoke test</title>
+<meta name="description" content="Runs demo/engine.js in the browser against the PyTorch test vector and prints the numbers.">
+<style>
+  :root { --ground: #0A0C10; --panel: #11141A; --line: #1F2430; --ink: #E7EBF2; --dim: #7D8798; --cold: #6FA3FF; --warm: #FFB347; --good: #58D68D; --bad: #FF6B6B; }
+  html, body { background: var(--ground); color: var(--ink); margin: 0; }
+  body { font: 13px/1.5 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; padding: 24px 16px; font-variant-numeric: tabular-nums; }
+  h1 { font-size: 14px; font-weight: 500; margin: 0 0 12px; color: var(--dim); }
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px; margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .pass { color: var(--good); } .fail { color: var(--bad); } .dim { color: var(--dim); }
+</style>
+</head>
+<body>
+<h1>demo/engine.js in this browser &mdash; serve the demo/ folder and open tools/engine_smoke.html</h1>
+<pre id="log">loading…</pre>
+<script src="../engine.js"></script>
+<script>
+(async () => {
+  const el = document.getElementById('log');
+  const lines = [];
+  const say = (s, cls) => { lines.push(cls ? `<span class="${cls}">${s}</span>` : s); el.innerHTML = lines.join('\n'); console.log(s); };
+  const check = (ok, s) => say((ok ? 'PASS  ' : 'FAIL  ') + s, ok ? 'pass' : 'fail');
+  const maxDiff = (a, b) => { let m = 0; for (let i = 0; i < a.length; i++) { const d = Math.abs(a[i] - b[i]); if (!(d <= m)) m = d; } return m; };
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  try {
+    const q = new URLSearchParams(location.search);
+    const arm = q.get('arm') || 'es_erb_l0.1';
+    const model = await LISAEngine.load(`../assets/weights/${arm}.bin`, '../assets/weights/manifest.json');
+    say(`loaded ${model.arm}: ${model.cls}, n_noise ${model.n_noise}, n_dec ${model.n_dec}, ${model.param_count} params, window.LISAEngine ${typeof window.LISAEngine}`, 'dim');
+    const tv = await (await fetch(`testvec_${arm}.json`)).json();
+    const x = Float32Array.from(tv.x12k), R = tv.R || 4;
+    const y4 = await LISAEngine.run(model, x, { R, tau: 0 });
+    check(maxDiff(y4, tv.y_r4_tau0) < 1e-4, `tau=0 R=${R}: max|js - torch| = ${maxDiff(y4, tv.y_r4_tau0).toExponential(3)}`);
+    const y8 = await LISAEngine.run(model, x, { R: 2 * R, tau: 0 });
+    check(maxDiff(y8, tv.y_r8_tau0) < 1e-4, `tau=0 R=${2 * R}: max|js - torch| = ${maxDiff(y8, tv.y_r8_tau0).toExponential(3)}`);
+    const y1 = await LISAEngine.run(model, x, { R, tau: 1, seed: 0 });
+    check(maxDiff(y1, tv.y_r4_tau1_s0) < 1e-4, `tau=1 seed=0: max|js - torch(same noise)| = ${maxDiff(y1, tv.y_r4_tau1_s0).toExponential(3)}`);
+    const a = await LISAEngine.run(model, x, { R, tau: 1, seed: 3, chunk: 512 });
+    const b = await LISAEngine.run(model, x, { R, tau: 1, seed: 3, chunk: 8192 });
+    check(same(a, b), 'chunk=512 vs 8192 bit-identical');
+    let paints = 0, calls = 0;
+    const reps = Math.max(1, Math.round(2 * tv.fs / x.length)), xl = new Float32Array(x.length * reps);
+    for (let r = 0; r < reps; r++) xl.set(x, r * x.length);
+    await LISAEngine.run(model, xl, { R, tau: 1, chunk: 2048 });
+    const raf = () => requestAnimationFrame(() => { paints++; if (running) raf(); });
+    let running = true; raf();
+    const t0 = performance.now();
+    const yl = await LISAEngine.run(model, xl, { R, tau: 1, chunk: 2048, onProgress: () => calls++ });
+    const dt = (performance.now() - t0) / 1000; running = false;
+    const aps = yl.length / tv.fs_out / dt;
+    say(`timing: ${(yl.length / tv.fs_out).toFixed(2)} s of audio in ${dt.toFixed(3)} s, ${calls} progress calls, ${paints} animation frames painted meanwhile (tab ${document.visibilityState})`);
+    say(`audio_seconds_per_compute_second=${aps.toFixed(3)}`);
+    if (document.visibilityState === 'visible') {
+      check(aps >= 0.3, 'throughput >= 0.3');
+      check(paints >= 2, 'the page painted during inference');
+    } else {
+      say('(tab hidden: Chrome runs it at low priority and delivers no animation frames; throughput and paint checks skipped — bring the tab to the front and reload)', 'dim');
+    }
+    say(lines.some((l) => l.includes('FAIL')) ? 'SMOKE FAILED' : 'SMOKE OK', lines.some((l) => l.includes('FAIL')) ? 'fail' : 'pass');
+  } catch (e) {
+    say('ERROR ' + (e && e.stack || e), 'fail');
+  }
+})();
+</script>
+</body>
+</html>
