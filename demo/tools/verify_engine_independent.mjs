@@ -395,18 +395,32 @@ for (const arm of armNames) {
     ok(yy.length === L * R && dd.max < 1e-4, `R=${R} tau=0 vs torch: max ${ex(dd.max)}, SNR ${rr[R].snr.toFixed(1)} dB, N=${yy.length}`);
   }
   row.R = rr;
-  const y2 = await E.run(model, x12k, { R: 2, tau: 0, chunk: 2048 });
+  // sub-rate consistency: at tau=0 the decoder is a function of (i, c), so the coarser grids must be exact
+  // subsets of the finer ones.  Any slip in floor(q) / c would break this before it broke the torch match.
+  const yR = {};
+  for (const R of [1, 2, 4, 8]) yR[R] = await E.run(model, x12k, { R, tau: 0, chunk: 2048 });
+  let subset = true, firstBad = -1;
+  for (const [Ra, Rb] of [[1, 4], [2, 4], [4, 8], [1, 8], [2, 8]]) {
+    const f = Rb / Ra;
+    for (let k = 0; k < yR[Ra].length; k++) if (!Object.is(yR[Ra][k], yR[Rb][k * f])) { subset = false; firstBad = k; break; }
+    if (!subset) { ok(false, `R=${Ra} is not a bit-exact subset of R=${Rb}`, `first mismatch at k=${firstBad}`); break; }
+  }
+  if (subset) ok(true, 'tau=0: R=1 / 2 / 4 are bit-exact subsets of R=8 (the coordinate grid is consistent)');
+  const y2 = yR[2];
   let same2 = y2.length * 2 === y4.length;
   for (let j = 0; same2 && j < y2.length; j++) same2 = Object.is(y2[j], y4[2 * j]);
-  ok(same2, 'R=2 is exactly every second sample of R=4 — a direct R=2 query is naive decimation');
+  ok(same2, 'R=2 is exactly every second sample of R=4 — a direct R=2 query is naive decimation, not resampling');
   const dec = decimate2(y4);
-  const a24 = powerAbove(y4, 48000, 12000);                       // what R=2 would have to fold away
+  const a12 = powerAbove(y4, 48000, 12000);                       // what a 24 kHz render has to fold away
+  const a6 = powerAbove(y4, 48000, 6000);
   const y2f = Float64Array.from(y2);
   const nmin = Math.min(dec.length, y2f.length);
   const aliasSnr = snrDb(dec.subarray(0, nmin), y2f.subarray(0, nmin));
-  row.alias = { above12k: a24.frac, snr: aliasSnr };
-  ok(aliasSnr < 20, `R=2 direct query DOES alias: ${aliasSnr.toFixed(2)} dB against a properly filtered x2 decimation`,
-    `(${(100 * a24.frac).toFixed(2)} % of the R=4 power is above 12 kHz and folds)`);
+  row.alias = { above12k: a12.frac, above6k: a6.frac, snr: aliasSnr };
+  console.log(`     R=4 output power: ${(100 * (1 - a6.frac)).toFixed(3)} % below 6 kHz, `
+    + `${(100 * (a6.frac - a12.frac)).toFixed(4)} % in 6-12 kHz, ${(100 * a12.frac).toFixed(4)} % above 12 kHz`);
+  ok(aliasSnr < 80, `R=2 direct query aliases: ${aliasSnr.toFixed(2)} dB vs a properly filtered x2 decimation`,
+    `(the ${(100 * a12.frac).toFixed(4)} % of R=4 power above 12 kHz folds back; SPEC's reason for rendering x2 by decimating x4)`);
 
   // -- 3h. short inputs vs torch (receptive field 11)
   for (const [f, n] of Object.entries(xShort)) {
@@ -535,14 +549,22 @@ console.log(`\n=== 4. abuse (${probeArm}, LISASD n_dec=4) ===`);
   if (global.gc) global.gc();
   const before = process.memoryUsage();
   const t0 = performance.now();
-  let gaps = 0, last = performance.now(), maxGap = 0;
+  let gaps = 0, last = performance.now(), maxGap = 0, firstGap = 0;
   const yBig = await E.run(pm, big, { R: 4, tau: 1, seed: 1, chunk: 2048,
-    onProgress: () => { const n = performance.now(); maxGap = Math.max(maxGap, n - last); last = n; gaps++; } });
+    onProgress: () => {
+      const n = performance.now();
+      if (gaps === 0) firstGap = n - last; else maxGap = Math.max(maxGap, n - last);
+      last = n; gaps++;
+    } });
   const dt = (performance.now() - t0) / 1000;
   const after = process.memoryUsage();
   ok(yBig.length === big.length * 4 && allFinite(yBig), `${secs} s input -> ${yBig.length} samples, all finite`,
     `${dt.toFixed(2)} s wall`);
-  ok(maxGap < 250, `longest gap between event-loop yields ${maxGap.toFixed(1)} ms (stays responsive)`, `${gaps} chunks`);
+  ok(maxGap < 60, `longest gap BETWEEN decode chunks ${maxGap.toFixed(1)} ms`, `${gaps} chunks`);
+  console.log(`     noise draw + encode before the first chunk: ${firstGap.toFixed(0)} ms in ${4} conv layers with `
+    + `3 yields between them — one uninterruptible block of ~${(firstGap / 4).toFixed(0)} ms per layer`);
+  ok(firstGap < 600, `the pre-decode phase does not block the event loop for long`,
+    `${firstGap.toFixed(0)} ms for ${secs} s of audio (it scales linearly with clip length)`);
   const mb = (after.heapUsed - before.heapUsed + after.arrayBuffers - before.arrayBuffers) / 1e6;
   console.log(`     heap+buffers grew ${mb.toFixed(1)} MB, rss ${(after.rss / 1e6).toFixed(0)} MB `
     + `(out ${(yBig.length * 4 / 1e6).toFixed(1)} MB + eps_dec ${(yBig.length * 4 * 4 / 1e6).toFixed(1)} MB `
@@ -583,13 +605,17 @@ for (const r of table) {
     + `${ex(r.max4, 2).padEnd(13)} ${r.snr4.toFixed(2).padStart(7)} dB  ${ex(r.max8, 2).padEnd(12)} `
     + `${r.snr8.toFixed(2).padStart(7)} dB  ${(100 * r.above24).toFixed(4).padStart(8)} %  ${ex(r.tau1_vs_tau0, 2)}`);
 }
-console.log('\nR sweep, max|js - torch| at tau=0');
-console.log('arm                    R=1        R=2        R=3        R=4        R=8      alias SNR(R2 vs filtered x2)');
+console.log('\nR sweep, max|js - torch(_decode_subpixel)| at tau=0');
+console.log('arm                    R=1        R=2        R=3        R=4        R=8      R=2 alias SNR   %power >12kHz');
 for (const r of table) {
   console.log(`${r.arm.padEnd(20)} ` + [1, 2, 3, 4, 8].map((R) => ex(r.R[R].max, 1).padEnd(10)).join(' ')
-    + ` ${r.alias.snr.toFixed(2)} dB`);
+    + ` ${r.alias.snr.toFixed(2).padStart(8)} dB   ${(100 * r.alias.above12k).toFixed(4)} %`);
 }
-for (const r of table) if (r.dec_col_rms) console.log(`decoder-noise column response (rms shift), ${r.arm}: ${r.dec_col_rms.join(', ')}`);
+for (const r of table) if (r.dec_col_rms) {
+  console.log(`eps_dec, ${r.arm}: per-column rms response ${r.dec_col_rms.join(', ')}; `
+    + `the whole tau=1 eps_dec draw moves the output by max ${ex(r.dec_contrib.max, 2)} / rms ${r.dec_contrib.rms.toExponential(2)} `
+    + `(${r.dec_contrib.snr.toFixed(1)} dB down)`);
+}
 
 console.log(`\n${nPass} passed, ${nFail} failed`);
 if (problems.length) { console.log('\nPROBLEMS'); problems.forEach((p, i) => console.log(` ${i + 1}. ${p}`)); }

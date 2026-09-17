@@ -73,8 +73,8 @@
 
 <script type="module">
 // The Next app does exactly this: bundled three (r186) on window.THREE, then arch3d.js as a
-// classic script. Local copy first (served by the harness), jsDelivr as a fallback.
-const SOURCES = ['./vendor/three.module.js', 'https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js'];
+// classic script. The pinned r186 ESM build, or a local copy at ./vendor/ when offline.
+const SOURCES = ['https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js', './vendor/three.module.js'];
 let THREE = null, err = null;
 for (const src of SOURCES) {
   try { THREE = await import(src); break; } catch (e) { err = e; }
