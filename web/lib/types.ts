@@ -5,11 +5,13 @@ export interface Signal {
   fs: number;
 }
 
+export type ReadoutName = "draw" | "tau0" | "mean16" | "logmean16";
+
 export interface SpeakerFiles {
   truth: string;
   input: string;
   naive: string;
-  arms: Record<string, { draw: string; tau0: string }>;
+  arms: Record<string, Partial<Record<ReadoutName, string>>>;
 }
 
 export interface Speaker {
@@ -58,6 +60,17 @@ export interface ArmResult {
   visqol_audio?: number | null;
   pesq?: number | null;
   gated?: GatedDeficit | null;
+  readouts?: Record<string, Perceptual>;
+  best_readout?: string | null;
+  visqol_audio_share?: number | null;
+  visqol_audio_best?: number | null;
+  visqol_audio_best_share?: number | null;
+}
+
+export interface Perceptual {
+  snr: number | null; lsd: number | null; hb_lsd: number | null;
+  visqol_audio: number | null; nsim_audio: number | null;
+  visqol_speech: number | null; nsim_speech: number | null; pesq: number | null;
 }
 
 export interface Results {
@@ -66,8 +79,9 @@ export interface Results {
   M: number;
   arms: Record<string, ArmResult>;
   naive?: { snr: number | null; lsd: number | null; visqol_audio?: number | null; visqol_speech?: number | null };
-  floor?: { snr: number | null; lsd: number | null };
-  ceiling?: { snr: number | null; lsd: number | null };
+  floor?: { snr: number | null; lsd: number | null; visqol_audio?: number | null };
+  ceiling?: { snr: number | null; lsd: number | null; visqol_audio?: number | null };
+  visqol_audio_range?: { floor: number; ceiling: number };
 }
 
 export interface WeightsManifest {

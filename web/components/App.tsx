@@ -9,10 +9,14 @@ import { getEngine, type Engine } from "@/lib/engine";
 import type { AudioManifest, Results, Signal, Speaker, WeightsManifest } from "@/lib/types";
 import { Instrument, type InstrumentHandle } from "./Instrument";
 import { Numbers } from "./Numbers";
-import { DrawKnobs, ModelList, RateSeg, SpeakerList, ViewSeg } from "./Rails";
+import { DrawKnobs, ModelList, RateSeg, ReadoutSeg, SpeakerList, ViewSeg } from "./Rails";
 
 type View = "output" | "truth" | "input";
 type Rate = 2 | 4 | 8;
+// The readouts the fixtures carry. `draw` is one sample; `logmean16` is the per-bin mean of
+// log|STFT| over 16 draws, which is the condition that wins the perceptual judges.
+const READOUTS = ["draw", "mean16", "logmean16", "tau0"] as const;
+type Readout = (typeof READOUTS)[number];
 
 async function getJSON<T>(u: string): Promise<T | null> {
   try { const r = await fetch(u); return r.ok ? ((await r.json()) as T) : null; } catch { return null; }
@@ -34,6 +38,7 @@ export function App() {
   const [speaker, setSpeaker] = useState<Speaker | null>(null);
   const [rate, setRate] = useState<Rate>(4);
   const [arm, setArm] = useState<ArmName>(DEFAULT_ARM);
+  const [readout, setReadout] = useState<Readout>("logmean16");
   const [tau, setTau] = useState(1);
   const [tauCommit, setTauCommit] = useState(0);
   const [seed, setSeed] = useState(0);
@@ -146,20 +151,26 @@ export function App() {
   const cancelInference = useCallback(() => { gen.current++; setRunning(false); inst.current?.setSweep(null); showStatus("stopped"); }, [showStatus]);
 
   // ---- data -------------------------------------------------------------------------------------
+  // A precomputed file exists only for the rendered conditions: x4, seed 0, τ ∈ {0, 1}. Anything else
+  // (another seed, another τ, another rate) has to come from the engine, which is the point of it.
   const loadOutput = useCallback(async (sp: Speaker) => {
     const a = sp.files?.arms?.[arm];
-    let path: string | null = null;
-    if (a && rate === 4) { if (det || effTau === 0) path = a.tau0 || a.draw; else if (effTau === 1 && seed === 0) path = a.draw; }
+    let path: string | undefined;
+    if (a && rate === 4 && seed === 0) {
+      if (det || effTau === 0) path = a.tau0 ?? a.draw;
+      else if (effTau === 1) path = a[readout] ?? a.draw;
+    }
     if (path) {
       try {
         const o = await getWav(path.startsWith("/") ? path : `/assets/audio/${path}`);
         sig.current.output = o; spec.current.output = specOf(o); outputLive.current = false;
-        outputTag.current = `precomputed · A100 · τ ${effTau.toFixed(2)} · seed ${seed}`;
+        const lbl = det || effTau === 0 ? "τ = 0" : readout === "draw" ? "one draw" : readout === "mean16" ? "mean of 16" : "log-mean of 16";
+        outputTag.current = `${lbl} · precomputed on an A100`;
       } catch { sig.current.output = null; spec.current.output = null; }
     } else { sig.current.output = null; spec.current.output = null; }
     paintView(view); showStatus();
     if (autorun && engine.current && wman?.arms?.[arm]) void runInference();
-  }, [arm, rate, det, effTau, seed, view, autorun, wman, paintView, showStatus, runInference]);
+  }, [arm, rate, det, effTau, seed, readout, view, autorun, wman, paintView, showStatus, runInference]);
 
   const loadSpeaker = useCallback(async (sp: Speaker) => {
     stopAudio();
@@ -195,7 +206,7 @@ export function App() {
     if (firstRun.current) { firstRun.current = false; return; }
     if (speaker) void loadOutput(speaker);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arm, rate, tauCommit, seed]);
+  }, [arm, rate, tauCommit, seed, readout]);
   useEffect(() => { paintView(view); }, [view, paintView]);
 
   // keyboard
@@ -237,6 +248,12 @@ export function App() {
             <ModelList current={arm} results={results?.arms ?? null} onPick={setArm} onOpen={openArch} />
           </div>
           <div className={s.block}>
+            <div className={`lbl ${s.blockhead}`}><span>Readout</span><span className={s.hint}>one model, three statistics</span></div>
+            <ReadoutSeg readout={det ? "tau0" : readout} available={det ? ["tau0"] : ["draw", "mean16", "logmean16"]}
+                        best={results?.arms?.[arm]?.best_readout?.replace("_pt", "") ?? null}
+                        onPick={(r) => setReadout(r as Readout)} />
+          </div>
+          <div className={s.block}>
             <div className={`lbl ${s.blockhead}`}><span>Draw</span><span className={s.hint}>τ = 0 is LISA exactly</span></div>
             <DrawKnobs tau={tau} seed={seed} det={det} onTau={setTau} onTauCommit={() => setTauCommit((n) => n + 1)} onSeed={setSeed} onNewDraw={() => setSeed((n) => n + 1)} />
           </div>
@@ -263,7 +280,7 @@ export function App() {
               </div>
               <div className={s.status}>{status}</div>
             </div>
-            <p className={s.prose}>Press play, then switch between <b>input</b>, <b>output</b> and <b>truth</b> while it runs — the three are phase-locked, so the only thing that changes is the band above the dashed line.</p>
+            <p className={s.prose}>Press play, then switch between <b>input</b>, <b>output</b> and <b>truth</b> while it runs — the three are phase-locked, so the only thing that changes is the band above the dashed line. Then change the <b>readout</b>: same weights, same draws, a different statistic taken from them.</p>
           </div>
         </section>
 

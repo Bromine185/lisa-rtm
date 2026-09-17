@@ -31,6 +31,31 @@ export function RateSeg({ rate, onPick }: { rate: 2 | 4 | 8; onPick: (r: 2 | 4 |
   );
 }
 
+const READOUT_LABEL: Record<string, string> = { draw: "one draw", mean16: "mean of 16", logmean16: "log-mean of 16", tau0: "τ = 0" };
+const READOUT_HINT: Record<string, string> = {
+  draw: "a single sample from p(y|x) — what you would ship",
+  mean16: "the waveform mean — the SNR-optimal readout, and the muffled one",
+  logmean16: "per-bin mean of log|STFT| over 16 draws — LSD's actual minimiser",
+  tau0: "noise off: this is the deterministic LISA exactly",
+};
+
+export function ReadoutSeg({ readout, available, best, onPick }: {
+  readout: string; available: string[]; best: string | null; onPick: (r: string) => void;
+}) {
+  return (
+    <>
+      <div className={s.seg} role="radiogroup" aria-label="readout">
+        {available.map((r) => (
+          <button key={r} type="button" aria-pressed={readout === r} onClick={() => onPick(r)} title={READOUT_HINT[r]}>
+            {READOUT_LABEL[r] ?? r}{best === r ? " ★" : ""}
+          </button>
+        ))}
+      </div>
+      <div className={s.note}>{READOUT_HINT[readout]}</div>
+    </>
+  );
+}
+
 export function ViewSeg({ view, onPick }: { view: "output" | "truth" | "input"; onPick: (v: "output" | "truth" | "input") => void }) {
   return (
     <div className={s.seg} role="radiogroup" aria-label="what the spectrogram shows">

@@ -14,15 +14,27 @@ function delta(v: number | null | undefined, ref: number | null | undefined, bet
 }
 
 function Row({ k, v, d, cls }: { k: string; v: string; d?: string; cls?: string }) {
-  return (<><span className={s.kk}>{k}</span><span className={s.vv}>{v}</span><span className={`${s.dd} ${cls ?? ""}`}>{d ?? ""}</span></>);
+  return (
+    <>
+      <span className={s.kk}>{k}</span>
+      <span className={s.vv}>{v}{d ? <span className={`${s.d} ${cls ?? ""}`}>{d}</span> : null}</span>
+    </>
+  );
 }
 const Head = ({ t }: { t: string }) => <span className={s.hh}>{t}</span>;
+
+const RO_LABEL: Record<string, string> = { draw_pt: "1 draw", mean16_pt: "mean16", logmean16_pt: "logmean16" };
 
 export function Numbers({ arm, results, onOpen }: { arm: ArmName; results: Results | null; onOpen: () => void }) {
   const meta = ARM_META[arm];
   const a = results?.arms?.[arm];
   const det = results?.arms?.det;
   const nv = results?.naive;
+  // every judge is quoted at the readout that arm actually wins on, and the readout is named
+  const roKey = a?.best_readout ?? "draw_pt";
+  const ro = a?.readouts?.[roKey];
+  const roName = RO_LABEL[roKey] ?? roKey;
+  const share = a?.visqol_audio_best_share ?? null;
   return (
     <>
       <div className={s.card}>
@@ -36,22 +48,24 @@ export function Numbers({ arm, results, onOpen }: { arm: ArmName; results: Resul
           <>
             <div className={s.kv}>
               <Head t="the disease and the cure" />
-              {(() => { const [d, c] = delta(a.deficit_draw, det?.deficit_tau0, false); return <Row k="high-band deficit, one draw" v={fmt(a.deficit_draw) + " dB"} d={d && d + " vs det"} cls={c} />; })()}
-              <Row k="deficit, τ = 0" v={fmt(a.deficit_tau0) + " dB"} />
-              {(() => { const [d, c] = delta(a.crps, det?.crps, true); return <Row k="CRPS, high-band log-mag" v={fmt(a.crps, 3)} d={d && d + " vs det"} cls={c} />; })()}
-              {a.coherent != null && <Row k="coherent fraction above 6 kHz" v={fmt(100 * a.coherent, 1) + " %"} />}
-              {a.pit_end != null && <Row k="PIT end bins" v={fmt(a.pit_end, 3)} d="ideal 0.118" />}
-              <Head t="the judges" />
-              {(() => { const [d, c] = delta(a.lsd_draw, det?.lsd_draw, true); return <Row k="LSD, one draw" v={fmt(a.lsd_draw, 3)} d={d && d + " vs det"} cls={c} />; })()}
-              {a.lsd_logmean16 != null && <Row k="LSD, logmean16 readout" v={fmt(a.lsd_logmean16, 3)} />}
-              {a.visqol_audio != null && (() => { const [d, c] = delta(a.visqol_audio, det?.visqol_audio, false); return <Row k="ViSQOL, audio mode" v={fmt(a.visqol_audio)} d={d && d + " vs det"} cls={c} />; })()}
-              {a.visqol_speech != null && <Row k="ViSQOL, speech mode" v={fmt(a.visqol_speech)} />}
-              {a.pesq != null && <Row k="PESQ" v={fmt(a.pesq)} />}
+              {(() => { const [d, c] = delta(a.deficit_draw, det?.deficit_tau0, false); return <Row k="deficit · 1 draw" v={fmt(a.deficit_draw) + " dB"} d={d && d + " det"} cls={c} />; })()}
+              <Row k="deficit · τ = 0" v={fmt(a.deficit_tau0) + " dB"} />
+              {(() => { const [d, c] = delta(a.crps, det?.crps, true); return <Row k="CRPS" v={fmt(a.crps, 3)} d={d && d + " det"} cls={c} />; })()}
+              {a.coherent != null && <Row k="coherent fraction" v={fmt(100 * a.coherent, 1) + " %"} />}
+              {a.kappa != null && <Row k="κ · hallucinated?" v={fmt(a.kappa, 3)} />}
+              {a.pit_end != null && <Row k="PIT end bins" v={fmt(a.pit_end, 3)} d="ideal .118" />}
+              <Head t="the judges · with passthrough" />
+              {(() => { const [d, c] = delta(ro?.lsd, det?.readouts?.draw_pt?.lsd, true); return <Row k={`LSD · ${roName}`} v={fmt(ro?.lsd, 3)} d={d && d + " det"} cls={c} />; })()}
+              {a.readouts?.draw_pt && roKey !== "draw_pt" && <Row k="LSD · 1 draw" v={fmt(a.readouts.draw_pt.lsd, 3)} />}
+              {(() => { const [d, c] = delta(ro?.visqol_audio, det?.readouts?.draw_pt?.visqol_audio, false); return <Row k={`ViSQOL audio · ${roName}`} v={fmt(ro?.visqol_audio)} d={d && d + " det"} cls={c} />; })()}
+              {share != null && <Row k="share of the band" v={fmt(100 * share, 1) + " %"} d="floor→ceiling" />}
+              {ro?.visqol_speech != null && <Row k="ViSQOL speech" v={fmt(ro.visqol_speech)} />}
+              {ro?.pesq != null && <Row k="PESQ wb" v={fmt(ro.pesq)} />}
               <Head t="SNR · maximised by doing nothing" />
-              {(() => { const [d, c] = delta(a.snr_draw, nv?.snr, false); return <Row k="one draw" v={fmt(a.snr_draw) + " dB"} d={d && d + " vs naive"} cls={c} />; })()}
-              {a.snr_mean16 != null && <Row k="mean of 16 draws" v={fmt(a.snr_mean16) + " dB"} />}
+              {(() => { const [d, c] = delta(ro?.snr, nv?.snr, false); return <Row k={roName} v={fmt(ro?.snr) + " dB"} d={d && d + " naive"} cls={c} />; })()}
               {nv && <Row k="naive sinc upsample" v={fmt(nv.snr) + " dB"} />}
-              {results?.ceiling && <Row k="ceiling · empty high band" v={fmt(results.ceiling.snr) + " dB"} />}
+              {results?.floor && <Row k="floor · empty high band" v={fmt(results.floor.snr) + " dB"} />}
+              {results?.ceiling && <Row k="ceiling · true high band" v={fmt(results.ceiling.snr) + " dB"} />}
             </div>
             <div className={s.note}>{results?.n_utts ?? 12} held-out utterances · {results?.M ?? 16} draws · {results?.tag ?? ""}</div>
           </>

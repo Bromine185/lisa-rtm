@@ -1,0 +1,443 @@
+{
+ "fs_hi": 48000,
+ "fs_lo": 12000,
+ "upsample": 4,
+ "tau_draw": 1.0,
+ "seed": 0,
+ "paths_relative_to": "this manifest's directory",
+ "speakers": [
+  {
+   "id": "p236",
+   "gender": "F",
+   "age": 23,
+   "accent": "English",
+   "region": "Manchester",
+   "utterance": "p236_007",
+   "seconds": 4.3112,
+   "text": "The rainbow is a division of white light into many beautiful colors.",
+   "files": {
+    "truth": "p236/truth.wav",
+    "input": "p236/input.wav",
+    "naive": "p236/naive.wav",
+    "arms": {
+     "det": {
+      "draw": "p236/det.wav",
+      "tau0": "p236/det.wav"
+     },
+     "es_dec_erb_l0.1": {
+      "draw": "p236/es_dec_erb_l0.1.wav",
+      "tau0": "p236/es_dec_erb_l0.1_tau0.wav",
+      "logmean16": "p236/es_dec_erb_l0.1_logmean16.wav",
+      "mean16": "p236/es_dec_erb_l0.1_mean16.wav"
+     },
+     "es_dec_l0.1": {
+      "draw": "p236/es_dec_l0.1.wav",
+      "tau0": "p236/es_dec_l0.1_tau0.wav",
+      "logmean16": "p236/es_dec_l0.1_logmean16.wav",
+      "mean16": "p236/es_dec_l0.1_mean16.wav"
+     },
+     "es_erb_l0.1": {
+      "draw": "p236/es_erb_l0.1.wav",
+      "tau0": "p236/es_erb_l0.1_tau0.wav",
+      "logmean16": "p236/es_erb_l0.1_logmean16.wav",
+      "mean16": "p236/es_erb_l0.1_mean16.wav"
+     },
+     "es_marg": {
+      "draw": "p236/es_marg.wav",
+      "tau0": "p236/es_marg_tau0.wav",
+      "logmean16": "p236/es_marg_logmean16.wav",
+      "mean16": "p236/es_marg_mean16.wav"
+     },
+     "es_marg_l0.1": {
+      "draw": "p236/es_marg_l0.1.wav",
+      "tau0": "p236/es_marg_l0.1_tau0.wav",
+      "logmean16": "p236/es_marg_l0.1_logmean16.wav",
+      "mean16": "p236/es_marg_l0.1_mean16.wav"
+     },
+     "es_split_l0.1": {
+      "draw": "p236/es_split_l0.1.wav",
+      "tau0": "p236/es_split_l0.1_tau0.wav",
+      "logmean16": "p236/es_split_l0.1_logmean16.wav",
+      "mean16": "p236/es_split_l0.1_mean16.wav"
+     }
+    }
+   }
+  },
+  {
+   "id": "p237",
+   "gender": "M",
+   "age": 22,
+   "accent": "Scottish",
+   "region": "Fife",
+   "utterance": "p237_010",
+   "seconds": 3.5457,
+   "text": "People look, but no one ever finds it.",
+   "files": {
+    "truth": "p237/truth.wav",
+    "input": "p237/input.wav",
+    "naive": "p237/naive.wav",
+    "arms": {
+     "det": {
+      "draw": "p237/det.wav",
+      "tau0": "p237/det.wav"
+     },
+     "es_dec_erb_l0.1": {
+      "draw": "p237/es_dec_erb_l0.1.wav",
+      "tau0": "p237/es_dec_erb_l0.1_tau0.wav",
+      "logmean16": "p237/es_dec_erb_l0.1_logmean16.wav",
+      "mean16": "p237/es_dec_erb_l0.1_mean16.wav"
+     },
+     "es_dec_l0.1": {
+      "draw": "p237/es_dec_l0.1.wav",
+      "tau0": "p237/es_dec_l0.1_tau0.wav",
+      "logmean16": "p237/es_dec_l0.1_logmean16.wav",
+      "mean16": "p237/es_dec_l0.1_mean16.wav"
+     },
+     "es_erb_l0.1": {
+      "draw": "p237/es_erb_l0.1.wav",
+      "tau0": "p237/es_erb_l0.1_tau0.wav",
+      "logmean16": "p237/es_erb_l0.1_logmean16.wav",
+      "mean16": "p237/es_erb_l0.1_mean16.wav"
+     },
+     "es_marg": {
+      "draw": "p237/es_marg.wav",
+      "tau0": "p237/es_marg_tau0.wav",
+      "logmean16": "p237/es_marg_logmean16.wav",
+      "mean16": "p237/es_marg_mean16.wav"
+     },
+     "es_marg_l0.1": {
+      "draw": "p237/es_marg_l0.1.wav",
+      "tau0": "p237/es_marg_l0.1_tau0.wav",
+      "logmean16": "p237/es_marg_l0.1_logmean16.wav",
+      "mean16": "p237/es_marg_l0.1_mean16.wav"
+     },
+     "es_split_l0.1": {
+      "draw": "p237/es_split_l0.1.wav",
+      "tau0": "p237/es_split_l0.1_tau0.wav",
+      "logmean16": "p237/es_split_l0.1_logmean16.wav",
+      "mean16": "p237/es_split_l0.1_mean16.wav"
+     }
+    }
+   }
+  },
+  {
+   "id": "p238",
+   "gender": "F",
+   "age": 22,
+   "accent": "NorthernIrish",
+   "region": "Belfast",
+   "utterance": "p238_010",
+   "seconds": 4.0564,
+   "text": "People look, but no one ever finds it.",
+   "files": {
+    "truth": "p238/truth.wav",
+    "input": "p238/input.wav",
+    "naive": "p238/naive.wav",
+    "arms": {
+     "det": {
+      "draw": "p238/det.wav",
+      "tau0": "p238/det.wav"
+     },
+     "es_dec_erb_l0.1": {
+      "draw": "p238/es_dec_erb_l0.1.wav",
+      "tau0": "p238/es_dec_erb_l0.1_tau0.wav",
+      "logmean16": "p238/es_dec_erb_l0.1_logmean16.wav",
+      "mean16": "p238/es_dec_erb_l0.1_mean16.wav"
+     },
+     "es_dec_l0.1": {
+      "draw": "p238/es_dec_l0.1.wav",
+      "tau0": "p238/es_dec_l0.1_tau0.wav",
+      "logmean16": "p238/es_dec_l0.1_logmean16.wav",
+      "mean16": "p238/es_dec_l0.1_mean16.wav"
+     },
+     "es_erb_l0.1": {
+      "draw": "p238/es_erb_l0.1.wav",
+      "tau0": "p238/es_erb_l0.1_tau0.wav",
+      "logmean16": "p238/es_erb_l0.1_logmean16.wav",
+      "mean16": "p238/es_erb_l0.1_mean16.wav"
+     },
+     "es_marg": {
+      "draw": "p238/es_marg.wav",
+      "tau0": "p238/es_marg_tau0.wav",
+      "logmean16": "p238/es_marg_logmean16.wav",
+      "mean16": "p238/es_marg_mean16.wav"
+     },
+     "es_marg_l0.1": {
+      "draw": "p238/es_marg_l0.1.wav",
+      "tau0": "p238/es_marg_l0.1_tau0.wav",
+      "logmean16": "p238/es_marg_l0.1_logmean16.wav",
+      "mean16": "p238/es_marg_l0.1_mean16.wav"
+     },
+     "es_split_l0.1": {
+      "draw": "p238/es_split_l0.1.wav",
+      "tau0": "p238/es_split_l0.1_tau0.wav",
+      "logmean16": "p238/es_split_l0.1_logmean16.wav",
+      "mean16": "p238/es_split_l0.1_mean16.wav"
+     }
+    }
+   }
+  },
+  {
+   "id": "p360",
+   "gender": "M",
+   "age": 19,
+   "accent": "American",
+   "region": "New Jersey",
+   "utterance": "p360_010",
+   "seconds": 3.1229,
+   "text": "People look, but no one ever finds it.",
+   "files": {
+    "truth": "p360/truth.wav",
+    "input": "p360/input.wav",
+    "naive": "p360/naive.wav",
+    "arms": {
+     "det": {
+      "draw": "p360/det.wav",
+      "tau0": "p360/det.wav"
+     },
+     "es_dec_erb_l0.1": {
+      "draw": "p360/es_dec_erb_l0.1.wav",
+      "tau0": "p360/es_dec_erb_l0.1_tau0.wav",
+      "logmean16": "p360/es_dec_erb_l0.1_logmean16.wav",
+      "mean16": "p360/es_dec_erb_l0.1_mean16.wav"
+     },
+     "es_dec_l0.1": {
+      "draw": "p360/es_dec_l0.1.wav",
+      "tau0": "p360/es_dec_l0.1_tau0.wav",
+      "logmean16": "p360/es_dec_l0.1_logmean16.wav",
+      "mean16": "p360/es_dec_l0.1_mean16.wav"
+     },
+     "es_erb_l0.1": {
+      "draw": "p360/es_erb_l0.1.wav",
+      "tau0": "p360/es_erb_l0.1_tau0.wav",
+      "logmean16": "p360/es_erb_l0.1_logmean16.wav",
+      "mean16": "p360/es_erb_l0.1_mean16.wav"
+     },
+     "es_marg": {
+      "draw": "p360/es_marg.wav",
+      "tau0": "p360/es_marg_tau0.wav",
+      "logmean16": "p360/es_marg_logmean16.wav",
+      "mean16": "p360/es_marg_mean16.wav"
+     },
+     "es_marg_l0.1": {
+      "draw": "p360/es_marg_l0.1.wav",
+      "tau0": "p360/es_marg_l0.1_tau0.wav",
+      "logmean16": "p360/es_marg_l0.1_logmean16.wav",
+      "mean16": "p360/es_marg_l0.1_mean16.wav"
+     },
+     "es_split_l0.1": {
+      "draw": "p360/es_split_l0.1.wav",
+      "tau0": "p360/es_split_l0.1_tau0.wav",
+      "logmean16": "p360/es_split_l0.1_logmean16.wav",
+      "mean16": "p360/es_split_l0.1_mean16.wav"
+     }
+    }
+   }
+  },
+  {
+   "id": "p361",
+   "gender": "F",
+   "age": 19,
+   "accent": "American",
+   "region": "New Jersey",
+   "utterance": "p361_009",
+   "seconds": 4.4607,
+   "text": "There is , according to legend, a boiling pot of gold at one end.",
+   "files": {
+    "truth": "p361/truth.wav",
+    "input": "p361/input.wav",
+    "naive": "p361/naive.wav",
+    "arms": {
+     "det": {
+      "draw": "p361/det.wav",
+      "tau0": "p361/det.wav"
+     },
+     "es_dec_erb_l0.1": {
+      "draw": "p361/es_dec_erb_l0.1.wav",
+      "tau0": "p361/es_dec_erb_l0.1_tau0.wav",
+      "logmean16": "p361/es_dec_erb_l0.1_logmean16.wav",
+      "mean16": "p361/es_dec_erb_l0.1_mean16.wav"
+     },
+     "es_dec_l0.1": {
+      "draw": "p361/es_dec_l0.1.wav",
+      "tau0": "p361/es_dec_l0.1_tau0.wav",
+      "logmean16": "p361/es_dec_l0.1_logmean16.wav",
+      "mean16": "p361/es_dec_l0.1_mean16.wav"
+     },
+     "es_erb_l0.1": {
+      "draw": "p361/es_erb_l0.1.wav",
+      "tau0": "p361/es_erb_l0.1_tau0.wav",
+      "logmean16": "p361/es_erb_l0.1_logmean16.wav",
+      "mean16": "p361/es_erb_l0.1_mean16.wav"
+     },
+     "es_marg": {
+      "draw": "p361/es_marg.wav",
+      "tau0": "p361/es_marg_tau0.wav",
+      "logmean16": "p361/es_marg_logmean16.wav",
+      "mean16": "p361/es_marg_mean16.wav"
+     },
+     "es_marg_l0.1": {
+      "draw": "p361/es_marg_l0.1.wav",
+      "tau0": "p361/es_marg_l0.1_tau0.wav",
+      "logmean16": "p361/es_marg_l0.1_logmean16.wav",
+      "mean16": "p361/es_marg_l0.1_mean16.wav"
+     },
+     "es_split_l0.1": {
+      "draw": "p361/es_split_l0.1.wav",
+      "tau0": "p361/es_split_l0.1_tau0.wav",
+      "logmean16": "p361/es_split_l0.1_logmean16.wav",
+      "mean16": "p361/es_split_l0.1_mean16.wav"
+     }
+    }
+   }
+  },
+  {
+   "id": "p374",
+   "gender": "M",
+   "age": 28,
+   "accent": "Australian",
+   "region": "English",
+   "utterance": "p374_010",
+   "seconds": 3.549,
+   "text": "People look, but no one ever finds it.",
+   "files": {
+    "truth": "p374/truth.wav",
+    "input": "p374/input.wav",
+    "naive": "p374/naive.wav",
+    "arms": {
+     "det": {
+      "draw": "p374/det.wav",
+      "tau0": "p374/det.wav"
+     },
+     "es_dec_erb_l0.1": {
+      "draw": "p374/es_dec_erb_l0.1.wav",
+      "tau0": "p374/es_dec_erb_l0.1_tau0.wav",
+      "logmean16": "p374/es_dec_erb_l0.1_logmean16.wav",
+      "mean16": "p374/es_dec_erb_l0.1_mean16.wav"
+     },
+     "es_dec_l0.1": {
+      "draw": "p374/es_dec_l0.1.wav",
+      "tau0": "p374/es_dec_l0.1_tau0.wav",
+      "logmean16": "p374/es_dec_l0.1_logmean16.wav",
+      "mean16": "p374/es_dec_l0.1_mean16.wav"
+     },
+     "es_erb_l0.1": {
+      "draw": "p374/es_erb_l0.1.wav",
+      "tau0": "p374/es_erb_l0.1_tau0.wav",
+      "logmean16": "p374/es_erb_l0.1_logmean16.wav",
+      "mean16": "p374/es_erb_l0.1_mean16.wav"
+     },
+     "es_marg": {
+      "draw": "p374/es_marg.wav",
+      "tau0": "p374/es_marg_tau0.wav",
+      "logmean16": "p374/es_marg_logmean16.wav",
+      "mean16": "p374/es_marg_mean16.wav"
+     },
+     "es_marg_l0.1": {
+      "draw": "p374/es_marg_l0.1.wav",
+      "tau0": "p374/es_marg_l0.1_tau0.wav",
+      "logmean16": "p374/es_marg_l0.1_logmean16.wav",
+      "mean16": "p374/es_marg_l0.1_mean16.wav"
+     },
+     "es_split_l0.1": {
+      "draw": "p374/es_split_l0.1.wav",
+      "tau0": "p374/es_split_l0.1_tau0.wav",
+      "logmean16": "p374/es_split_l0.1_logmean16.wav",
+      "mean16": "p374/es_split_l0.1_mean16.wav"
+     }
+    }
+   }
+  }
+ ],
+ "arms": {
+  "det": {
+   "file": "det.pt",
+   "step": 16000,
+   "cls": "LISAS",
+   "objective": "det",
+   "lambda": 0.01,
+   "n_noise": 8,
+   "n_dec": 0,
+   "deterministic": true,
+   "seed": 0,
+   "params": 87777
+  },
+  "es_dec_erb_l0.1": {
+   "file": "es_dec_erb_l0.1.pt",
+   "step": 16000,
+   "cls": "LISASD",
+   "objective": "es_marg_erb",
+   "lambda": 0.1,
+   "n_noise": 8,
+   "n_dec": 4,
+   "deterministic": false,
+   "seed": 0,
+   "params": 88353
+  },
+  "es_dec_l0.1": {
+   "file": "es_dec_l0.1.pt",
+   "step": 16000,
+   "cls": "LISASD",
+   "objective": "es_marg",
+   "lambda": 0.1,
+   "n_noise": 8,
+   "n_dec": 4,
+   "deterministic": false,
+   "seed": 0,
+   "params": 88353
+  },
+  "es_erb_l0.1": {
+   "file": "es_erb_l0.1.pt",
+   "step": 16000,
+   "cls": "LISAS",
+   "objective": "es_marg_erb",
+   "lambda": 0.1,
+   "n_noise": 8,
+   "n_dec": 0,
+   "deterministic": false,
+   "seed": 0,
+   "params": 87777
+  },
+  "es_marg": {
+   "file": "es_marg.pt",
+   "step": 16000,
+   "cls": "LISAS",
+   "objective": "es_marg",
+   "lambda": 0.01,
+   "n_noise": 8,
+   "n_dec": 0,
+   "deterministic": false,
+   "seed": 0,
+   "params": 87777
+  },
+  "es_marg_l0.1": {
+   "file": "es_marg_l0.1.pt",
+   "step": 16000,
+   "cls": "LISAS",
+   "objective": "es_marg",
+   "lambda": 0.1,
+   "n_noise": 8,
+   "n_dec": 0,
+   "deterministic": false,
+   "seed": 0,
+   "params": 87777
+  },
+  "es_split_l0.1": {
+   "file": "es_split_l0.1.pt",
+   "step": 16000,
+   "cls": "LISAS",
+   "objective": "es_split_marg",
+   "lambda": 0.1,
+   "n_noise": 8,
+   "n_dec": 0,
+   "deterministic": false,
+   "seed": 0,
+   "params": 87777
+  }
+ },
+ "readouts": {
+  "M": 16,
+  "logmean16": "per-bin mean of log|STFT| over M draws, phase of draw 0, resynthesised, baseband passed through",
+  "mean16": "waveform mean of M draws"
+ }
+}

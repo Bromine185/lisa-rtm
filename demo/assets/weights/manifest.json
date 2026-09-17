@@ -1,0 +1,213 @@
+{
+ "format": "float32 little-endian; tensors concatenated in the listed order, each in PyTorch row-major layout; offset and length are bytes",
+ "arms": {
+  "es_erb_l0.1": {
+   "file": "es_erb_l0.1.bin",
+   "cls": "LISAS",
+   "n_noise": 8,
+   "n_dec": 0,
+   "det": false,
+   "kind": "es_marg_erb",
+   "lam": 0.1,
+   "step": 13500,
+   "param_count": 87777,
+   "bytes": 351108,
+   "enc_channels": [
+    16,
+    32,
+    64,
+    32
+   ],
+   "enc_kernels": [
+    7,
+    3,
+    3,
+    1
+   ],
+   "latent": 32,
+   "dec_hidden": 144,
+   "dec_layers": 5,
+   "R": 4,
+   "fs_lo": 12000,
+   "fs_hi": 48000,
+   "dec_input_order": "[c, z_{i-1}, z_i, z_{i+1}, eps_dec]",
+   "layers": [
+    {
+     "name": "enc.0.weight",
+     "shape": [
+      16,
+      9,
+      7
+     ],
+     "offset": 0,
+     "length": 4032,
+     "numel": 1008
+    },
+    {
+     "name": "enc.0.bias",
+     "shape": [
+      16
+     ],
+     "offset": 4032,
+     "length": 64,
+     "numel": 16
+    },
+    {
+     "name": "enc.2.weight",
+     "shape": [
+      32,
+      16,
+      3
+     ],
+     "offset": 4096,
+     "length": 6144,
+     "numel": 1536
+    },
+    {
+     "name": "enc.2.bias",
+     "shape": [
+      32
+     ],
+     "offset": 10240,
+     "length": 128,
+     "numel": 32
+    },
+    {
+     "name": "enc.4.weight",
+     "shape": [
+      64,
+      32,
+      3
+     ],
+     "offset": 10368,
+     "length": 24576,
+     "numel": 6144
+    },
+    {
+     "name": "enc.4.bias",
+     "shape": [
+      64
+     ],
+     "offset": 34944,
+     "length": 256,
+     "numel": 64
+    },
+    {
+     "name": "enc.6.weight",
+     "shape": [
+      32,
+      64,
+      1
+     ],
+     "offset": 35200,
+     "length": 8192,
+     "numel": 2048
+    },
+    {
+     "name": "enc.6.bias",
+     "shape": [
+      32
+     ],
+     "offset": 43392,
+     "length": 128,
+     "numel": 32
+    },
+    {
+     "name": "dec.net.0.weight",
+     "shape": [
+      144,
+      97
+     ],
+     "offset": 43520,
+     "length": 55872,
+     "numel": 13968
+    },
+    {
+     "name": "dec.net.0.bias",
+     "shape": [
+      144
+     ],
+     "offset": 99392,
+     "length": 576,
+     "numel": 144
+    },
+    {
+     "name": "dec.net.2.weight",
+     "shape": [
+      144,
+      144
+     ],
+     "offset": 99968,
+     "length": 82944,
+     "numel": 20736
+    },
+    {
+     "name": "dec.net.2.bias",
+     "shape": [
+      144
+     ],
+     "offset": 182912,
+     "length": 576,
+     "numel": 144
+    },
+    {
+     "name": "dec.net.4.weight",
+     "shape": [
+      144,
+      144
+     ],
+     "offset": 183488,
+     "length": 82944,
+     "numel": 20736
+    },
+    {
+     "name": "dec.net.4.bias",
+     "shape": [
+      144
+     ],
+     "offset": 266432,
+     "length": 576,
+     "numel": 144
+    },
+    {
+     "name": "dec.net.6.weight",
+     "shape": [
+      144,
+      144
+     ],
+     "offset": 267008,
+     "length": 82944,
+     "numel": 20736
+    },
+    {
+     "name": "dec.net.6.bias",
+     "shape": [
+      144
+     ],
+     "offset": 349952,
+     "length": 576,
+     "numel": 144
+    },
+    {
+     "name": "dec.net.8.weight",
+     "shape": [
+      1,
+      144
+     ],
+     "offset": 350528,
+     "length": 576,
+     "numel": 144
+    },
+    {
+     "name": "dec.net.8.bias",
+     "shape": [
+      1
+     ],
+     "offset": 351104,
+     "length": 4,
+     "numel": 1
+    }
+   ]
+  }
+ }
+}

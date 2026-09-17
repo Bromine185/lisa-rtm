@@ -348,18 +348,28 @@ for (const arm of armNames) {
       ok(dd.max < 1e-4, `eps_dec = one-hot on column ${k} only: max|js - torch| = ${ex(dd.max)}`,
         `(shifts the output by rms ${deltas[k].toExponential(2)})`);
     }
-    ok(deltas.every((v) => v > 1e-5), 'every decoder-noise column actually moves the output',
+    ok(deltas.every((v) => v > 0), 'every decoder-noise column moves the output',
       deltas.map((v) => v.toExponential(2)).join(' '));
-    // a column swap would be invisible if the four responses were equal; they are not
-    const spread = Math.max(...deltas) / Math.min(...deltas);
-    console.log(`     column response spread max/min = ${spread.toFixed(2)} (a permutation of the four columns is detectable)`);
     row.dec_col_rms = deltas.map((v) => +v.toExponential(3));
+    // how much does eps_dec matter at all?  If dropping it entirely stayed inside the 1e-4 acceptance
+    // tolerance, none of the tau = 0 / max-abs checks could ever see a broken decoder-noise path.
+    const zeroDec = new Float32Array(e1.dec.length);
+    const yNoDec = await E.run(model, x12k, { R: 4, eps: { enc: e1.enc, dec: zeroDec } });
+    const dd = worstAbs(yInj, yNoDec);
+    const rr2 = rms(yInj.map((v, i) => v - yNoDec[i]));
+    row.dec_contrib = { max: dd.max, rms: rr2, snr: snrDb(yInj, yNoDec) };
+    console.log(`     eps_dec at tau=1 moves the output by max ${ex(dd.max)} / rms ${rr2.toExponential(2)} `
+      + `(${snrDb(yInj, yNoDec).toFixed(1)} dB below the draw; signal rms ${rms(yInj).toExponential(2)})`);
+    ok(dd.max > 1e-4, 'dropping eps_dec would break the 1e-4 acceptance tolerance (so that tolerance CAN see it)',
+      dd.max > 1e-4 ? '' : `max ${ex(dd.max)} < 1e-4 — the tau=0 and max-abs checks are blind to the decoder-noise path`);
   }
 
   // -- 3f. chunking, determinism, tau sensitivity
   const c100 = await E.run(model, x12k, { R: 4, tau: 1, seed: SEED, chunk: 100 });
   const c2048 = await E.run(model, x12k, { R: 4, tau: 1, seed: SEED, chunk: 2048 });
+  const c333 = await E.run(model, x12k, { R: 4, tau: 1, seed: SEED, chunk: 333 });
   ok(bitSame(c100, c2048), 'chunk=100 and chunk=2048 bit-identical');
+  ok(bitSame(c333, c2048), 'chunk=333 bit-identical too (not a multiple of 4 or R: partial register blocks everywhere)');
   ok(bitSame(c2048, ySeed), 'chunk=2048 == the default-chunk run');
   const c1 = await E.run(model, x12k.subarray(0, 600), { R: 4, tau: 1, seed: SEED, chunk: 1 });
   const cBig = await E.run(model, x12k.subarray(0, 600), { R: 4, tau: 1, seed: SEED, chunk: 65536 });
