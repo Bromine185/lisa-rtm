@@ -190,6 +190,15 @@ alone bought +3.44 dB of deficit, decoder noise alone bought +1.33 dB, and the t
 third of its standalone value, and the 12-utterance gated measurement puts it at +0.1 ± 0.2 dB. They
 are two ways of giving the model somewhere to put incoherent energy, and they are filling one hole.
 
+There is a blunter measurement of the same thing, from the independent check of the browser engine
+(`demo/tools/verify_engine_independent.mjs`, which reads the exported weights directly). Zeroing the
+entire τ = 1 decoder-noise draw moves the output of `es_dec_erb_l0.1` by an rms of 3.01e-5 — **74.7 dB
+below the signal** — and `es_dec_l0.1` by 2.74e-5, 75.5 dB down, with per-column rms responses of
+about 1e-5 across all four channels. **The trained LISASD models have very nearly learned to ignore
+their decoder noise.** The +576 weights are not being used. That is the cleanest available answer to
+P4 and P5: decoder-side noise is not a bad idea that was tried and lost, it is an input the network
+switched off, and any future attempt has to make the objective pay for using it.
+
 **One arm's noise became decoration.** `es_split_l0.1` has the lowest two-draw spread of the seven
 (0.00152, still falling at −1.09 % per 1,000 steps) and a noise-off/noise-on gap of −0.06 dB: its
 τ = 1 draw and its τ = 0 pass are the same signal. Its waveform term never looks above 6 kHz, so

@@ -911,10 +911,15 @@ function mount(el, opts) {
       _v.copy(L.anchor).project(camera);
       if (_v.z > 1 || _v.z < -1) { L.el.style.transform = 'translate3d(-9999px,0,0)'; continue; }
       var x = (_v.x * 0.5 + 0.5) * w, y = (-_v.y * 0.5 + 0.5) * h;
-      // an anchor off the canvas gets no label: the clamping below only slides a box back into view,
-      // which would leave the text stranded at an edge pointing at nothing (seen on the receptive-field
-      // bracket when the camera swings left).
-      if (x < 0 || x > w || y < 0 || y > h) { L.el.style.transform = 'translate3d(-9999px,0,0)'; continue; }
+      // An anchor off the canvas gets no label: the clamping below only slides a box back into view,
+      // which leaves the text stranded at an edge pointing at nothing (the receptive-field bracket,
+      // whose anchor swings past the left edge).  Hide with the same class the stage logic uses --
+      // parking el at -9999px does not work here, because the clamp's marginLeft from the previous
+      // frame stays on the inner box and drags it back into view.
+      if (x < 0 || x > w || y < 0 || y > h) {
+        if (!L.el.classList.contains('hid')) L.el.classList.add('hid');
+        continue;
+      }
       L.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
       // keep the text inside the viewport: slide centred boxes, flip side boxes
       var bw = L.b.offsetWidth, dx = 0;
@@ -1126,6 +1131,7 @@ function mount(el, opts) {
         labels: labels.map(function (L) {
           v.copy(L.anchor).project(camera);
           return { text: L.t.textContent, hidden: L.hidden, on: L.el.classList.contains('on'),
+                   hid: L.el.classList.contains('hid'),
                    px: (v.x * 0.5 + 0.5) * w, py: (-v.y * 0.5 + 0.5) * h, tf: L.el.style.transform };
         })
       };

@@ -27,6 +27,42 @@ const WDIR = path.join(REPO, 'web/public/assets/weights');
 const VDIR = path.join(REPO, 'lisa_rtm_cache/verify_adv');
 const FAST = process.argv.includes('--fast');
 
+// ---------------------------------------------------------------- child: the hidden-tab yield path
+// engine.js yields through a MessageChannel instead of setTimeout when `document.hidden` is true (browsers
+// throttle timers in a background tab).  Node never takes that branch on its own, so fake the document and
+// run the probe in a child process.  Reported back as one JSON line.
+if (process.env.HIDDEN_PROBE) {
+  globalThis.document = { hidden: true };
+  const m0 = await import(pathToFileURL(path.join(REPO, 'demo/engine.js')).href);
+  const En = m0.default || globalThis.LISAEngine;
+  const model = await En.load(process.argv[2], process.argv[3]);
+  const x = new Float32Array(4000);
+  for (let i = 0; i < x.length; i++) x[i] = Math.sin(i * 0.031) * 0.3;
+  const out = { mode: process.env.HIDDEN_PROBE };
+  const timeout = (p, ms) => Promise.race([p.then((v) => ({ v })), new Promise((r) => setTimeout(() => r({ timeout: true }), ms))]);
+  if (process.env.HIDDEN_PROBE === 'single') {
+    const r = await timeout(En.run(model, x, { R: 4, tau: 1, seed: 1, chunk: 512 }), 20000);
+    out.finished = !r.timeout; out.n = r.v ? r.v.length : 0;
+  } else if (process.env.HIDDEN_PROBE === 'concurrent') {
+    const a = En.run(model, x, { R: 4, tau: 1, seed: 1, chunk: 512 });
+    const b = En.run(model, x, { R: 4, tau: 1, seed: 2, chunk: 512 });
+    const ra = await timeout(a, 15000), rb = await timeout(b.catch(() => null), 15000);
+    out.a = !ra.timeout; out.b = !rb.timeout;
+  } else if (process.env.HIDDEN_PROBE === 'abort') {
+    const ac = new AbortController();
+    let settled = false;
+    const a = En.run(model, x, { R: 4, tau: 1, seed: 1, chunk: 512, signal: ac.signal })
+      .then(() => { settled = 'resolved'; }, (e) => { settled = e.name; });
+    ac.abort();
+    const b = En.run(model, x, { R: 4, tau: 1, seed: 2, chunk: 512 });   // a second run steals the port
+    const rb = await timeout(b, 15000);
+    const ra = await timeout(a, 5000);
+    out.abortSettled = settled; out.abortRejected = !ra.timeout; out.second = !rb.timeout;
+  }
+  process.stdout.write('HIDDEN ' + JSON.stringify(out) + '\n');
+  process.exit(0);
+}
+
 const mod = await import(pathToFileURL(path.join(REPO, 'demo/engine.js')).href);
 const E = mod.default || globalThis.LISAEngine;
 if (!E || typeof E.run !== 'function' || typeof E.load !== 'function') throw new Error('no LISAEngine');
@@ -570,6 +606,64 @@ console.log(`\n=== 4. abuse (${probeArm}, LISASD n_dec=4) ===`);
     + `(out ${(yBig.length * 4 / 1e6).toFixed(1)} MB + eps_dec ${(yBig.length * 4 * 4 / 1e6).toFixed(1)} MB `
     + `+ padded latents ${((big.length + 6) * 32 * 4 / 1e6).toFixed(1)} MB)`);
   ok(after.rss < 2.5e9, 'rss stays under 2.5 GB', `${(after.rss / 1e6).toFixed(0)} MB`);
+}
+
+// ------------------------------------------------------------------ 4b. the hidden-tab yield path
+console.log(`\n=== 4b. document.hidden -> MessageChannel yield (the branch node never takes) ===`);
+{
+  const bin = path.join(WDIR, manifest.arms[probeArm].file), man = path.join(WDIR, 'manifest.json');
+  const probe = (mode) => {
+    const out = execFileSync(process.execPath, [new URL(import.meta.url).pathname, bin, man],
+      { encoding: 'utf8', env: { ...process.env, HIDDEN_PROBE: mode }, timeout: 120000 });
+    const line = out.split('\n').find((s) => s.startsWith('HIDDEN '));
+    return line ? JSON.parse(line.slice(7)) : { error: out.slice(0, 200) };
+  };
+  const s = probe('single');
+  ok(s.finished === true, 'one run in a hidden document finishes', JSON.stringify(s));
+  const c = probe('concurrent');
+  ok(c.a === true && c.b === true, 'TWO concurrent runs in a hidden document both finish', JSON.stringify(c));
+  const ab = probe('abort');
+  ok(ab.abortRejected === true && ab.second === true,
+    'an aborted run in a hidden document still rejects when a second run starts', JSON.stringify(ab));
+}
+
+// ------------------------------------------------------------------ 4c. does the engine reproduce the shipped audio?
+console.log(`\n=== 4c. engine vs the pre-rendered demo WAVs (web/public/assets/audio) ===`);
+function readWav(buf) {                                   // minimal 16-bit PCM reader
+  const dv = new DataView(buf);
+  let p = 12, fmt = null, data = null;
+  while (p + 8 <= buf.byteLength) {
+    const id = String.fromCharCode(dv.getUint8(p), dv.getUint8(p + 1), dv.getUint8(p + 2), dv.getUint8(p + 3));
+    const sz = dv.getUint32(p + 4, true);
+    if (id === 'fmt ') fmt = { ch: dv.getUint16(p + 10, true), fs: dv.getUint32(p + 12, true), bits: dv.getUint16(p + 22, true) };
+    if (id === 'data') data = { off: p + 8, sz };
+    p += 8 + sz + (sz & 1);
+  }
+  const n = data.sz / 2;
+  const y = new Float32Array(n);
+  for (let i = 0; i < n; i++) y[i] = dv.getInt16(data.off + 2 * i, true) / 32768;
+  return { y, ...fmt };
+}
+{
+  const adir = path.join(REPO, 'web/public/assets/audio/p236');
+  const inp = readWav((await readFile(path.join(adir, 'input.wav'))).buffer.slice(0));
+  const files = ['es_erb_l0.1_tau0.wav', 'es_erb_l0.1.wav'];
+  const m = await E.load(path.join(WDIR, manifest.arms['es_erb_l0.1'].file), path.join(WDIR, 'manifest.json'));
+  const yj = await E.run(m, inp.y, { R: 4, tau: 0, chunk: 2048 });
+  for (const f of files) {
+    if (!existsSync(path.join(adir, f))) { console.log(`     (${f} missing)`); continue; }
+    const w = readWav((await readFile(path.join(adir, f))).buffer.slice(0));
+    const n = Math.min(w.y.length, yj.length);
+    const s = snrDb(w.y.subarray(0, n), yj.subarray(0, n));
+    const q = 1 / 32768;                                   // 16-bit quantisation floor
+    console.log(`     ${f.padEnd(24)} fs ${w.fs}  ${w.y.length} samples  SNR(engine tau=0 vs file) ${s.toFixed(2)} dB`);
+    if (f.endsWith('_tau0.wav')) {
+      ok(s > 60, `${f} is the same deterministic render the engine computes`,
+        s > 60 ? `(16-bit floor is ~${(20 * Math.log10(rms(w.y) / (q / Math.sqrt(12)))).toFixed(0)} dB)`
+          : `— the file was rendered from DIFFERENT weights (the shipped .bin is step 16000; `
+            + `demo/assets/weights holds step 13500)`);
+    }
+  }
 }
 
 // ------------------------------------------------------------------ 5. timing, honestly
