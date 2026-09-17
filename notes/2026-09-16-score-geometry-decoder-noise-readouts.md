@@ -168,6 +168,34 @@ match them is to actually draw: `es_erb_l0.1`'s swing is 12.7 dB. That is also w
 calibrated arm (PIT end bins 0.211 against 0.412–0.609) and why its κ is −0.009: it is not
 hallucinating a coherent high band, it is sampling an incoherent one, which is what the truth is.
 
+**The mechanism has a signature in the training curves, and it is the inverse of regression to the
+mean.** From `notes/analysis/dynamics_OV3_fast.md`: between steps 4,000 and 16,000 `es_dec_erb_l0.1`'s
+*noiseless* output **lost** 2.03 dB of high-band energy while its draw **gained** 0.50 dB;
+`es_dec_l0.1` lost 3.22 dB and gained 3.40. The three arms whose noise-off/noise-on gap is largest are
+exactly the three whose τ = 0 pass got emptier over training. The models are moving the high band out
+of the conditional mean and into the noise channel. That is the whole thesis of this repo, visible as
+a divergence in two curves: **the τ = 0 pass getting worse is the price and the proof.**
+
+The ERB arms did the work early — both crossed −12 dB of deficit at step 3,000, 1.43 epochs in, and
+`es_erb_l0.1` posted its all-time best at that exact probe. Nothing after step 6,000 moved them more
+than 0.32 dB. The non-ERB samplers were still climbing 2.4–2.5 dB when the learning rate ran out. So
+the run did not converge, it ran out of step size: by step 12,800 the lr was lr0/64, and the last
+three of the six cuts moved validation by 0.2–1.1 % while moving the training EMA by 3–8 %, which is
+SGD noise leaving the batch loss rather than anything being learned. Three cuts would have done the
+work of six.
+
+**Why decoder noise added nothing on top of ERB, precisely.** Against `es_marg_l0.1`, the ERB term
+alone bought +3.44 dB of deficit, decoder noise alone bought +1.33 dB, and the two together bought
++3.84 dB where adding would give +4.77. Stacked on ERB, decoder noise is worth +0.40 dB — under a
+third of its standalone value, and the 12-utterance gated measurement puts it at +0.1 ± 0.2 dB. They
+are two ways of giving the model somewhere to put incoherent energy, and they are filling one hole.
+
+**One arm's noise became decoration.** `es_split_l0.1` has the lowest two-draw spread of the seven
+(0.00152, still falling at −1.09 % per 1,000 steps) and a noise-off/noise-on gap of −0.06 dB: its
+τ = 1 draw and its τ = 0 pass are the same signal. Its waveform term never looks above 6 kHz, so
+nothing in its objective pays for two draws differing up there. Remove the term that punishes a
+wrong high band and you do not free the model to sample one — you remove its only reason to.
+
 **And the readout is not a free choice.** P7 held for all six arms on LSD, which was expected —
 `logmean16` estimates LSD's minimiser directly. What was not predicted is that it improves audio
 ViSQOL *only* for the two arms trained with the ERB term, and degrades it for the other four. The
@@ -182,10 +210,17 @@ about one decibel and which is maximised by doing nothing
 (`notes/2026-09-17-snr-ceiling-gating-and-scale.md` §1). That is the trade, and it is the right side
 of it.
 
+**What a 50-epoch run would change: the losers, not the winners.** 104,950 steps is 6.6× this run.
+The ERB arms' deficit has been flat since step 6,000, so they move under 1 dB; the non-ERB samplers
+were still climbing at 2.4–2.5 dB per 10,000 steps and should pick up 1–3 dB if the schedule keeps
+the lr above 2.5e-4 out to roughly step 40,000. The ranking survives, the margin shrinks. That is a
+prediction, and the cheap way to test it is one long run of `es_marg_l0.1` against `es_erb_l0.1`
+rather than seven of everything.
+
 **What this does not settle.** No arm is properly dispersed — every SNR gap is far below the
 calibrated 2.75, so the draws are still too alike and CRPS has room. The deficit is still −8 dB at
 best, against a ±2 dB target nobody reached. 16,000 steps is 7.6 epochs against the paper's 50, and
-the validation losses were still falling. And the gated deficit says every arm, `det` worst of all,
+the validation losses were still falling (−0.05 to −0.52 % per 1,000 steps, no arm rising). And the gated deficit says every arm, `det` worst of all,
 puts its high band on too flat in time. The next arm is the one the 17 Sep note pre-registered: weight
 the ERB term by frame energy, or score the high-band envelope against the low-band envelope. Score the
 conditional, not the marginal — one level up from the move that worked here.
