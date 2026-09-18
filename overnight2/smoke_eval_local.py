@@ -3,8 +3,9 @@ import json, os, sys, pathlib, time, dataclasses
 import numpy as np
 os.environ.setdefault("MPLBACKEND", "Agg")
 REPO = pathlib.Path(__file__).resolve().parents[1]
-DRIVE = pathlib.Path.home() / "Library/CloudStorage/GoogleDrive-naghavnarna@gmail.com/My Drive/lisa_rtm"
-SCR = pathlib.Path("/private/tmp/claude-501/-Users-raghavsharma-projects-lisa-rtm/447211de-99bc-4ad9-8fd5-0b6a6dea79f4/scratchpad")
+DRIVE = pathlib.Path(os.environ.get("LISA_DRIVE", pathlib.Path.home() /
+    "Library/CloudStorage/GoogleDrive-naghavnarna@gmail.com/My Drive/lisa_rtm"))  # fixtures; override off a Mac
+SCR = pathlib.Path(os.environ.get("LISA_SCRATCH", REPO / "lisa_rtm_cache" / "smoke"))  # gitignored; override to taste
 NB = json.loads((REPO / "lisa_rtm.ipynb").read_text())
 CODE = ["".join(c["source"]) for c in NB["cells"] if c["cell_type"] == "code"]
 G = {"__name__": "__main__"}
@@ -28,7 +29,7 @@ G["test_utts"] = utts[:12]
 G["paper_test_utts"] = utts[12:14] + utts[:2]
 G["train_utts"] = utts[:4]; G["train_spk"] = ["p225"] * 4; G["test_spk"] = ["p236"] * 12
 G["MANIFEST"] = {"train_speakers": ["p225"], "test_speakers": ["p236", "p237", "p238"]}
-G["ROOT"] = SCR; G["CKPT"] = SCR / "ckpt"; G["FIGS"] = SCR / "figs"; G["FIGS"].mkdir(exist_ok=True)
+G["ROOT"] = SCR; G["CKPT"] = SCR / "ckpt"; G["FIGS"] = SCR / "figs"; G["FIGS"].mkdir(parents=True, exist_ok=True)
 G["OV2_TAG"] = "SMOKE_OV2"; G["OV2"] = str(REPO)      # c4 reads Path(OV2)/lisa_rtm.ipynb
 # shrink the eval for CPU
 src = open(REPO / "overnight2/c3_eval.py").read()

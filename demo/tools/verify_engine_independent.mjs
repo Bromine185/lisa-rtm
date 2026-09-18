@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* demo/tools/verify_engine_independent.mjs — adversarial, independent check of demo/engine.js.
+/* demo/tools/verify_engine_independent.mjs — adversarial, independent check of the SHIPPED engine.
  *
  *   node demo/tools/verify_engine_independent.mjs [--fast]
  *
@@ -7,8 +7,10 @@
  * its own naive O(n^2) DFT, its own SNR, its own decimator, its own comparison helpers.
  *
  * It does NOT use demo/assets/weights (a stale step-13500 copy) or demo/tools/testvec_*.json.  It runs the
- * SHIPPED weights, web/public/assets/weights/<arm>.bin, all seven arms, against PyTorch references generated
- * here and now from lisa_rtm_cache/ckpt/final/<arm>.pt through audit/boot.py:
+ * SHIPPED engine, web/public/engine.js, against the SHIPPED weights, web/public/assets/weights/<arm>.bin,
+ * all seven arms, against PyTorch references generated here and now from lisa_rtm_cache/ckpt/final/<arm>.pt
+ * through audit/boot.py.  demo/engine.js is the source of that copy and section 0 checks they are equal:
+ * verifying the source while the app serves something else would certify the wrong file.
  *
  *   lisa_rtm_cache/verify_adv/prep.py   x12k.f32, arms.json, bincheck.json  (bin == checkpoint, tensor by tensor)
  *   this file                           the noise draws (my mulberry32) -> eps/*.f32, jobs.json
@@ -19,10 +21,11 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const REPO = '/Users/raghavsharma/projects/lisa-rtm';
-const PY = path.join(REPO, 'venv/bin/python');
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const PY = process.env.LISA_PY || path.join(REPO, 'venv/bin/python');
+const ENGINE = path.join(REPO, 'web/public/engine.js');      // the copy the app serves — see section 0
 const WDIR = path.join(REPO, 'web/public/assets/weights');
 const VDIR = path.join(REPO, 'lisa_rtm_cache/verify_adv');
 const FAST = process.argv.includes('--fast');
@@ -33,7 +36,7 @@ const FAST = process.argv.includes('--fast');
 // run the probe in a child process.  Reported back as one JSON line.
 if (process.env.HIDDEN_PROBE) {
   globalThis.document = { hidden: true };
-  const m0 = await import(pathToFileURL(path.join(REPO, 'demo/engine.js')).href);
+  const m0 = await import(pathToFileURL(ENGINE).href);
   const En = m0.default || globalThis.LISAEngine;
   const model = await En.load(process.argv[2], process.argv[3]);
   const x = new Float32Array(4000);
@@ -63,7 +66,7 @@ if (process.env.HIDDEN_PROBE) {
   process.exit(0);
 }
 
-const mod = await import(pathToFileURL(path.join(REPO, 'demo/engine.js')).href);
+const mod = await import(pathToFileURL(ENGINE).href);
 const E = mod.default || globalThis.LISAEngine;
 if (!E || typeof E.run !== 'function' || typeof E.load !== 'function') throw new Error('no LISAEngine');
 
@@ -220,6 +223,14 @@ if (existsSync(staleBin)) {
   const step = sm.arms['es_erb_l0.1'].step;
   console.log(`     note: validate_engine.mjs reads demo/assets/weights (step ${step}, ${Object.keys(sm.arms).length} arm) —`
     + ` not what the app serves`);
+}
+// demo/ holds the sources; web/public/ holds the copies the app serves, and only demo/tools/sync_web.mjs
+// keeps them equal.  If they have drifted, every number below describes a file nobody loads.
+for (const f of ['engine.js', 'arch3d.js']) {
+  const src = await readFile(path.join(REPO, 'demo', f));
+  const shipped = await readFile(path.join(REPO, 'web/public', f));
+  ok(src.equals(shipped), `demo/${f} == web/public/${f}`,
+    src.equals(shipped) ? `${shipped.length} B` : `${src.length} B vs ${shipped.length} B — run: node demo/tools/sync_web.mjs`);
 }
 
 // ------------------------------------------------------------------ 1. short inputs for the edge-case refs

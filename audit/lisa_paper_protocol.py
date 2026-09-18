@@ -10,7 +10,8 @@ to the chunking `eval_lisa.py` uses.  Reports:
   4. LSD in their definition against the conventional one, on the same signal
   5. how much of their LSD is pinned at its epsilon floor
 
-Nothing is trained.  See notes/2026-09-17-lisa-numbers-and-the-limits-of-snr.md.
+Nothing is trained.  See notes/2026-09-17-lisa-reported-numbers-audit.md (sections 3-5 for what
+this measures, section 9 for the run inside their code that would remove the reimplementation caveat).
 
     venv/bin/python audit/lisa_paper_protocol.py
 """

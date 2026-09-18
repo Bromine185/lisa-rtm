@@ -96,7 +96,8 @@ audit/               protocol checks, no GPU: the task's SNR ceiling, LISA's rep
 web/                 "The Missing Band": the Next.js demo. Pick a speaker, watch the 88k network run
                      in the browser, hear the readouts, open a 3D view of any arm
 demo/                the demo's sources: SPEC.md, the plain-JS engine and 3D scene that web/public
-                     serves, and the Python tools that render its audio, weights and numbers
+                     serves (copied by demo/tools/sync_web.mjs -- there is no build step), and the
+                     Python tools that render its audio, weights and numbers
 notes/               the research notes, in date order
 ```
 
@@ -118,6 +119,13 @@ one, which can carry its own Production Overrides forward.
 `web/public/assets` is committed on purpose — 168 WAVs, seven weight files, and the evaluation JSON,
 about 60 MB. The build needs no Python and no GPU; `npm ci && next build` from a clean clone is the
 whole of it.
+
+`web/public/engine.js` and `web/public/arch3d.js` are committed copies of `demo/engine.js` and
+`demo/arch3d.js`. Next serves `public/` verbatim and the app cannot import out of `demo/`, so the
+two live as duplicates rather than as a build artefact. Edit the `demo/` copy and run
+`node demo/tools/sync_web.mjs` (or `--check`, which exits 1 on drift and needs neither a venv nor a
+checkpoint); `demo/tools/verify_engine_independent.mjs` refuses to certify the engine until they
+match, since otherwise it would be testing a file the site does not serve.
 
 ## Local development
 

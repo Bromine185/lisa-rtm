@@ -10,6 +10,15 @@ gate with the speech (−11.7 dB on loud frames, +1.0 dB in the gaps), which the
 
 ## Next, from the 17 Sep audit
 
+- [ ] **Run §9 of the audit note inside ml-postech/LISA's own code.** An afternoon, no GPU, no
+      checkpoint, and it removes the last caveat on this repo's strongest claim: every number behind
+      "24.16 dB is above the ceiling" currently comes from our transcription of their `calc_snr`,
+      their `compute_log_distortion` and torchaudio 0.6.0's kaldi resampler. Calling the originals
+      either removes the caveat or finds a bug in ours.
+      `git clone https://github.com/ml-postech/LISA /tmp/LISA && venv/bin/python
+      audit/lisa_in_their_code.py --lisa /tmp/LISA`. Reports (a) the full validation set, (b) batch
+      index 3 alone — what the `if ii == 3:` guard scores — and (c) the full set decimated with
+      `resample_poly` instead, which also prices the `resample_poly`-vs-torchaudio A/B below.
 - [ ] **Add the gated deficit to `overnight3/e4_eval.py`** — `band_energy_ratio` already takes a
       `frame_mask`; split frames into loud / mid / quiet by energy and report all three. This is the
       defect a listener hears and no current metric reports it.
@@ -33,6 +42,26 @@ beats the point-trained model on SNR; the band above 6 kHz is incoherent with th
 
 ## Next, in priority order
 
+- [ ] **Resolve the two-test-set discrepancy — first, before any new run.** The same checkpoint
+      measures a high-band deficit 5–8 dB deeper on the Hub `test_utts` than on the DataShare
+      `test_FULL.npz` for nominally the same speakers (both mic1). The sampler is energy-calibrated on
+      one and under-dispersed on the other. This is not a ranking question: it is a possible pipeline
+      bug sitting underneath every number in this repo, and it outranks the model work below because
+      that work is measured with it. Until it is settled, every number must name its set.
+      **Run `venv/bin/python audit/two_test_sets.py`** (no GPU, no checkpoint), which pairs the two
+      routes by FLAC basename and reports the model-free quantities per utterance. Three hypotheses,
+      and the script separates them:
+      - *H1, different audio.* The DataShare route takes `wav48_silence_trimmed/*_mic1.flac`; the Hub
+        route takes any row whose path contains `mic1`, with no equivalent constraint. The tell is
+        already in the 4 Sep table: **naive upsampling itself scores 19.48 dB on Hub against 19.20 on
+        DataShare**. No model is involved in that baseline, so a model cannot explain it.
+      - *H2, different utterances.* Both routes take the first 40 per speaker by name, but sorted on
+        different name formats (zip member paths vs `(speaker_id, file)`).
+      - *H3, different subsets, only mislabelled.* The 8 Sep Hub column is `test_utts[:12]`, which is
+        **p236 alone** — both routes lay out 40 utterances per speaker in speaker order — while the
+        DataShare column is 12 from each of the three speakers. If p236 accounts for the gap, the sets
+        never disagreed and only the labels did.
+
 **Evening 8 Sep — judged by LSD + ViSQOL (note §7):** speech-mode ViSQOL/PESQ cannot see the band (naive
 wins on DataShare); audio-mode ViSQOL rewards deterministic high-band energy monotonically; winners are
 λ = 1e-1 (Hub) and the wide-context det (DataShare), with the T1 rung adding +0.11/+0.15; the sampler's
@@ -49,11 +78,6 @@ audio-mode range between empty and true high band.
 - [ ] Retire speech-mode ViSQOL and PESQ as judges for 12 → 48 kHz; report audio-mode ViSQOL (and NSIM)
       with the floor/ceiling rows (1.57 / 4.73) alongside.
 
-- [ ] **Resolve the two-test-set discrepancy.** The same checkpoint measures a high-band deficit 5–8 dB
-      deeper on the Hub `test_utts` than on the DataShare `test_FULL.npz` for the same speakers (both
-      mic1). The sampler is energy-calibrated on one and under-dispersed on the other. Until the
-      provenance is settled, every number must name its set. Start by comparing one utterance's
-      spectrum from both routes.
 - [ ] **Close the in-distribution energy gap of the sampler** (single draw −7.9 dB on Hub at 9 epochs,
       PIT nearly flat). Candidates, one at a time: train to 50 epochs; weight the log-magnitude term
       higher than 1e-2; more noise channels or noise into the decoder; the β = 0.5 energy score.

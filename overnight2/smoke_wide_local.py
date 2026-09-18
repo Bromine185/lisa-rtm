@@ -1,7 +1,8 @@
 import json, os, pathlib, time, numpy as np
 os.environ.setdefault("MPLBACKEND", "Agg")
 REPO = pathlib.Path(__file__).resolve().parents[1]
-DRIVE = pathlib.Path.home() / "Library/CloudStorage/GoogleDrive-naghavnarna@gmail.com/My Drive/lisa_rtm"
+DRIVE = pathlib.Path(os.environ.get("LISA_DRIVE", pathlib.Path.home() /
+    "Library/CloudStorage/GoogleDrive-naghavnarna@gmail.com/My Drive/lisa_rtm"))  # fixtures; override off a Mac
 NB = json.loads((REPO / "lisa_rtm.ipynb").read_text()); CODE = ["".join(c["source"]) for c in NB["cells"] if c["cell_type"] == "code"]
 G = {"__name__": "__main__"}
 def run(mark): exec(compile(next(s for s in CODE if mark in s), "<nb>", "exec"), G)
@@ -21,8 +22,8 @@ for kind, lam in [("det", 1e-2), ("es_marg", 1e-2)]:
     loss, terms = G["arm_loss"](kind, lam, m, x, y, spec); loss.backward(); print(kind, loss.item(), terms); m.zero_grad()
 yy = utts[0][:48000]; r0 = G["reconstruct"](m, yy, CFG, tau=0.0); r1 = G["reconstruct"](m, yy, CFG, tau=1.0, seed=1)
 print("reconstruct", len(r0), np.abs(r0 - r1).max())
-SCR = pathlib.Path("/private/tmp/claude-501/-Users-raghavsharma-projects-lisa-rtm/447211de-99bc-4ad9-8fd5-0b6a6dea79f4/scratchpad")
-G["CKPT"] = SCR / "ckpt"; G["ROOT"] = SCR; G["MODEL_CLS"] = G["LISASW"]
+SCR = pathlib.Path(os.environ.get("LISA_SCRATCH", REPO / "lisa_rtm_cache" / "smoke"))  # gitignored; override to taste
+G["CKPT"] = SCR / "ckpt"; G["ROOT"] = SCR; G["CKPT"].mkdir(parents=True, exist_ok=True); G["MODEL_CLS"] = G["LISASW"]
 models, hist = G["train_ov2"](corpus, {"wide_det": ("det", 1e-2), "wide_es_marg": ("es_marg", 1e-2)}, 2, 2, 1e-3, (0.5,), 0.5, 1e-3, 1, "SMOKE_WIDE", yy)
 m2, ck = G["load_arm"](G["CKPT"] / "SMOKE_WIDE" / "wide_es_marg.pt"); print("reloaded", type(m2).__name__, ck["cls"], ck["step"], "tau", m2.tau)
 # latency of the wide model on CPU, 1 s

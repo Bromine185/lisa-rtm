@@ -16,7 +16,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-ROOT = Path("/Users/raghavsharma/projects/lisa-rtm")
+ROOT = Path(__file__).resolve().parents[1]
 HIST = ROOT / "lisa_rtm_cache/results/ov3_history_OV3_fast.json"
 FIGS = ROOT / "notes/analysis/figs"
 OUT = ROOT / "lisa_rtm_cache/results/dynamics_OV3_fast.json"

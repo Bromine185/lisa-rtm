@@ -59,6 +59,17 @@ Clicking a model in the list swaps the centre for the 3D architecture scene (wit
 
 ## Modules and their contracts
 
+`demo/engine.js` and `demo/arch3d.js` are the sources; `web/public/engine.js` and
+`web/public/arch3d.js` are byte-identical copies, because Next serves `public/` verbatim and the app
+cannot import out of `demo/`. There is no build step: edit the `demo/` copy, then run
+
+```bash
+node demo/tools/sync_web.mjs           # copy;  --check reports drift and exits 1
+```
+
+and commit both. `verify_engine_independent.mjs` asserts the two are equal before it verifies
+anything, because it runs the shipped copy against the shipped weights.
+
 `demo/engine.js` — `window.LISAEngine`
 ```
 load(binUrl, manifestUrl) -> Promise<model>

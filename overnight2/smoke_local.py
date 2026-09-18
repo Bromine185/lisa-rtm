@@ -4,7 +4,9 @@ import json, os, sys, pathlib, time
 import numpy as np
 os.environ.setdefault("MPLBACKEND", "Agg")
 REPO = pathlib.Path(__file__).resolve().parents[1]
-DRIVE = pathlib.Path.home() / "Library/CloudStorage/GoogleDrive-naghavnarna@gmail.com/My Drive/lisa_rtm"
+DRIVE = pathlib.Path(os.environ.get("LISA_DRIVE", pathlib.Path.home() /
+    "Library/CloudStorage/GoogleDrive-naghavnarna@gmail.com/My Drive/lisa_rtm"))  # fixtures; override off a Mac
+SCR = pathlib.Path(os.environ.get("LISA_SCRATCH", REPO / "lisa_rtm_cache" / "smoke"))  # gitignored; override to taste
 NB = json.loads((REPO / "lisa_rtm.ipynb").read_text())
 CODE = ["".join(c["source"]) for c in NB["cells"] if c["cell_type"] == "code"]
 G = {"__name__": "__main__"}
@@ -54,7 +56,7 @@ print("reconstruct lens", len(r0), len(yy), "seed-repeat max diff", np.abs(r1a -
 m.tau = 1.0
 print("probe_metrics", G["probe_metrics"](m, yy, CFG, 0.0))
 # 4-step paired training with checkpoints into the local cache
-G["CKPT"] = pathlib.Path("/private/tmp/claude-501/-Users-raghavsharma-projects-lisa-rtm/447211de-99bc-4ad9-8fd5-0b6a6dea79f4/scratchpad/ckpt")
+G["CKPT"] = SCR / "ckpt"
 G["ROOT"] = G["CKPT"]
 G["CKPT"].mkdir(parents=True, exist_ok=True)
 arms = {"det": ("det", 1e-2), "es_slice": ("es_slice", 1e-2)}
