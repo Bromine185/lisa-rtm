@@ -1,22 +1,27 @@
-"""Two degradation operators, two inverse problems, two ceilings.
+"""Two degradation operators, two inverse problems.
 
-With anti-aliasing the operator is `A = D_R . H` and `ker(A) = range(P_H)`: the null space is exactly
-the band being estimated, so the observation carries no linear information about it, the optimal Wiener
-filter for the missing band is the zero filter, and naive sinc upsampling is the LMMSE solution.  Drop
-`H` and `x = y[::R]` folds 6-24 kHz back into the baseband.  The band is then present in the observation
--- mirrored and summed with the baseband -- and the task is unmixing, not synthesis.
+With anti-aliasing the operator is `A = D_R . H`, and for an ideal `H` the missing band lies exactly
+in `ker(A) = range(P_H)`: the observation carries no linear information about it, the optimal Wiener
+filter for that band is the zero filter, and naive sinc upsampling is the LMMSE solution.  A REAL `H`
+is not ideal -- `scipy.signal.resample_poly`'s 81-tap Kaiser passes 6.0-6.6 kHz at up to -6 dB -- so a
+little of the band survives and a fitted filter finds it.  That leak is measured here, not assumed.
+Drop `H` altogether and `x = y[::R]` folds all of 6-24 kHz back into the baseband: the band is fully
+present in the observation, mirrored and summed, and the task becomes unmixing rather than synthesis.
 
 Three measurements, in increasing order of assumption:
 
   1. how much of the band above 6 kHz survives into the observation at all.  No estimator, no model.
-  2. what a fixed linear per-bin filter, fitted on four speakers and applied to four others, recovers
-     of it.  This is the best time-invariant linear estimator: it is what "no model" buys you.
+  2. what a per-bin linear filter recovers of it -- the best time-invariant linear estimator given the
+     observed bin, fitted on four speakers and scored on four others.  This is admissible: it uses
+     nothing but `x`.  Reported across all eight rotations of the split, because one split is a
+     lottery: the aliased number spans 1 to 21 % over the eight.
   3. what an ORACLE per-bin unfolder recovers -- the Wiener unfolder that knows each alias's own power
-     at every bin.  It is not an upper bound on the aliased protocol; it is one estimator with strong
-     side information.  It matters because whatever it reaches, the aliased protocol's ceiling is at
-     least that high, and it is measured against the anti-aliased ceiling, which IS an upper bound.
+     at every bin.  It is NOT admissible (those powers are a function of `y`, not of `x`) and so its
+     score is neither an upper nor a lower bound on the protocol's ceiling.  It is reported as what a
+     phase-blind per-bin unmixer could do if the spectral split were handed to it.
 
-Nothing is trained, no checkpoint, no GPU.  See notes/2026-09-17-lisa-reported-numbers-audit.md §2, §6.
+Nothing is trained, no checkpoint, no GPU.  See notes/2026-09-17-lisa-reported-numbers-audit.md §2, §6
+and paper/bwe-information-ceiling.md §8.
 
     venv/bin/python audit/protocol_fork.py
 """
@@ -31,8 +36,10 @@ CHUNK = FS                     # 1 s, the chunk length LISA's wrapper uses
 M = CHUNK // R                 # baseband bins; each one is the sum of R aliases
 HALF = M // 2                  # m <= HALF is fitted, the rest follows by conjugate symmetry
 GROUP = 401                    # bins pooled per fitted gain (~400 Hz): a spectral envelope, not detail
-FIT, EVAL = PAPER_TEST[:4], PAPER_TEST[4:]
 CUT = FS / (2 * R)             # 6 kHz
+SPLITS = [tuple(PAPER_TEST[(j + i) % len(PAPER_TEST)] for i in range(len(PAPER_TEST)))
+          for j in range(len(PAPER_TEST))]          # every rotation of who is fitted
+FIT, EVAL = PAPER_TEST[:4], PAPER_TEST[4:]
 
 
 def aliases(c):
@@ -40,14 +47,15 @@ def aliases(c):
     return np.fft.fft(c, axis=-1).reshape(*np.shape(c)[:-1], R, M)
 
 
-def high_mask():
-    """Exactly one alias of each bin is the low band; the other R-1 are what we are trying to recover.
+def alias_freqs():
+    """|f| of every alias of every baseband bin, shape (R, M)."""
+    n = np.arange(R)[:, None] * M + np.arange(M)[None, :]
+    return np.abs(np.where(n < R * M / 2, n, n - R * M) * FS / (R * M))
 
-    The one exception is m = HALF, the 6 kHz bin itself, where two aliases sit exactly on the cut.
-    One bin in M, on the boundary -- it moves nothing.
-    """
-    m = np.arange(M)
-    return np.arange(R)[:, None] != np.where(m < HALF, 0, R - 1)[None, :]
+
+def high_mask():
+    """Which aliases carry |f| >= 6 kHz.  Computed from frequency, so it agrees with split() bin for bin."""
+    return alias_freqs() >= CUT
 
 
 def observe(c, protocol):
@@ -66,7 +74,11 @@ def split(c):
 
 
 def survives(utts, protocol):
-    """Fraction of the high band's energy that reaches the observation.  x(y) - x(y_lo) is all of it."""
+    """Power of the high band reaching the observation, over its power in y.  x(y) - x(y_lo) is all of it.
+
+    The factor R turns two sums of different length into a mean-square ratio.  It can exceed 1 under
+    aliasing, where the folded copies interfere; its expectation there is exactly 1.
+    """
     num = den = 0.0
     for c in utts:
         _, lo = split(c)
@@ -79,7 +91,8 @@ def fit_gains(utts, protocol):
     """One complex gain per (alias, ~400 Hz group), least squares, each chunk normalised to unit energy.
 
     w = E[A conj(Z)] / E[|Z|^2] is the best linear estimator of that alias from that observed bin.
-    Level normalisation stops the few loudest chunks from owning the fit.
+    Level normalisation stops the few loudest chunks from owning the fit; num and den take the same
+    box, so the 1/GROUP cancels and this is the exact group least squares, edges included.
     """
     num = np.zeros((R, HALF + 1), complex)
     den = np.zeros(HALF + 1)
@@ -88,8 +101,8 @@ def fit_gains(utts, protocol):
         s = np.maximum((c ** 2).sum(-1), 1e-30)[:, None]
         num += (A * np.conj(Z)[:, None, :] / s[:, None, :]).sum(0)
         den += (np.abs(Z) ** 2 / s).sum(0)
-    num = uniform_filter1d(num, GROUP, axis=-1, mode="nearest")
-    den = uniform_filter1d(den, GROUP, mode="nearest")
+    num = uniform_filter1d(num, GROUP, axis=-1, mode="constant")
+    den = uniform_filter1d(den, GROUP, mode="constant")
     w = np.zeros((R, M), complex)
     w[:, :HALF + 1] = num / np.maximum(den, 1e-30)
     for k in range(R):                                  # conjugate mirror keeps the output real
@@ -101,7 +114,10 @@ def fit_gains(utts, protocol):
 
 
 def oracle_gains(A):
-    """R * sigma_k^2 / sum_j sigma_j^2 per bin, from the true per-alias powers.  Phase-blind, per bin."""
+    """R * sigma_k^2 / sum_j sigma_j^2 per bin, from the true per-alias powers.  Phase-blind, per bin.
+
+    Not admissible: those powers are a function of y.  See the module docstring.
+    """
     P = np.abs(A) ** 2
     return R * P / np.maximum(P.sum(-2, keepdims=True), 1e-30)
 
@@ -131,7 +147,10 @@ def rebuild(Ahat):
 
 
 def score(utts, preds):
-    """SNR under three averaging conventions.  The map from energy fraction to dB is not free (Jensen)."""
+    """SNR under three averaging conventions.  The map from energy fraction to dB is not free (Jensen).
+
+    'utt dB' is an unweighted mean over utterances of unequal length, so it is not 'chunk dB' regrouped.
+    """
     ce, uu, pool = [], [], []
     for c, p in zip(utts, preds):
         sig, err = (c ** 2).sum(-1), ((c - p) ** 2).sum(-1)
@@ -153,35 +172,60 @@ def chunks(speakers):
     return out
 
 
+def sweep(protocol, cache):
+    """Held-out recovery over every rotation of which four of the eight speakers are fitted."""
+    out = []
+    for sp in SPLITS:
+        f = [x for s in sp[:4] for x in cache[s]]
+        e = [x for s in sp[4:] for x in cache[s]]
+        out.append(recovered(e, protocol, fit_gains(f, protocol)))
+    return np.array(out)
+
+
 def main():
-    fit_u, ev_u = chunks(FIT), chunks(EVAL)
+    cache = {s: chunks((s,)) for s in PAPER_TEST}
+    fit_u = [x for s in FIT for x in cache[s]]
+    ev_u = [x for s in EVAL for x in cache[s]]
     print(f"fit  {' '.join(FIT)}   {sum(len(c) for c in fit_u)} one-second chunks")
     print(f"eval {' '.join(EVAL)}   {sum(len(c) for c in ev_u)} one-second chunks   (speaker-disjoint)")
     fr = np.concatenate([split(c)[0] for c in ev_u])
     print(f"energy at or above {CUT/1000:.0f} kHz on the eval set: {100*fr.mean():.3f} % per chunk\n")
 
-    W = {p: fit_gains(fit_u, p) for p in ("clean", "aliased")}
     names = {"clean": "anti-aliased  x = D_R(H y)", "aliased": "aliased       x = y[::R]"}
-    print("1. how much of the band above 6 kHz reaches the observation (no estimator)\n")
+    print("1. how much of the band above 6 kHz reaches the observation (no estimator, no fit)\n")
     for p in ("clean", "aliased"):
         print(f"   {names[p]:<30} {100*survives(ev_u, p):8.3f} %")
-    print("\n2. of that band, what is coherently recoverable by the best FIXED linear per-bin filter,")
-    print("   fitted on the four fit speakers:\n")
-    print(f"   {'':<30} {'fit set':>9} {'held out':>10}")
+    print("\n   With H, 97.8 % of the band is destroyed and never reaches any estimator.  Without it,")
+    print("   all of it is there.  Everything below is about what can be done with what is there.\n")
+
+    W = {p: fit_gains(fit_u, p) for p in ("clean", "aliased")}
+    print("2. of the band above 6 kHz, what an ADMISSIBLE per-bin linear filter recovers, held out.")
+    print(f"   Eight rotations of which four of the {len(PAPER_TEST)} speakers are fitted:\n")
+    print(f"   {'':<30} {'this split':>11} {'median':>8} {'min':>8} {'max':>8}")
     for p in ("clean", "aliased"):
-        print(f"   {names[p]:<30} {100*recovered(fit_u, p, W[p]):8.2f}% {100*recovered(ev_u, p, W[p]):9.2f}%")
-    print(f"\n   anti-aliased: the fitted gain on every high-band alias is at most "
-          f"{np.abs(W['clean'][1:R-1]).max():.1e} --")
-    print("   W(f) = S_xy/S_xx = 0 above 6 kHz, so the zero filter is optimal and naive sinc is LMMSE.")
-    print("   aliased: the band IS there, but a time-invariant filter cannot unmix it -- the split")
-    print("   between baseband and folded band is signal-dependent.  Unfolding needs a model.\n")
-    print("3. what an ORACLE per-bin unfolder recovers from the aliased observation (side information:")
-    print("   every alias's own power at every bin; phase-blind; still only a scalar gain per bin)\n")
-    print(f"   {'aliased, oracle unfolder':<30} {100*recovered(fit_u, 'aliased', 'oracle'):8.2f}%"
-          f" {100*recovered(ev_u, 'aliased', 'oracle'):9.2f}%\n")
+        v = 100 * sweep(p, cache)
+        print(f"   {names[p]:<30} {100*recovered(ev_u, p, W[p]):10.2f}% {np.median(v):7.2f}% "
+              f"{v.min():7.2f}% {v.max():7.2f}%")
+    print("\n   One split is a lottery -- the aliased number spans an order of magnitude across the")
+    print("   eight -- but every split separates the two protocols, and the medians differ 8x.")
+    hm, af = high_mask(), alias_freqs()
+    g = np.abs(W["clean"]) * hm
+    f_worst = af[np.unravel_index(int(np.argmax(g)), g.shape)]
+    top = af[g > 0.1]
+    print(f"\n   The anti-aliased row is NOT zero, and that is the filter, not the speech: the fitted")
+    print(f"   gain peaks at {g.max():.2f} at {f_worst:.0f} Hz and stays above 0.1 out to "
+          f"{top.max():.0f} Hz, inside")
+    print("   resample_poly's transition band (its 81-tap Kaiser is only -6 dB down at 6.0 kHz).")
+    print("   For an ideal brick wall the high band is exactly in ker(A) and the zero filter is optimal;")
+    print("   for an 81-tap Kaiser it is optimal to within the 2.15 % that leaks.\n")
+
+    print("3. what an ORACLE per-bin unfolder recovers from the aliased observation.  Inadmissible:")
+    print("   it is handed each alias's own power at every bin, which is a function of y, not of x.\n")
+    print(f"   {'aliased, oracle unfolder':<30} {100*recovered(ev_u, 'aliased', 'oracle'):10.2f}%"
+          f"   (fit set {100*recovered(fit_u, 'aliased', 'oracle'):.2f}%, no fitting involved)\n")
 
     preds = {
-        "ceiling: exact low band, empty high band": [split(c)[1] for c in ev_u],
+        "empty high band (rho = 0)": [split(c)[1] for c in ev_u],
         "naive sinc upsample, anti-aliased input": [
             sps.resample_poly(observe(c, "clean"), R, 1, axis=-1) for c in ev_u],
         "LMMSE filter, anti-aliased input": [
@@ -200,24 +244,18 @@ def main():
         got[k] = score(ev_u, v)
         print(f"   {k:<42}{got[k][0]:9.2f}{got[k][1]:8.2f}{got[k][2]:8.2f}{got[k][3]:7.2f}")
 
-    ceil = got["ceiling: exact low band, empty high band"]
-    nv_c = got["naive sinc upsample, anti-aliased input"]
-    nv_a = got["naive sinc upsample, ALIASED input"]
-    orc = got["oracle unfolder, ALIASED input"]
-    print("\n5. the fork: headroom above each protocol's OWN naive baseline, which is what a metric")
-    print("   needs if it is to rank models at all\n")
-    print(f"   {'':<30}{'chunk dB':>9}{'utt dB':>8}{'pooled':>8}")
-    for name, a, b in (("anti-aliased, ceiling - naive", ceil, nv_c),
-                       ("aliased, oracle unfold - naive", orc, nv_a)):
-        print(f"   {name:<30}{a[0]-b[0]:+9.2f}{a[1]-b[1]:+8.2f}{a[2]-b[2]:+8.2f}")
-    print(f"\n   Anti-aliased: {ceil[0]-nv_c[0]:.2f} dB, and that is an UPPER bound -- nothing that does not")
-    print("   synthesise high-band phase gets past it.  Aliased: at least "
-          f"{orc[0]-nv_a[0]:.2f} dB, from one")
-    print("   phase-blind per-bin unfolder, and a model that adapts per frame will find more.")
-    print("   Same nominal task, same corpus, same metric; the dynamic range differs by 20x.")
-    print(f"\n   Against the anti-aliased ceiling itself the oracle unfolder lands {orc[0]-ceil[0]:+.2f} chunk-dB,")
-    print(f"   {orc[1]-ceil[1]:+.2f} utterance-dB, {orc[2]-ceil[2]:+.2f} pooled: it crosses the other protocol's")
-    print("   hard bound under two conventions of three.  Quote every ceiling with its averaging rule.")
+    ceil, lmc = got["empty high band (rho = 0)"], got["LMMSE filter, anti-aliased input"]
+    nv_a, orc = got["naive sinc upsample, ALIASED input"], got["oracle unfolder, ALIASED input"]
+    print(f"\n5. reading the table honestly")
+    print(f"   The rho = 0 row is a hard bound only for an ideal H.  The fitted anti-aliased filter")
+    print(f"   crosses it by {lmc[1]-ceil[1]:+.3f} utterance-dB and {lmc[2]-ceil[2]:+.3f} pooled -- the leak of §2,")
+    print(f"   worth three hundredths of a decibel.  Round it off and the bound holds.")
+    print(f"   The aliased protocol's own naive baseline sits {nv_a[0]-ceil[0]:+.2f} dB lower, and the")
+    print(f"   oracle recovers {orc[0]-nv_a[0]:+.2f} dB of that -- about half from the baseband the fold")
+    print("   corrupted, about half from the high band itself.  That is a statement about how much")
+    print("   room a metric has on each protocol, not a measured information ceiling for the aliased")
+    print("   one: no admissible estimator here reaches it, and on p236-p238 it lands below the")
+    print("   anti-aliased bound rather than above.  What is protocol-level and assumption-free is §1.")
 
 
 if __name__ == "__main__":

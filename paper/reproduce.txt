@@ -30,53 +30,55 @@ fit  p351 p360 p361 p362   159 one-second chunks
 eval p363 p364 p374 p376   168 one-second chunks   (speaker-disjoint)
 energy at or above 6 kHz on the eval set: 1.531 % per chunk
 
-1. how much of the band above 6 kHz reaches the observation (no estimator)
+1. how much of the band above 6 kHz reaches the observation (no estimator, no fit)
 
    anti-aliased  x = D_R(H y)        2.151 %
    aliased       x = y[::R]        100.146 %
 
-2. of that band, what is coherently recoverable by the best FIXED linear per-bin filter,
-   fitted on the four fit speakers:
+   With H, 97.8 % of the band is destroyed and never reaches any estimator.  Without it,
+   all of it is there.  Everything below is about what can be done with what is there.
 
-                                    fit set   held out
-   anti-aliased  x = D_R(H y)         2.07%      4.30%
-   aliased       x = y[::R]          26.76%      1.07%
+2. of the band above 6 kHz, what an ADMISSIBLE per-bin linear filter recovers, held out.
+   Eight rotations of which four of the 8 speakers are fitted:
 
-   anti-aliased: the fitted gain on every high-band alias is at most 3.8e-02 --
-   W(f) = S_xy/S_xx = 0 above 6 kHz, so the zero filter is optimal and naive sinc is LMMSE.
-   aliased: the band IS there, but a time-invariant filter cannot unmix it -- the split
-   between baseband and folded band is signal-dependent.  Unfolding needs a model.
+                                   this split   median      min      max
+   anti-aliased  x = D_R(H y)           3.98%    2.25%    2.01%    3.98%
+   aliased       x = y[::R]             1.05%   18.91%    1.05%   21.34%
 
-3. what an ORACLE per-bin unfolder recovers from the aliased observation (side information:
-   every alias's own power at every bin; phase-blind; still only a scalar gain per bin)
+   One split is a lottery -- the aliased number spans an order of magnitude across the
+   eight -- but every split separates the two protocols, and the medians differ 8x.
 
-   aliased, oracle unfolder          57.74%     50.82%
+   The anti-aliased row is NOT zero, and that is the filter, not the speech: the fitted
+   gain peaks at 3.74 at 6000 Hz and stays above 0.1 out to 7146 Hz, inside
+   resample_poly's transition band (its 81-tap Kaiser is only -6 dB down at 6.0 kHz).
+   For an ideal brick wall the high band is exactly in ker(A) and the zero filter is optimal;
+   for an 81-tap Kaiser it is optimal to within the 2.15 % that leaks.
+
+3. what an ORACLE per-bin unfolder recovers from the aliased observation.  Inadmissible:
+   it is handed each alias's own power at every bin, which is a function of y, not of x.
+
+   aliased, oracle unfolder            50.82%   (fit set 57.74%, no fitting involved)
 
 4. SNR of each reconstruction, held-out speakers, three averaging conventions
 
                                               chunk dB  utt dB  pooled     sd
-   ceiling: exact low band, empty high band      22.06   20.77   19.82   5.81
+   empty high band (rho = 0)                     22.06   20.77   19.82   5.81
    naive sinc upsample, anti-aliased input       21.94   20.68   19.71   5.81
-   LMMSE filter, anti-aliased input              22.02   20.80   19.85   5.76
+   LMMSE filter, anti-aliased input              22.01   20.78   19.84   5.76
    naive sinc upsample, ALIASED input            19.50   18.27   17.26   5.79
    LMMSE filter, ALIASED input                   18.68   17.89   16.81   4.87
    oracle unfolder, ALIASED input                21.97   20.93   20.11   5.39
 
-5. the fork: headroom above each protocol's OWN naive baseline, which is what a metric
-   needs if it is to rank models at all
-
-                                  chunk dB  utt dB  pooled
-   anti-aliased, ceiling - naive     +0.12   +0.09   +0.11
-   aliased, oracle unfold - naive    +2.47   +2.66   +2.86
-
-   Anti-aliased: 0.12 dB, and that is an UPPER bound -- nothing that does not
-   synthesise high-band phase gets past it.  Aliased: at least 2.47 dB, from one
-   phase-blind per-bin unfolder, and a model that adapts per frame will find more.
-   Same nominal task, same corpus, same metric; the dynamic range differs by 20x.
-
-   Against the anti-aliased ceiling itself the oracle unfolder lands -0.09 chunk-dB,
-   +0.16 utterance-dB, +0.29 pooled: it crosses the other protocol's
-   hard bound under two conventions of three.  Quote every ceiling with its averaging rule.
+5. reading the table honestly
+   The rho = 0 row is a hard bound only for an ideal H.  The fitted anti-aliased filter
+   crosses it by +0.015 utterance-dB and +0.013 pooled -- the leak of §2,
+   worth three hundredths of a decibel.  Round it off and the bound holds.
+   The aliased protocol's own naive baseline sits -2.55 dB lower, and the
+   oracle recovers +2.47 dB of that -- about half from the baseband the fold
+   corrupted, about half from the high band itself.  That is a statement about how much
+   room a metric has on each protocol, not a measured information ceiling for the aliased
+   one: no admissible estimator here reaches it, and on p236-p238 it lands below the
+   anti-aliased bound rather than above.  What is protocol-level and assumption-free is §1.
 
 ===== audit/lisa_paper_protocol.py =====
 

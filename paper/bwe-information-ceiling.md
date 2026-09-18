@@ -24,15 +24,17 @@ recovered fraction `ρ` of the band above 6 kHz.
 > `SNR(ρ) = −10 log₁₀( φ · (1 − ρ) )`,  `φ` = fraction of the signal's energy above 6 kHz,
 > evaluated per utterance and then averaged in dB (§6 is about that choice).
 
-Equivalently: the optimal Wiener filter for the missing band is the **zero filter**,
-`W(f) = S_xy/S_xx ≈ 0` for `f > 6 kHz`, and naive sinc upsampling is the LMMSE solution — not a weak
-baseline to be beaten by a better architecture, but the answer the objective asks for. We measure
-this rather than assert it: fitting the best per-bin linear estimator of the missing band on four
-VCTK speakers and applying it to four held-out speakers recovers 4.3 % of the band above 6 kHz, with
-every fitted high-band gain below 3.8 × 10⁻². That 4.3 % is not speech structure; it is the
-transition band of a real anti-alias filter, and it is worth 0.03 dB — the ceiling is exact for an
-ideal brick wall and tight to within measurement noise for `scipy.signal.resample_poly`. §8 shows
-what happens when the filter is removed altogether.
+Equivalently: for an ideal `H` the optimal Wiener filter for the missing band is the **zero filter**,
+`W(f) = S_xy/S_xx = 0` for `f > 6 kHz`, and naive sinc upsampling is the LMMSE solution — not a weak
+baseline to be beaten by a better architecture, but the answer the objective asks for.
+
+A real `H` is not ideal, and we measure the difference rather than wave it away.
+`scipy.signal.resample_poly`'s 81-tap Kaiser is only −6 dB down at 6.0 kHz, so 2.15 % of the band's
+power survives it. Fitting a per-bin linear estimator of the missing band on four VCTK speakers and
+scoring it on four others recovers **2.0–4.0 %** of the band (median 2.25 % over all eight rotations
+of the split) — entirely from the kilohertz above the cut, where the fitted gain reaches 3.7. It is
+worth **0.015 dB** above the `ρ = 0` bound. So the ceiling is *exact* for a brick wall and tight to
+fifteen thousandths of a decibel for the filter everyone actually uses. §8 is what happens when the filter is removed.
 
 ## 3. Table 1 — the ceiling curve
 
@@ -120,41 +122,47 @@ about how the table was produced.
 ## 8. The protocol fork
 
 Without anti-aliasing, `x = y[::R]` folds 6–24 kHz back into the baseband. `ker(A)` collapses, the
-missing band is *present* in the observation, and the task becomes unmixing, not synthesis.
-Measured on four held-out speakers (`audit/protocol_fork.py`):
+missing band is *present* in the observation, and the task becomes unmixing rather than synthesis.
+Same estimator on both protocols, fitted on four speakers and scored on four others
+(`audit/protocol_fork.py`):
 
 | | anti-aliased `x = D_R(H y)` | aliased `x = y[::R]` |
 |---|---|---|
-| high-band energy reaching the observation | **2.15 %** | **100.1 %** |
-| recovered by a fixed linear per-bin filter, held out | 4.30 % | 1.07 % |
-| recovered by an oracle per-bin unfolder | n/a | **50.8 %** |
-| headroom above that protocol's own naive baseline | **+0.12 dB** | **≥ +2.47 dB** |
+| high-band power reaching the observation | **2.15 %** | **100.1 %** |
+| recovered by an admissible per-bin linear filter, held out | 2.25 % *(2.0–4.0)* | **18.9 %** *(1.1–21.3)* |
+| recovered by an oracle per-bin unfolder — *not admissible* | n/a | 50.8 % |
 
-`H` here is `scipy.signal.resample_poly`'s polyphase filter — as the paper's own rule demands, the
-2.15 % is a property of *that* filter's transition band, and a brick wall would give 0. The oracle has
-no anti-aliased counterpart: with `H` in place the aliases are not summed, they are gone.
+The first row is the whole argument and it needs no estimator: **the anti-alias filter destroys
+97.8 % of the band before anything sees it; plain subsampling destroys none of it.** Everything else
+is about what can be done with what is there.
 
-Three things follow. The band is either absent from the observation or entirely present — there is no
-middle case. A *fixed* linear filter cannot exploit its presence (1.07 % held out), because the split
-between baseband and folded band is signal-dependent: unfolding needs a model, which is exactly why
-networks do better here. And a single phase-blind per-bin unfolder that knows each alias's own power
-already opens 2.47 dB above the aliased protocol's own naive baseline, where the anti-aliased
-protocol's *upper bound* is 0.12 dB. Same nominal task, same corpus, same metric; twenty times the
-dynamic range. Under two of the three averaging conventions of §6 that one unfolder also crosses the
-anti-aliased protocol's hard ceiling outright (+0.16 utterance-dB, +0.29 pooled), which is the
-cleanest possible demonstration that the two protocols do not share a bound.
+The second row is the realizable answer, and it is an 8× median difference on the same corpus with
+the same estimator. It is also a warning about single splits: the aliased figure spans 1.1 % to
+21.3 % across the eight rotations of which four speakers are fitted, so *one* split proves nothing —
+we report all eight. (The paper's own nominal split happens to be the worst of them.) The third row
+is what a phase-blind per-bin unmixer reaches when the spectral split is handed to it; it is **not**
+a bound in either direction, because the per-alias powers it uses are a function of `y`, not of `x`.
 
-This is not hypothetical. In `kuleshov/audio-super-res` (HEAD `45c75f4`), the standard
-AudioUNet/TFiLM codebase, anti-aliasing is a flag whose default is off — `prep_vctk.py:100`, `if
-args.low_pass: x_lr = decimate(x, args.scale)` `else: x_lr = np.array(x[0::args.scale])`, with
+What we do **not** claim: a measured information ceiling for the aliased protocol. Its naive baseline
+is 2.55 dB lower (the fold corrupts the baseband too), the oracle recovers 2.47 dB of that — about
+half from the baseband, half from the high band — and on a second speaker set it lands *below* the
+anti-aliased bound rather than above. The protocol-level, assumption-free statement is the first row.
+
+The empirical consequence is not ours to prove: **AudioUNet's own Table 3 measures it.**
+Aliased-train/aliased-test scores 33.2 dB against 30.1 dB for filtered/filtered, and either mismatch
+collapses to 0.4 dB (Piano, r = 2). Its README says it outright — *"super-resolution works better on
+aliased input"*, and *"the model is very sensitive to how low resolution samples are generated."*
+
+And this is the shipped default. In `kuleshov/audio-super-res` (HEAD `45c75f4`), the standard
+AudioUNet/TFiLM codebase, anti-aliasing is a flag that is **off unless you ask** — `prep_vctk.py:100`,
+`if args.low_pass: x_lr = decimate(x, args.scale)` `else: x_lr = np.array(x[0::args.scale])`, with
 `--low-pass` a bare `store_true` (`prep_vctk.py:32`). **`data/vctk/speaker1/Makefile` passes it;
 `data/vctk/multispeaker/Makefile` does not.** The up-interpolation (a cubic spline) is identical in
-both, so the anti-alias filter is the only difference between the two shipped datasets. Its README
-says plainly that *"super-resolution works better on aliased input"* and that *"the model is very
-sensitive to how low resolution samples are generated"*; AP-BWE says the consequence out loud — those
-baselines *"performed not a strict BWE task but an SR task."* Half the field's baselines are
-tabulated on a different inverse problem with a different ceiling. This conclusion is independent of
-any claim about any individual paper.
+both, so the anti-alias filter is the only difference between the two shipped datasets. AP-BWE states
+the consequence out loud: those baselines *"performed not a strict BWE task but an SR task."* Which
+Makefile produced which published table, the repository does not say — and that is the point. Half
+the field's baselines may be tabulated on a different inverse problem, and nothing in the papers
+lets a reader tell. This conclusion is independent of any claim about any individual paper.
 
 ## 9. The close: the literature already agrees, quietly
 

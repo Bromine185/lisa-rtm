@@ -21,7 +21,7 @@ venv/bin/python audit/scale_freedom.py <arm.pt> [utt.flac]
 | `boot.py` | execs the notebook's model/metric cells plus `overnight2/c1_model.py` and `overnight3/e1_model.py` into one namespace, CPU, `FULL` config |
 | `lisa_paper_protocol.py` | reimplements torchaudio 0.6.0's `kaldi.resample_waveform` and LISA's `calc_snr` / `compute_log_distortion` from source, then measures the protocol's ceiling, the variance of its single-batch evaluation, and how much of its LSD is pinned at the epsilon floor |
 | `snr_scale.py` | SNR as a function of the coherently recovered fraction of the high band; shows naive upsampling *is* the zero-recovery optimum |
-| `protocol_fork.py` | what dropping the anti-alias filter does: `ker(A)` collapses, the missing band lands in the observation, and the ceiling moves. Fits a linear unfolder on four speakers, scores four others |
+| `protocol_fork.py` | what dropping the anti-alias filter does: 2.15 % of the band above 6 kHz survives an anti-aliased decimation against 100.1 % of an aliased one. Fits the same per-bin linear unfolder under both protocols, over all eight rotations of a 4/4 speaker split, because one split spans 1 % to 21 % |
 | `band_gating.py` | per-third-octave shape, the deficit split by frame loudness (the gating failure), and what a low-pass costs |
 | `scale_freedom.py` | whether a decoder trained only at ×4 generalises off its four trained coordinate phases |
 
