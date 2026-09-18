@@ -92,7 +92,10 @@ validate.py          runs every code cell end-to-end on synthetic audio, no netw
 overnight2/          the 8 Sep run: LISAS, losses, trainer, evaluation, graph toy, ViSQOL
 overnight/           the 4 Sep λ-frontier run on the full Hub corpus
 audit/               protocol checks, no GPU: the task's SNR ceiling, LISA's reported numbers,
-                     whether the high band gates with the speech, whether the decoder is scale-free
+                     the anti-aliased/aliased protocol fork, whether the high band gates with the
+                     speech, whether the decoder is scale-free
+paper/               bwe-information-ceiling.md -- the two-page write-up of the ceiling argument,
+                     every number reproduced by three CPU scripts in audit/
 web/                 "The Missing Band": the Next.js demo. Pick a speaker, watch the 88k network run
                      in the browser, hear the readouts, open a 3D view of any arm
 demo/                the demo's sources: SPEC.md, the plain-JS engine and 3D scene that web/public

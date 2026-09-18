@@ -8,6 +8,27 @@ optimal point predictor to within 0.1 dB, and every decibel of high band a model
 so the whole achievable range is about 1 dB. New defect found in our own sampler: its high band does not
 gate with the speech (−11.7 dB on loud frames, +1.0 dB in the gaps), which the mean deficit hides.
 
+**2026-09-18: the ceiling is written up as a paper, and the literature check moved the close.**
+[`paper/bwe-information-ceiling.md`](paper/bwe-information-ceiling.md), reproduced end to end from a
+clean clone by `audit/snr_scale.py`, `audit/protocol_fork.py` and `audit/lisa_paper_protocol.py` — no
+GPU, no checkpoint, ~15 s. New: `audit/protocol_fork.py` measures what dropping the anti-alias filter
+does (2.15 % of the high band reaches an anti-aliased observation against 100.1 % of an aliased one;
+headroom above each protocol's own naive baseline +0.12 dB against ≥ +2.47 dB). The §9 close as
+originally planned was **false** and is corrected in both 17 Sep notes: AudioUNet 18.55 / TFiLM 19.51 /
+WSRGlow 19.41 are LISA's own reruns, not independent reports, and NU-Wave 2 reports 21.2–22.1 dB at the
+same setting. The true and stronger statement is that WSRGlow spans 18.38 / 19.41 / 21.2 dB across three
+protocols — wider than the whole within-protocol achievable span — and that NU-Wave 2's own table puts
+the unprocessed input above every model.
+
+- [ ] **Decide whether the paper goes out as a 2-page workshop submission or a poster.** The structure
+      is already two pages; a LaTeX conversion is mechanical.
+- [ ] **Run §9 of the 17 Sep audit note inside `ml-postech/LISA`** — delete the `if ii == 3:` guard
+      (`eval_lisa.py:206`), swap the model for a sinc upsample, report the full validation set. It is the
+      one thing that would remove the last reimplementation caveat from §7 of the paper.
+- [ ] **A per-frame adaptive unfolder for `audit/protocol_fork.py`.** The fixed linear filter recovers
+      1.07 % held out and the per-bin oracle 50.8 %; the gap is entirely signal adaptivity, and where a
+      realizable estimator lands in between prices the aliased protocol properly.
+
 ## Next, from the 17 Sep audit
 
 - [ ] **Add the gated deficit to `overnight3/e4_eval.py`** — `band_energy_ratio` already takes a

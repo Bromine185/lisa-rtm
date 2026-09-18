@@ -17,6 +17,8 @@ from audit.vctk_fixtures import fetch, load, OUR_TEST         # noqa: E402
 
 
 def main(ckpt, utt=None):
+    if not pathlib.Path(ckpt).exists():       # boot() execs the whole notebook; fail before that
+        sys.exit(f"no checkpoint at {ckpt}")
     G = boot()
     CFG, snr_db, decimate = G["CFG"], G["snr_db"], G["decimate"]
     y = load(utt if utt else fetch(OUR_TEST[:1], per_speaker=1)[0], CFG.fs_hi)

@@ -1,0 +1,110 @@
+# Verbatim output of the three CPU scripts behind paper/bwe-information-ceiling.md
+# regenerate:  for s in snr_scale protocol_fork lisa_paper_protocol; do venv/bin/python audit/$s.py; done
+# 2026-09-18, numpy 2.4.6, scipy 1.17.1, VCTK 0.92 mic1
+
+===== audit/snr_scale.py =====
+
+64 held-out utterances.  energy at or above 6 kHz: 1.943 %
+
+naive sinc upsample  mean 19.01 dB   sd 4.32 dB   range 10.52 to 29.52
+
+ coherently recovered       SNR   vs naive
+                 0.0%   19.11 dB     +0.10
+                 2.0%   19.19 dB     +0.19   <- measured coherent fraction of this model class
+                 5.0%   19.33 dB     +0.32
+                10.0%   19.56 dB     +0.56
+                20.0%   20.08 dB     +1.07
+                30.0%   20.66 dB     +1.65
+                50.0%   22.12 dB     +3.11
+                75.0%   25.13 dB     +6.12
+
+zero recovery gives 19.11 dB against naive's 19.01 dB: naive IS the
+zero-recovery solution, to within 0.1 dB.  It is the MMSE point predictor, not a weak baseline.
+
+reaching 24.16 dB would need 69 % of the high band recovered in phase.
+measured coherent fraction for every model trained in this repo: <= 2 %.
+
+===== audit/protocol_fork.py =====
+
+fit  p351 p360 p361 p362   159 one-second chunks
+eval p363 p364 p374 p376   168 one-second chunks   (speaker-disjoint)
+energy at or above 6 kHz on the eval set: 1.531 % per chunk
+
+1. how much of the band above 6 kHz reaches the observation (no estimator)
+
+   anti-aliased  x = D_R(H y)        2.151 %
+   aliased       x = y[::R]        100.146 %
+
+2. of that band, what is coherently recoverable by the best FIXED linear per-bin filter,
+   fitted on the four fit speakers:
+
+                                    fit set   held out
+   anti-aliased  x = D_R(H y)         2.07%      4.30%
+   aliased       x = y[::R]          26.76%      1.07%
+
+   anti-aliased: the fitted gain on every high-band alias is at most 3.8e-02 --
+   W(f) = S_xy/S_xx = 0 above 6 kHz, so the zero filter is optimal and naive sinc is LMMSE.
+   aliased: the band IS there, but a time-invariant filter cannot unmix it -- the split
+   between baseband and folded band is signal-dependent.  Unfolding needs a model.
+
+3. what an ORACLE per-bin unfolder recovers from the aliased observation (side information:
+   every alias's own power at every bin; phase-blind; still only a scalar gain per bin)
+
+   aliased, oracle unfolder          57.74%     50.82%
+
+4. SNR of each reconstruction, held-out speakers, three averaging conventions
+
+                                              chunk dB  utt dB  pooled     sd
+   ceiling: exact low band, empty high band      22.06   20.77   19.82   5.81
+   naive sinc upsample, anti-aliased input       21.94   20.68   19.71   5.81
+   LMMSE filter, anti-aliased input              22.02   20.80   19.85   5.76
+   naive sinc upsample, ALIASED input            19.50   18.27   17.26   5.79
+   LMMSE filter, ALIASED input                   18.68   17.89   16.81   4.87
+   oracle unfolder, ALIASED input                21.97   20.93   20.11   5.39
+
+5. the fork: headroom above each protocol's OWN naive baseline, which is what a metric
+   needs if it is to rank models at all
+
+                                  chunk dB  utt dB  pooled
+   anti-aliased, ceiling - naive     +0.12   +0.09   +0.11
+   aliased, oracle unfold - naive    +2.47   +2.66   +2.86
+
+   Anti-aliased: 0.12 dB, and that is an UPPER bound -- nothing that does not
+   synthesise high-band phase gets past it.  Aliased: at least 2.47 dB, from one
+   phase-blind per-bin unfolder, and a model that adapts per frame will find more.
+   Same nominal task, same corpus, same metric; the dynamic range differs by 20x.
+
+   Against the anti-aliased ceiling itself the oracle unfolder lands -0.09 chunk-dB,
+   +0.16 utterance-dB, +0.29 pooled: it crosses the other protocol's
+   hard bound under two conventions of three.  Quote every ceiling with its averaging rule.
+
+===== audit/lisa_paper_protocol.py =====
+
+1. Resample(48000, 48000) is not identity: 13 taps, cutoff 0.99*24000 = 23760 Hz
+   it is applied to LISA's ground truth (wrappers.py:317). its response:
+       6.0 kHz   +0.00 dB
+      12.0 kHz   -0.00 dB
+      16.0 kHz   +0.00 dB
+      20.0 kHz   -0.26 dB
+      22.0 kHz   -0.46 dB
+      23.8 kHz   -0.54 dB
+
+391 one-second chunks from 8 of the paper's own held-out speakers
+
+2. mean of per-chunk dB, exactly as utils.calc_snr + Averager do it
+     energy at or above 6 kHz                        2.443 %
+     naive sinc upsample of the 12 kHz input         20.67 dB
+     perfect low band, empty high band (ceiling)     21.00 dB
+     LISA reports                                    24.16 dB  (+3.16)
+
+3. eval_lisa.py scores batch index 3 only -- 8 chunks, 0.04 % of their validation set
+     consecutive 8-chunk batches (48)   sd  3.63 dB  range 13.21 to 29.04
+     random 8-chunk batches (20000)      sd  2.37 dB
+     P(a naive batch scores >= 24.16)   7.1 % random, 12.5 % consecutive
+
+4. LSD of that same naive upsample
+     LISA's compute_log_distortion   2.213
+     the conventional definition     5.172
+
+5. LISA logs |X|**4, so +1e-8 floors every bin with |X| < 1e-2 (median |X| here is 5.20e-02)
+     share of time-frequency bins pinned at that floor: 16.6 %

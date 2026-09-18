@@ -45,10 +45,25 @@ within 0.04 dB. So `det` at 18.37 is not losing to naive — it is paying 0.83 d
 −17.4 dB to −4.5 dB, and that is the right side of the trade. Any energy a model adds above 6 kHz is
 incoherent with the truth, and incoherent energy *adds* to the error.
 
-This is Blau–Michaeli, and the field confirms it where it is honest. NU-Wave's U-Net scores 0.9 dB worse
-than linear interpolation on SNR while being far better on LSD. WSRGlow's own ablation: the variant with
-the best SNR *"cannot synthesize the high-frequency part of the signal well."* AP-BWE reports sinc
-interpolation at 8→16 kHz as *"already very close to the Ground Truth."*
+This is Blau–Michaeli, and the field confirms it where it is honest. **Corrected 18 Sep** — the three
+citations below were checked against the primary sources while writing
+[`paper/bwe-information-ceiling.md`](../paper/bwe-information-ceiling.md), and two of the three were
+overstated as first written:
+
+- NU-Wave ([2104.02321](https://arxiv.org/abs/2104.02321)) Table 2, MultiSpeaker ×2 (24k→48k): their
+  U-Net scores **9.86 dB against linear interpolation's 11.1**, i.e. 1.24 dB worse, not 0.9, while LSD
+  goes 1.47 against 1.93. It is one cell of four — in the other three their U-Net *beats* linear on SNR —
+  and it is ×2, not ×4. The "0.9" was the paper's *"improves SNR value by 0.18-0.9 dB from the best
+  performing baseline"*, a different sentence.
+- WSRGlow ([2106.08507](https://arxiv.org/abs/2106.08507)) §3.2.2, verbatim: *"WSRGlow w/o Enc_STFT
+  outperforms the baseline models in terms of SNR, but performs poorly in LSD. This indicates that
+  WSRGlow w/o Enc_STFT cannot synthesize the high-frequency part of the signal well."* That variant
+  scores 17.45 at ×4 — above AudioUNet and MUGAN, below full WSRGlow's 18.38. It is not "the variant
+  with the best SNR"; it is the variant that beats the *baselines* on SNR.
+- AP-BWE ([2401.06387](https://arxiv.org/abs/2401.06387)) §V-A4, verbatim: *"Under the condition of
+  extending from 8 kHz to 16 kHz, the performance of the sinc filter interpolation was already very
+  close to the Ground Truth."* Quote confirmed, but Table IV's metrics are WER / CER / STOI, not SNR —
+  it is an intelligibility claim. AP-BWE reports no SNR anywhere.
 
 **What to do:** report SNR always beside naive on the same audio, and say in words that it is maximised
 by doing nothing. Never rank arms on it. The axes with room are CRPS, the band-energy deficit, the
