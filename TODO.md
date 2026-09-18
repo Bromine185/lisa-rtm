@@ -25,6 +25,13 @@ the unprocessed input above every model.
 - [ ] **Run §9 of the 17 Sep audit note inside `ml-postech/LISA`** — delete the `if ii == 3:` guard
       (`eval_lisa.py:206`), swap the model for a sinc upsample, report the full validation set. It is the
       one thing that would remove the last reimplementation caveat from §7 of the paper.
+- [ ] **Three loose ends the 18 Sep provenance sweep turned up, none load-bearing.** (a) The README's
+      "CRPS falls 43 %" is 42.54 % exactly (1.0150 → 0.5832 on Hub 12); the DataShare 32 % is 32.17 %
+      and exact. (b) **No ViSQOL version is recorded anywhere** — `overnight2/c6_install_wait.py:12`
+      pip-installs an unpinned `visqol-python`, prints `visqol.__version__`, and the output is not
+      stored. Pin it before any ViSQOL number goes in a paper. (c) CRPS 0.753 for the hand-built `S`
+      rung (`notes/2026-09-08-…:189`) appears only in that note's prose; no stored JSON has it.
+
 - [ ] **A per-frame adaptive unfolder for `audit/protocol_fork.py`.** The fixed linear filter recovers
       1.07 % held out and the per-bin oracle 50.8 %; the gap is entirely signal adaptivity, and where a
       realizable estimator lands in between prices the aliased protocol properly.

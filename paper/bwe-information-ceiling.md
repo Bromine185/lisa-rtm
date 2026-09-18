@@ -48,9 +48,10 @@ what happens when the filter is removed altogether.
 | naive sinc upsampling | **19.01** | — |
 
 Naive upsampling measures 19.01 dB against a zero-recovery optimum of 19.11 dB. It *is* the
-zero-recovery solution, to within 0.1 dB. Measured `ρ ≤ 0.02` above 6 kHz for every model we trained,
-including a 22 ms dilated-context encoder — so 2 % is not a weak-model artefact, and recovering a
-tenth of the band buys 0.56 dB.
+zero-recovery solution, to within 0.1 dB. Measured `ρ` above 6 kHz runs **0.004 to 0.025** across
+every model we trained — deterministic, sampler, and a 22 ms dilated-context encoder whose `ρ` above
+7 kHz is 0.000–0.005 — so 2 % is not a weak-model artefact, and recovering a tenth of the band buys
+0.56 dB.
 
 ## 4. The two facts that end the argument
 
@@ -111,7 +112,7 @@ By §2's identity, 24.16 dB from a band-limited 12 kHz input requires `ρ = 0.52
 per-chunk averaging — half the band above 6 kHz put back in phase — and `ρ = 0.69` under the
 per-utterance convention of §3. The two numbers differ because the conventions do; that is §6, and it
 is why the ceiling in this section is computed their way and not ours. The largest `ρ` we could
-measure for any model was 0.02.
+measure for any model was 0.025.
 
 We state this and stop. Our resampler is a reimplementation, not their binary, and we make no claim
 about how the table was produced.
@@ -126,8 +127,12 @@ Measured on four held-out speakers (`audit/protocol_fork.py`):
 |---|---|---|
 | high-band energy reaching the observation | **2.15 %** | **100.1 %** |
 | recovered by a fixed linear per-bin filter, held out | 4.30 % | 1.07 % |
-| recovered by an oracle per-bin unfolder | — | **50.8 %** |
+| recovered by an oracle per-bin unfolder | n/a | **50.8 %** |
 | headroom above that protocol's own naive baseline | **+0.12 dB** | **≥ +2.47 dB** |
+
+`H` here is `scipy.signal.resample_poly`'s polyphase filter — as the paper's own rule demands, the
+2.15 % is a property of *that* filter's transition band, and a brick wall would give 0. The oracle has
+no anti-aliased counterpart: with `H` in place the aliases are not summed, they are gone.
 
 Three things follow. The band is either absent from the observation or entirely present — there is no
 middle case. A *fixed* linear filter cannot exploit its presence (1.07 % held out), because the split
@@ -180,8 +185,10 @@ repeats it: *"SNR is not suitable for upsampling task."*
 2. **State the degradation operator** — the filter, its cutoff, its order, whether it exists at all.
    Anti-aliased and aliased BWE are different problems with different ceilings (§8).
 3. **Adjudicate elsewhere.** CRPS on high-band log-magnitude, the coherent fraction `κ`, and
-   audio-mode ViSQOL reported with its floor and ceiling rows (empty high band 1.57, true high band
-   4.73) — a bounded scale where a model's position is interpretable. Never rank arms on SNR, and
+   audio-mode ViSQOL reported with its floor and ceiling rows — on our 12-utterance set, a passthrough
+   baseband with an empty high band scores 1.57 and the same baseband with the *true* high band scores
+   4.73, which turns a raw MOS-LQO into a position on a bounded scale. Name the set: the ceiling row
+   holds at 4.73 on a second 36-utterance set, but the floor moves to 1.93. Never rank arms on SNR, and
    never compare an LSD column across papers: no two of them define it the same way (LISA's
    `compute_log_distortion` logs `|X|⁴` and pins 16.6 % of the spectrogram at its epsilon floor,
    scoring 2.213 where the conventional definition scores 5.172 on the identical signal).

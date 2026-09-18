@@ -203,15 +203,25 @@ marginal energy score. DataShare set, 36 utterances, M = 32:
 
 | arm | SNR | LSD | HB-LSD | deficit | CRPS | HB κ | coherent fraction by band from 6 kHz | mean-of-32 SNR |
 |---|---|---|---|---|---|---|---|---|
-| `det` (11-sample context, 38k steps) | 18.35 | 0.960 | 1.095 | −4.5 | 1.011 | 0.06 | .050 .002 .002 .001 .000 .002 | – |
+| `det` (11-sample context, 38k steps) | 18.35 | 0.960 | 1.095 | −4.5 | 1.011 | 0.06 | .092 .001 .002 −.001 −.003 −.003 | – |
 | `wide_det` (22 ms context, 26k steps) | 18.39 | 0.931 | 1.062 | −4.4 | 0.976 | 0.06 | .102 .001 .005 .000 .000 .000 | – |
-| `es_marg` (11-sample) | 15.93 | 1.029 | 1.156 | +0.6 | 0.686 | 0.01 | .050 −.001 .001 −.002 −.002 −.001 | 18.78 |
+| `es_marg` (11-sample) | 15.93 | 1.029 | 1.156 | +0.6 | 0.686 | 0.01 | .083 .000 −.006 .004 −.001 −.003 | 18.78 |
 | `wide_es_marg` (22 ms) | 14.38 | 1.055 | 1.171 | +3.4 | 0.654 | 0.00 | .078 .000 .002 .000 .000 .002 | 18.84 |
 
 **Falsified.** Twenty-two milliseconds of context leaves the coherent fraction above 7 kHz at
-0.000–0.005 for both objectives. The only movement is in the first band (5.7–7 kHz, the anti-aliasing
-transition region), where the deterministic arm's κ rises from 0.31 to 0.38 — it reproduces slightly
-more of the filter's roll-off, which is baseband information. LSD improves by 0.03 and CRPS by 0.03–0.04
+0.000–0.005 for both objectives. The only movement is in the first band (6.00–7.56 kHz, the
+anti-aliasing transition region), where the deterministic arm's κ rises from 0.35 to 0.38 — it
+reproduces slightly more of the filter's roll-off, which is baseband information.
+
+> **Corrected 18 Sep.** As first written, the `det` and `es_marg` rows of this table carried their
+> *Hub-12* coherent fractions (`.050 .002 .002 .001 .000 .002` and `.050 −.001 .001 −.002 −.002 −.001`,
+> `overnight2/colab_results/results_OV2_es.json`) inside a table headed "DataShare set, 36 utterances",
+> while every other column of those rows, and both `wide_` rows, were DataShare. The like-for-like
+> first-band comparison is .092 → .102, not .050 → .102, and the κ rise is 0.351 → 0.377 rather than
+> the 0.31 → 0.38 printed here (0.31 matched nothing in any stored JSON). The first high band is
+> 6.00–7.56 kHz by `EDGES_HB`; the 5.7 kHz figure came from the other band grid. Values above are now
+> `overnight2/analysis_OV2_es.json` / `analysis_OV2_wide.json` throughout. The conclusion is unchanged
+> and slightly weaker: context buys less in the first band than the original numbers suggested. LSD improves by 0.03 and CRPS by 0.03–0.04
 from a better *envelope*; SNR does not move (18.39 vs 18.35, ceiling 19.5). The sampler with context is
 over-dispersed on this set (+3.4 dB, SNR gap 4.46 against 2.88, τ* = 0.75) where the narrow one was
 calibrated (+0.6 dB, 2.85) — the extra capacity went into spread, not coherence.

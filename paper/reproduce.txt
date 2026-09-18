@@ -10,7 +10,7 @@ naive sinc upsample  mean 19.01 dB   sd 4.32 dB   range 10.52 to 29.52
 
  coherently recovered       SNR   vs naive
                  0.0%   19.11 dB     +0.10
-                 2.0%   19.19 dB     +0.19   <- measured coherent fraction of this model class
+                 2.0%   19.19 dB     +0.19   <- the middle of what this model class measures
                  5.0%   19.33 dB     +0.32
                 10.0%   19.56 dB     +0.56
                 20.0%   20.08 dB     +1.07
@@ -22,7 +22,7 @@ zero recovery gives 19.11 dB against naive's 19.01 dB: naive IS the
 zero-recovery solution, to within 0.1 dB.  It is the MMSE point predictor, not a weak baseline.
 
 reaching 24.16 dB would need 69 % of the high band recovered in phase.
-measured coherent fraction for every model trained in this repo: <= 2 %.
+measured coherent fraction across every arm trained in this repo: 0.4 to 2.5 %.
 
 ===== audit/protocol_fork.py =====
 

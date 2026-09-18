@@ -32,7 +32,7 @@ every number naming its set:
 - The ensemble mean is a better point predictor than the point-trained model: SNR 18.90 vs 18.86 dB
   (Hub), 18.78 vs 18.35 (DataShare).
 - The band above 6 kHz is incoherent with the input for every model trained here: coherent fraction
-  ≤ 2 %, so no deterministic LISA of this class can beat naive upsampling by more than 0.3 dB. The
+  0.4–2.5 %, so no deterministic LISA of this class can beat naive upsampling by more than 0.3 dB. The
   deterministic model's high-band energy is hallucinated (κ = 0.06–0.12); the sampler's ensemble-mean
   coherence is a predictability spectrum.
 - Real time: 1.5 ms per second of audio on an A100, 16.5 ms on an Apple M4 CPU, 0.5 ms look-ahead.

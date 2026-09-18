@@ -41,7 +41,11 @@ def aliases(c):
 
 
 def high_mask():
-    """Exactly one alias of each bin is the low band; the other R-1 are what we are trying to recover."""
+    """Exactly one alias of each bin is the low band; the other R-1 are what we are trying to recover.
+
+    The one exception is m = HALF, the 6 kHz bin itself, where two aliases sit exactly on the cut.
+    One bin in M, on the boundary -- it moves nothing.
+    """
     m = np.arange(M)
     return np.arange(R)[:, None] != np.where(m < HALF, 0, R - 1)[None, :]
 
