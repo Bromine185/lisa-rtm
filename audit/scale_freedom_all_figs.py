@@ -1,10 +1,13 @@
 """Figures + markdown table for notes/analysis/scale_OV3_fast.md from scale_OV3_fast.json / _sweeps.npz."""
-import json, pathlib, numpy as np
+import json, pathlib, sys, numpy as np
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 REPO = pathlib.Path(__file__).resolve().parents[1]
-J = json.load(open(REPO / "lisa_rtm_cache/results/scale_OV3_fast.json"))
-S = np.load(REPO / "lisa_rtm_cache/results/scale_OV3_fast_sweeps.npz")
+SRC = REPO / "lisa_rtm_cache/results/scale_OV3_fast.json"
+if not SRC.exists():
+    sys.exit(f"no {SRC}; run audit/scale_freedom_all.py first")
+J = json.load(open(SRC))
+S = np.load(SRC.with_name("scale_OV3_fast_sweeps.npz"))
 FIG = REPO / "notes/analysis/figs"; FIG.mkdir(parents=True, exist_ok=True)
 ARMS = list(J["arms"]); UTT = J["utterances"]
 BLUE, ORANGE, AQUA = "#2a78d6", "#eb6834", "#1baf7a"

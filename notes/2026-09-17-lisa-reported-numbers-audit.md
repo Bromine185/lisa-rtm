@@ -359,10 +359,29 @@ reimplementation caveat.
 
 ## 10. How to report this
 
-Not as a takedown. The finding that matters for our paper is the positive one: **the task has a ceiling,
-we can compute it, and every honest published number sits at it.** AudioUNet 17.15/18.55, MUGAN 16.87,
-WSRGlow 18.38/19.41, TFiLM 19.51 — every independently reported 12 kHz → 48 kHz SNR in the literature
-falls in 17–19.5 dB, which is where we land, and which is where the arithmetic says everyone must land.
+Not as a takedown. The finding that matters for our paper is the positive one: **the task has a ceiling
+and we can compute it.**
+
+> **Corrected 18 Sep.** This section originally read *"AudioUNet 17.15/18.55, MUGAN 16.87, WSRGlow
+> 18.38/19.41, TFiLM 19.51 — every independently reported 12 kHz → 48 kHz SNR in the literature falls in
+> 17–19.5 dB."* Both halves are false, and the corrected version is stronger. (a) **None of those are
+> independently reported.** 18.55 / 19.51 / 19.41 are cells of LISA's own Table 1; 17.15 and 16.87 are
+> WSRGlow's reimplementations of AudioUNet and MUGAN. Neither AudioUNet's nor TFiLM's own paper contains
+> any 48 kHz result at all — both report 16 kHz at r = 2/4/6-8. The only self-reported 12 k → 48 k SNR in
+> the literature is WSRGlow's **18.38**. (b) **Values above 19.5 dB exist.** NU-Wave 2
+> ([2206.08545](https://arxiv.org/abs/2206.08545)) Table 1, 12 kHz row: WSRGlow 21.2, NU-Wave 21.4,
+> NU-Wave 2 21.6 — and **the unprocessed input 22.1**, higher than every model at every one of their four
+> input rates. mdctGAN ([2305.11104](https://arxiv.org/abs/2305.11104)) Table 1 reproduces those and adds
+> its own 21.74. And 16.87 was below the stated band anyway.
+>
+> The true statement is better: **WSRGlow at 12 k → 48 k has three published SNRs — 18.38 (its own
+> paper), 19.41 (LISA), 21.2 (NU-Wave 2) — a 2.8 dB spread for one model on one nominal task, larger
+> than the whole within-protocol achievable span.** And NU-Wave 2 printed the ceiling next to the models
+> itself. Two better-sourced quotes for the same argument: AudioUNet
+> ([1708.00853](https://arxiv.org/abs/1708.00853)) §5, *"Although, the spline baseline achieves a high
+> SNR, its signal often lacks higher frequencies; the LSD metric is better at identifying this
+> problem"*; NU-Wave 2 §4.2, *"SNR is not suitable for upsampling task."* AP-BWE, AERO, NVSR and
+> FlowHigh report no SNR at all.
 
 So: state the ceiling, show that SNR cannot rank models on this task
 ([the companion note](2026-09-17-snr-ceiling-gating-and-scale.md) §1), and move the adjudication to CRPS,

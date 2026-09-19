@@ -32,7 +32,7 @@ every number naming its set:
 - The ensemble mean is a better point predictor than the point-trained model: SNR 18.90 vs 18.86 dB
   (Hub), 18.78 vs 18.35 (DataShare).
 - The band above 6 kHz is incoherent with the input for every model trained here: coherent fraction
-  ≤ 2 %, so no deterministic LISA of this class can beat naive upsampling by more than 0.3 dB. The
+  0.4–2.5 %, so no deterministic LISA of this class can beat naive upsampling by more than 0.3 dB. The
   deterministic model's high-band energy is hallucinated (κ = 0.06–0.12); the sampler's ensemble-mean
   coherence is a predictability spectrum.
 - Real time: 1.5 ms per second of audio on an A100, 16.5 ms on an Apple M4 CPU, 0.5 ms look-ahead.
@@ -92,7 +92,10 @@ validate.py          runs every code cell end-to-end on synthetic audio, no netw
 overnight2/          the 8 Sep run: LISAS, losses, trainer, evaluation, graph toy, ViSQOL
 overnight/           the 4 Sep λ-frontier run on the full Hub corpus
 audit/               protocol checks, no GPU: the task's SNR ceiling, LISA's reported numbers,
-                     whether the high band gates with the speech, whether the decoder is scale-free
+                     the anti-aliased/aliased protocol fork, whether the high band gates with the
+                     speech, whether the decoder is scale-free
+paper/               bwe-information-ceiling.md -- the two-page write-up of the ceiling argument,
+                     every number reproduced by three CPU scripts in audit/
 web/                 "The Missing Band": the Next.js demo. Pick a speaker, watch the 88k network run
                      in the browser, hear the readouts, open a 3D view of any arm
 demo/                the demo's sources: SPEC.md, the plain-JS engine and 3D scene that web/public

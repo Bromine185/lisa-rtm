@@ -16,10 +16,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-ROOT = Path("/Users/raghavsharma/projects/lisa-rtm")
-HIST = ROOT / "lisa_rtm_cache/results/ov3_history_OV3_fast.json"
-FIGS = ROOT / "notes/analysis/figs"
-OUT = ROOT / "lisa_rtm_cache/results/dynamics_OV3_fast.json"
+REPO = Path(__file__).resolve().parents[1]
+HIST = REPO / "lisa_rtm_cache/results/ov3_history_OV3_fast.json"
+FIGS = REPO / "notes/analysis/figs"
+OUT = REPO / "lisa_rtm_cache/results/dynamics_OV3_fast.json"
 FIGS.mkdir(parents=True, exist_ok=True)
 
 ARMS = ["det", "es_marg", "es_marg_l0.1", "es_split_l0.1", "es_erb_l0.1", "es_dec_l0.1", "es_dec_erb_l0.1"]
@@ -45,6 +45,8 @@ plt.rcParams.update({
     "legend.frameon": False, "text.color": INK,
 })
 
+if not HIST.exists():
+    sys.exit(f"no trainer history at {HIST}; it comes off the OV3_fast run, not this repo")
 H = json.load(open(HIST))
 
 
@@ -168,6 +170,7 @@ for M in MILESTONES:
         "mean_prev_window_change_pct": float(np.mean([x["prev_window_change_pct"] for x in s])),
         "mean_train_wave_change_pct": float(np.mean([x["train_wave_change_pct"] for x in s]))}
 
+OUT.parent.mkdir(parents=True, exist_ok=True)
 json.dump(res, open(OUT, "w"), indent=1)
 print("wrote", OUT)
 

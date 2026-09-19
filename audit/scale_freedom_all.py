@@ -81,6 +81,12 @@ def sweep(m, z, i, eps_row):
 
 
 def main():
+    gone = [a for a in ARMS if not (CKPT / f"{a}.pt").exists()]
+    if gone:
+        sys.exit(f"no checkpoints under {CKPT}: {' '.join(gone)}")
+    empty = [s for s in SPK if not any((DATA / s).glob("*.flac"))]
+    if empty:                                 # vctk_fixtures.fetch(SPK, 1) fills DATA
+        sys.exit(f"no cached FLACs under {DATA} for {' '.join(empty)}")
     G = boot()
     CFG, snr_db, decimate = G["CFG"], G["snr_db"], G["decimate"]
     R, fs = CFG.upsample, CFG.fs_hi
@@ -193,6 +199,7 @@ def main():
                         summ[f"{vname}.{k}"] = {"mean": float(v.mean()), "min": float(v.min()), "max": float(v.max())}
             A["taus"][f"{tau:g}"] = {"per_utterance": per, "summary": summ}
         res["arms"][arm] = A
+    OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     OUT_JSON.write_text(json.dumps(res, indent=1))
     np.savez_compressed(OUT_NPZ, **sweeps)
     print("wrote", OUT_JSON, OUT_NPZ, f"in {time.time()-t0:.0f}s")

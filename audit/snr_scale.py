@@ -41,7 +41,7 @@ def main():
     print(f"{'coherently recovered':>21}  {'SNR':>8}  {'vs naive':>9}")
     for r in (0.0, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50, 0.75):
         s = at(r)
-        tag = "   <- measured coherent fraction of this model class" if r == 0.02 else ""
+        tag = "   <- the middle of what this model class measures" if r == 0.02 else ""
         print(f"{100*r:20.1f}%  {s:6.2f} dB  {s-naive:+8.2f}{tag}")
 
     print(f"\nzero recovery gives {at(0.0):.2f} dB against naive's {naive:.2f} dB: naive IS the")
@@ -51,7 +51,7 @@ def main():
         mid = (lo + hi) / 2
         lo, hi = (mid, hi) if at(mid) < PAPER_4X else (lo, mid)
     print(f"\nreaching {PAPER_4X} dB would need {100*(lo+hi)/2:.0f} % of the high band recovered in phase.")
-    print("measured coherent fraction for every model trained in this repo: <= 2 %.")
+    print("measured coherent fraction across every arm trained in this repo: 0.4 to 2.5 %.")
 
 
 if __name__ == "__main__":

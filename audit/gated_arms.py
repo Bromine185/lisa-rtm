@@ -51,13 +51,17 @@ def frame_masks(G, y, CFG):
 
 
 def main(tag="OV3_fast"):
+    gone = [a for a in ARMS if not (CKPT / f"{a}.pt").exists()]
+    if gone:
+        sys.exit(f"no checkpoints under {CKPT}: {' '.join(gone)}")
+    utts = [p for s in SPEAKERS for p in sorted((AUDIO / s).glob("*.flac"))[:2]]
+    if len(utts) != 12:                       # vctk_fixtures.fetch(SPEAKERS, 2) fills AUDIO
+        sys.exit(f"{len(utts)} of 12 cached FLACs under {AUDIO}")
     G = boot()
     CFG, snr_db = G["CFG"], G["snr_db"]
     R = CFG.upsample
     ber = lambda y, yh, msk=None: G["band_energy_ratio"](y, yh, CFG.fs_hi, CFG.eval_n_fft, CFG.eval_hop,
                                                          CFG.fs_lo / 2, CFG.fs_hi / 2, frame_mask=msk)
-    utts = [p for s in SPEAKERS for p in sorted((AUDIO / s).glob("*.flac"))[:2]]
-    assert len(utts) == 12, utts
     ys = {p.stem.replace("_mic1", ""): load(p, CFG.fs_hi) for p in utts}
     naive = {k: sps.resample_poly(sps.resample_poly(y, 1, R), R, 1)[:len(y)] for k, y in ys.items()}
     masks = {k: frame_masks(G, y, CFG) for k, y in ys.items()}

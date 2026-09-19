@@ -215,7 +215,10 @@ def note_md(R, tag, fig_rel):
 
 
 def main(tag="OV3_fast"):
-    R = json.loads((REPO / "lisa_rtm_cache" / "results" / f"gated_{tag}.json").read_text())
+    src = REPO / "lisa_rtm_cache" / "results" / f"gated_{tag}.json"
+    if not src.exists():
+        sys.exit(f"no {src}; run audit/gated_arms.py --tag {tag} first")
+    R = json.loads(src.read_text())
     figs = REPO / "notes" / "analysis" / "figs"; figs.mkdir(parents=True, exist_ok=True)
     png = figs / f"gated_{tag}.png"
     figure(R, png)
