@@ -60,3 +60,50 @@ $60 ceiling − ~$31 all-in (training + calibration + staging + evaluation) leav
 A second seed of `es_erb_l0.1` costs **+$7.40** (502 → 643 ms/step, 14.6 → 18.8 h) and would give the
 headline claim the confidence interval it currently lacks — the repo's own notes flag one seed and no
 CIs as the weakest point in the result. Not taken as of this note; the four arms above stand.
+
+---
+
+## Fan-out: four separate 1-GPU rentals (decision, 2026-09-20)
+
+**There is no 4-GPU SKU.** Live `rental-options` offers `gpuCount` 1 at $1.79/hr and 8 at $14.32/hr
+only, priced exactly linearly. So "four GPUs" is four **independent** 1-GPU rentals, never the 8-GPU
+node with four idle cards.
+
+| plan | wall-clock | cost |
+|---|---|---|
+| 1 GPU, all four arms in one loop | 14.64 h | $26.21 |
+| **4 x 1-GPU, each torn down when its arm ends** | **4.37 h** | **$27.62** |
+| 8-GPU node, four cards idle | 4.37 h | $62.59 — rejected |
+
+Independent billing is what makes this nearly free: `det` is 79.5 ms/step against an ES arm's
+149.9 ms, so its rental terminates at 2.32 h ($4.15) while the three ES arms run to 4.37 h ($7.82
+each). +$1.41 over the single-GPU plan for a 3.3x shorter wall-clock.
+
+Sensitivity to the degenerate intercept: $27.62 / $30.96 / $34.09 at 9 / 25 / 40 ms.
+**Unresolved:** at the pessimistic Blackwell bracket (time x2.29) this reaches ~$63 and breaches the
+$60 ceiling. The $0.36 single-GPU calibration decides it before four instances are launched.
+
+### Mandatory for this topology
+
+1. **`batch_tag` / `val_tag` identical across all four rentals**, output-path tag varying. Passing
+   `f"{tag}_{arm}"` as `tag` reaches `stream(f"{tag}/batches")` (`e2b_fast.py:591-592`), which is
+   blake2b-hashed on the label, and silently gives each arm a different 105k-step batch stream and a
+   different validation set. On four separate VMs there is no shared filesystem to catch it.
+2. **Cross-machine G3.** Each instance hashes the first ~1000 drawn `(idx, starts)` arrays and
+   publishes the digest *before* training starts; all four must match or the run aborts. Costs
+   seconds, and it is the only thing standing between this topology and a silently void experiment.
+3. **Per-arm `torch.Generator`** with a fixed per-arm key, for training and validation. Declared in
+   the run log as CHANGES-TRAJECTORY (the arms currently draw from one shared generator in stack
+   order, and Philox offsets follow `multiProcessorCount`, so the realised noise was never portable
+   from the A100 anyway).
+4. **Self-termination on completion and on failure**, per rental. A forgotten instance bills at
+   $1.79/hr indefinitely.
+
+### Operational notes
+
+- Each VM stages the 37.3 h corpus independently (~15-20 min, inside its own rental clock): four
+  independent failure points, and no shared volume since storage volumes appear to be bare-metal-only.
+- Billing granularity is unverified. If it rounds to the hour, `det` costs $5.37 rather than $4.15.
+- The `LISASD` arm (`es_dec_erb_l0.1`) carries the extra `eps_dec` traffic and a 101-input first
+  decoder layer, so it — not the plain ES arms — most likely sets the 4.37 h pace. The cost law was
+  fitted on the seven-arm mix and does not resolve the LISASD premium.
