@@ -127,6 +127,46 @@ class Hyperbolic:
         self._journal("terminated", {"id": rental_id})
         return r
 
+    def precheck(self, n, gpu_count=1, est_total_usd=None):
+        """Refuse to start a fleet that cannot complete. Checks capacity and balance BEFORE the
+        first create, because a partially-provisioned fleet is the worst outcome: instances billing,
+        no run, and a human needed to notice."""
+        opt = self.option_for(gpu_count)
+        bal, over = self.balance_usd()
+        avail = (opt or {}).get("totalAvailable", 0)
+        fails = []
+        if opt is None:
+            fails.append(f"no enabled {GPU_TYPE} x{gpu_count} option in {REGION}")
+        elif avail < n:
+            fails.append(f"only {avail} GPUs available, need {n}")
+        if est_total_usd is not None and est_total_usd > bal + over:
+            fails.append(f"estimate ${est_total_usd:.2f} exceeds ${bal:.2f} balance "
+                         f"(+${over:.2f} overdraft) -- the run would stop mid-step")
+        return {"ok": not fails, "problems": fails, "available": avail,
+                "balance_usd": bal, "overdraft_usd": over}
+
+    def create_fleet(self, labels, gpu_count=1, confirm=False, est_total_usd=None):
+        """All-or-nothing. If any create fails, terminate the ones already made and raise, so a
+        half-provisioned fleet never survives the call."""
+        pre = self.precheck(len(labels), gpu_count, est_total_usd)
+        if not pre["ok"]:
+            raise RuntimeError("precheck failed: " + "; ".join(pre["problems"]))
+        made = []
+        try:
+            for lab in labels:
+                made.append(self.create(lab, gpu_count=gpu_count, confirm=confirm))
+            return made
+        except Exception:
+            self._journal("fleet_rollback", {"made": len(made), "labels": labels})
+            for r in made:
+                rid = (r or {}).get("id") or (r or {}).get("rentalId")
+                if rid:
+                    try:
+                        self.terminate(rid)
+                    except Exception:
+                        pass
+            raise
+
     def reap(self, confirm=False):
         """Terminate every active rental. The journal is only ever a lower bound on what exists, so
         this works from the live list instead."""
@@ -210,6 +250,11 @@ def main():
         print(f"  8-GPU node would be ${p['eight_gpu_node_usd']} "
               f"(separate rentals save ${p['separate_rentals_save_usd']})")
         print(f"  fits the ${ACCOUNT_WALL_USD:.0f} account wall: {p['fits_account_wall']}")
+        pre = h.precheck(len(ARMS), 1, p["total_usd"])
+        print(f"\n  precheck: {'OK' if pre['ok'] else 'BLOCKED'}  "
+              f"{pre['available']} GPUs available, need {len(ARMS)};  balance ${pre['balance_usd']:.2f}")
+        for prob in pre["problems"]:
+            print(f"    - {prob}")
     elif a.cmd == "reap":
         res = h.reap(confirm=a.confirm)
         print(json.dumps(res, indent=1) if res else "nothing to reap")
