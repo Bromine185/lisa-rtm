@@ -1,0 +1,238 @@
+python   3.12.3
+torch    2.14.0+cu130
+numpy    2.5.3
+in colab False
+gpu      NVIDIA RTX PRO 6000 Blackwell Server Edition
+device   cuda
+cache    /home/ubuntu/lisa-rtm/lisa_rtm_cache
+seeded   0
+preset        FULL   run dir FULL_lam0.001
+rates         12000 Hz -> 48000 Hz  (4x)
+speakers      10 train / 3 held out
+transport     n_fft=2048 hop=512  high band = bins 256..1024
+evaluation    n_fft=1024 hop=256 (different basis, on purpose)
+LISA: 86,881 parameters  (paper reports ~89k)
+  encoder 9,984   decoder 76,897
+OV2 model/loss/trainer defined.  LISAS params: 87777
+OV3 model/distances defined.  LISASD params: 88,353  (LISAS 87,777; +4 decoder noise channels x 144 = 576 weights)
+OV3 trainer defined (train_ov3, time_ov3, val_loss, plot_curves).
+OV3 fast trainer defined (train_ov3_fast, time_ov3_fast, bench_fast, val_loss_fast, ArmStack).  flags: {'STACK': True, 'AMP': True, 'TF32': True, 'COMPILE': True, 'PIN': True, 'FUSED': True, 'STREAMS': False, 'CUDA_GRAPHS': False, 'GROUP_MAX': 1, 'DETERMINISTIC': False, 'COMPILE_MODE': 'default', 'SUBPIXEL': True, 'JITTER_PER_CELL': False}
+arm det ('det', 0.01, 'LISAS')  device cuda  torch 2.14.0+cu130
+preflight: {"corpus_hours": 37.322358, "steps_per_epoch": 2099.383, "epochs": 49.9909, "n_utts": 39639, "milestones": [20990, 41980, 52475, 62970, 73465, 83960]}
+g3 (must match every other instance): {"corpus": "db078cefbdf5017ba8cbc8b523ba6adb", "batches": "0d24acf51dd75d0e1de44a54206c8d3e"}
+/home/ubuntu/lisa/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+torch.compile failed, falling back to eager MLP: InductorError('CalledProcessError: Command \'[\'/usr/bin/gcc\', \'/home/ubuntu/lisa/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.c\', \'-O3\', \'-shared\', \'-fPIC\', \'-Wno-psabi\'
+  det step 500/104950  val 0.027508  52 ms/step  eta 1.51 h
+  det step 1000/104950  val 0.027966  50 ms/step  eta 1.45 h
+  det step 1500/104950  val 0.018688  49 ms/step  eta 1.42 h
+  det step 2000/104950  val 0.018665  49 ms/step  eta 1.40 h
+  det step 2500/104950  val 0.018951  49 ms/step  eta 1.39 h
+  det step 3000/104950  val 0.016923  49 ms/step  eta 1.38 h
+  det step 3500/104950  val 0.018331  49 ms/step  eta 1.37 h
+  det step 4000/104950  val 0.016933  49 ms/step  eta 1.36 h
+  det step 4500/104950  val 0.017836  49 ms/step  eta 1.36 h
+  det step 5000/104950  val 0.020790  49 ms/step  eta 1.35 h
+  det step 5500/104950  val 0.016494  49 ms/step  eta 1.34 h
+  det step 6000/104950  val 0.017302  48 ms/step  eta 1.33 h
+  det step 6500/104950  val 0.018346  48 ms/step  eta 1.33 h
+  det step 7000/104950  val 0.016264  48 ms/step  eta 1.32 h
+  det step 7500/104950  val 0.017002  48 ms/step  eta 1.31 h
+  det step 8000/104950  val 0.017600  48 ms/step  eta 1.30 h
+  det step 8500/104950  val 0.015816  48 ms/step  eta 1.30 h
+  det step 9000/104950  val 0.017136  48 ms/step  eta 1.29 h
+  det step 9500/104950  val 0.016838  48 ms/step  eta 1.28 h
+  det step 10000/104950  val 0.015776  48 ms/step  eta 1.28 h
+  det step 10500/104950  val 0.014972  48 ms/step  eta 1.27 h
+  det step 11000/104950  val 0.015116  48 ms/step  eta 1.26 h
+  det step 11500/104950  val 0.014695  48 ms/step  eta 1.26 h
+  det step 12000/104950  val 0.015704  48 ms/step  eta 1.25 h
+  det step 12500/104950  val 0.014326  48 ms/step  eta 1.24 h
+  det step 13000/104950  val 0.014338  48 ms/step  eta 1.23 h
+  det step 13500/104950  val 0.013861  48 ms/step  eta 1.23 h
+  det step 14000/104950  val 0.014560  48 ms/step  eta 1.22 h
+  det step 14500/104950  val 0.015364  48 ms/step  eta 1.21 h
+  det step 15000/104950  val 0.014315  48 ms/step  eta 1.21 h
+  det step 15500/104950  val 0.014169  48 ms/step  eta 1.20 h
+  det step 16000/104950  val 0.015010  48 ms/step  eta 1.19 h
+  det step 16500/104950  val 0.013995  48 ms/step  eta 1.19 h
+  det step 17000/104950  val 0.013765  48 ms/step  eta 1.18 h
+  det step 17500/104950  val 0.014157  48 ms/step  eta 1.17 h
+  det step 18000/104950  val 0.013427  48 ms/step  eta 1.17 h
+  det step 18500/104950  val 0.013130  48 ms/step  eta 1.16 h
+  det step 19000/104950  val 0.017936  48 ms/step  eta 1.15 h
+  det step 19500/104950  val 0.013554  48 ms/step  eta 1.15 h
+  det step 20000/104950  val 0.013997  48 ms/step  eta 1.14 h
+  det step 20500/104950  val 0.013386  48 ms/step  eta 1.13 h
+  det step 21000/104950  val 0.013288  48 ms/step  eta 1.13 h
+  det step 21500/104950  val 0.013101  48 ms/step  eta 1.12 h
+  det step 22000/104950  val 0.013187  48 ms/step  eta 1.11 h
+  det step 22500/104950  val 0.013285  48 ms/step  eta 1.11 h
+  det step 23000/104950  val 0.013181  48 ms/step  eta 1.10 h
+  det step 23500/104950  val 0.013244  48 ms/step  eta 1.09 h
+  det step 24000/104950  val 0.013058  48 ms/step  eta 1.09 h
+  det step 24500/104950  val 0.013589  48 ms/step  eta 1.08 h
+  det step 25000/104950  val 0.013263  48 ms/step  eta 1.07 h
+  det step 25500/104950  val 0.013071  48 ms/step  eta 1.07 h
+  det step 26000/104950  val 0.013347  48 ms/step  eta 1.06 h
+  det step 26500/104950  val 0.013225  48 ms/step  eta 1.05 h
+  det step 27000/104950  val 0.013112  48 ms/step  eta 1.05 h
+  det step 27500/104950  val 0.013011  48 ms/step  eta 1.04 h
+  det step 28000/104950  val 0.012960  48 ms/step  eta 1.03 h
+  det step 28500/104950  val 0.013381  48 ms/step  eta 1.03 h
+  det step 29000/104950  val 0.013020  48 ms/step  eta 1.02 h
+  det step 29500/104950  val 0.013070  48 ms/step  eta 1.01 h
+  det step 30000/104950  val 0.013315  48 ms/step  eta 1.01 h
+  det step 30500/104950  val 0.013237  48 ms/step  eta 1.00 h
+  det step 31000/104950  val 0.012982  48 ms/step  eta 0.99 h
+  det step 31500/104950  val 0.013039  48 ms/step  eta 0.98 h
+  det step 32000/104950  val 0.012842  48 ms/step  eta 0.98 h
+  det step 32500/104950  val 0.013193  48 ms/step  eta 0.97 h
+  det step 33000/104950  val 0.013329  48 ms/step  eta 0.96 h
+  det step 33500/104950  val 0.012896  48 ms/step  eta 0.96 h
+  det step 34000/104950  val 0.012880  48 ms/step  eta 0.95 h
+  det step 34500/104950  val 0.012918  48 ms/step  eta 0.94 h
+  det step 35000/104950  val 0.012951  48 ms/step  eta 0.94 h
+  det step 35500/104950  val 0.012899  48 ms/step  eta 0.93 h
+  det step 36000/104950  val 0.013355  48 ms/step  eta 0.92 h
+  det step 36500/104950  val 0.012972  48 ms/step  eta 0.92 h
+  det step 37000/104950  val 0.012769  48 ms/step  eta 0.91 h
+  det step 37500/104950  val 0.012865  48 ms/step  eta 0.90 h
+  det step 38000/104950  val 0.013487  48 ms/step  eta 0.90 h
+  det step 38500/104950  val 0.012916  48 ms/step  eta 0.89 h
+  det step 39000/104950  val 0.012786  48 ms/step  eta 0.88 h
+  det step 39500/104950  val 0.012855  48 ms/step  eta 0.88 h
+  det step 40000/104950  val 0.012784  48 ms/step  eta 0.87 h
+  det step 40500/104950  val 0.013533  48 ms/step  eta 0.86 h
+  det step 41000/104950  val 0.012817  48 ms/step  eta 0.86 h
+  det step 41500/104950  val 0.012835  48 ms/step  eta 0.85 h
+  det step 42000/104950  val 0.012823  48 ms/step  eta 0.84 h
+  det step 42500/104950  val 0.012795  48 ms/step  eta 0.84 h
+  det step 43000/104950  val 0.012731  48 ms/step  eta 0.83 h
+  det step 43500/104950  val 0.012661  48 ms/step  eta 0.82 h
+  det step 44000/104950  val 0.012831  48 ms/step  eta 0.82 h
+  det step 44500/104950  val 0.012654  48 ms/step  eta 0.81 h
+  det step 45000/104950  val 0.012923  48 ms/step  eta 0.80 h
+  det step 45500/104950  val 0.012721  48 ms/step  eta 0.80 h
+  det step 46000/104950  val 0.012656  48 ms/step  eta 0.79 h
+  det step 46500/104950  val 0.012708  48 ms/step  eta 0.78 h
+  det step 47000/104950  val 0.012675  48 ms/step  eta 0.78 h
+  det step 47500/104950  val 0.012698  48 ms/step  eta 0.77 h
+  det step 48000/104950  val 0.012651  48 ms/step  eta 0.76 h
+  det step 48500/104950  val 0.013025  48 ms/step  eta 0.76 h
+  det step 49000/104950  val 0.012761  48 ms/step  eta 0.75 h
+  det step 49500/104950  val 0.012786  48 ms/step  eta 0.74 h
+  det step 50000/104950  val 0.012686  48 ms/step  eta 0.74 h
+  det step 50500/104950  val 0.012611  48 ms/step  eta 0.73 h
+  det step 51000/104950  val 0.012651  48 ms/step  eta 0.72 h
+  det step 51500/104950  val 0.012840  48 ms/step  eta 0.72 h
+  det step 52000/104950  val 0.012675  48 ms/step  eta 0.71 h
+  det step 52500/104950  val 0.012601  48 ms/step  eta 0.70 h
+  det step 53000/104950  val 0.012942  48 ms/step  eta 0.70 h
+  det step 53500/104950  val 0.012653  48 ms/step  eta 0.69 h
+  det step 54000/104950  val 0.012618  48 ms/step  eta 0.68 h
+  det step 54500/104950  val 0.012635  48 ms/step  eta 0.68 h
+  det step 55000/104950  val 0.012569  48 ms/step  eta 0.67 h
+  det step 55500/104950  val 0.012582  48 ms/step  eta 0.66 h
+  det step 56000/104950  val 0.012565  48 ms/step  eta 0.66 h
+  det step 56500/104950  val 0.012556  48 ms/step  eta 0.65 h
+  det step 57000/104950  val 0.012568  48 ms/step  eta 0.64 h
+  det step 57500/104950  val 0.012564  48 ms/step  eta 0.64 h
+  det step 58000/104950  val 0.012573  48 ms/step  eta 0.63 h
+  det step 58500/104950  val 0.012552  48 ms/step  eta 0.62 h
+  det step 59000/104950  val 0.012558  48 ms/step  eta 0.62 h
+  det step 59500/104950  val 0.012555  48 ms/step  eta 0.61 h
+  det step 60000/104950  val 0.012577  48 ms/step  eta 0.60 h
+  det step 60500/104950  val 0.012565  48 ms/step  eta 0.60 h
+  det step 61000/104950  val 0.012577  48 ms/step  eta 0.59 h
+  det step 61500/104950  val 0.012551  48 ms/step  eta 0.58 h
+  det step 62000/104950  val 0.012566  48 ms/step  eta 0.58 h
+  det step 62500/104950  val 0.012566  48 ms/step  eta 0.57 h
+  det step 63000/104950  val 0.012551  48 ms/step  eta 0.56 h
+  det step 63500/104950  val 0.012549  48 ms/step  eta 0.56 h
+  det step 64000/104950  val 0.012521  48 ms/step  eta 0.55 h
+  det step 64500/104950  val 0.012526  48 ms/step  eta 0.54 h
+  det step 65000/104950  val 0.012538  48 ms/step  eta 0.54 h
+  det step 65500/104950  val 0.012522  48 ms/step  eta 0.53 h
+  det step 66000/104950  val 0.012518  48 ms/step  eta 0.52 h
+  det step 66500/104950  val 0.012523  48 ms/step  eta 0.52 h
+  det step 67000/104950  val 0.012519  48 ms/step  eta 0.51 h
+  det step 67500/104950  val 0.012536  48 ms/step  eta 0.50 h
+  det step 68000/104950  val 0.012524  48 ms/step  eta 0.49 h
+  det step 68500/104950  val 0.012537  48 ms/step  eta 0.49 h
+  det step 69000/104950  val 0.012526  48 ms/step  eta 0.48 h
+  det step 69500/104950  val 0.012517  48 ms/step  eta 0.47 h
+  det step 70000/104950  val 0.012518  48 ms/step  eta 0.47 h
+  det step 70500/104950  val 0.012522  48 ms/step  eta 0.46 h
+  det step 71000/104950  val 0.012517  48 ms/step  eta 0.45 h
+  det step 71500/104950  val 0.012518  48 ms/step  eta 0.45 h
+  det step 72000/104950  val 0.012509  48 ms/step  eta 0.44 h
+  det step 72500/104950  val 0.012519  48 ms/step  eta 0.43 h
+  det step 73000/104950  val 0.012515  48 ms/step  eta 0.43 h
+  det step 73500/104950  val 0.012534  48 ms/step  eta 0.42 h
+  det step 74000/104950  val 0.012509  48 ms/step  eta 0.41 h
+  det step 74500/104950  val 0.012504  48 ms/step  eta 0.41 h
+  det step 75000/104950  val 0.012514  48 ms/step  eta 0.40 h
+  det step 75500/104950  val 0.012498  48 ms/step  eta 0.39 h
+  det step 76000/104950  val 0.012518  48 ms/step  eta 0.39 h
+  det step 76500/104950  val 0.012506  48 ms/step  eta 0.38 h
+  det step 77000/104950  val 0.012507  48 ms/step  eta 0.37 h
+  det step 77500/104950  val 0.012504  48 ms/step  eta 0.37 h
+  det step 78000/104950  val 0.012497  48 ms/step  eta 0.36 h
+  det step 78500/104950  val 0.012495  48 ms/step  eta 0.35 h
+  det step 79000/104950  val 0.012503  48 ms/step  eta 0.35 h
+  det step 79500/104950  val 0.012498  48 ms/step  eta 0.34 h
+  det step 80000/104950  val 0.012495  48 ms/step  eta 0.33 h
+  det step 80500/104950  val 0.012496  48 ms/step  eta 0.33 h
+  det step 81000/104950  val 0.012507  48 ms/step  eta 0.32 h
+  det step 81500/104950  val 0.012500  48 ms/step  eta 0.31 h
+  det step 82000/104950  val 0.012498  48 ms/step  eta 0.31 h
+  det step 82500/104950  val 0.012498  48 ms/step  eta 0.30 h
+  det step 83000/104950  val 0.012490  48 ms/step  eta 0.29 h
+  det step 83500/104950  val 0.012496  48 ms/step  eta 0.29 h
+  det step 84000/104950  val 0.012490  48 ms/step  eta 0.28 h
+  det step 84500/104950  val 0.012498  48 ms/step  eta 0.27 h
+  det step 85000/104950  val 0.012492  48 ms/step  eta 0.27 h
+  det step 85500/104950  val 0.012488  48 ms/step  eta 0.26 h
+  det step 86000/104950  val 0.012488  48 ms/step  eta 0.25 h
+  det step 86500/104950  val 0.012488  48 ms/step  eta 0.25 h
+  det step 87000/104950  val 0.012485  48 ms/step  eta 0.24 h
+  det step 87500/104950  val 0.012490  48 ms/step  eta 0.23 h
+  det step 88000/104950  val 0.012494  48 ms/step  eta 0.23 h
+  det step 88500/104950  val 0.012491  48 ms/step  eta 0.22 h
+  det step 89000/104950  val 0.012484  48 ms/step  eta 0.21 h
+  det step 89500/104950  val 0.012489  48 ms/step  eta 0.21 h
+  det step 90000/104950  val 0.012488  48 ms/step  eta 0.20 h
+  det step 90500/104950  val 0.012488  48 ms/step  eta 0.19 h
+  det step 91000/104950  val 0.012488  48 ms/step  eta 0.19 h
+  det step 91500/104950  val 0.012485  48 ms/step  eta 0.18 h
+  det step 92000/104950  val 0.012489  48 ms/step  eta 0.17 h
+  det step 92500/104950  val 0.012492  48 ms/step  eta 0.17 h
+  det step 93000/104950  val 0.012493  48 ms/step  eta 0.16 h
+  det step 93500/104950  val 0.012497  48 ms/step  eta 0.15 h
+  det step 94000/104950  val 0.012492  48 ms/step  eta 0.15 h
+  det step 94500/104950  val 0.012517  48 ms/step  eta 0.14 h
+  det step 95000/104950  val 0.012486  48 ms/step  eta 0.13 h
+  det step 95500/104950  val 0.012490  48 ms/step  eta 0.13 h
+  det step 96000/104950  val 0.012483  48 ms/step  eta 0.12 h
+  det step 96500/104950  val 0.012489  48 ms/step  eta 0.11 h
+  det step 97000/104950  val 0.012483  48 ms/step  eta 0.11 h
+  det step 97500/104950  val 0.012484  48 ms/step  eta 0.10 h
+  det step 98000/104950  val 0.012481  48 ms/step  eta 0.09 h
+  det step 98500/104950  val 0.012487  48 ms/step  eta 0.09 h
+  det step 99000/104950  val 0.012486  48 ms/step  eta 0.08 h
+  det step 99500/104950  val 0.012483  48 ms/step  eta 0.07 h
+  det step 100000/104950  val 0.012481  48 ms/step  eta 0.07 h
+  det step 100500/104950  val 0.012481  48 ms/step  eta 0.06 h
+  det step 101000/104950  val 0.012482  48 ms/step  eta 0.05 h
+  det step 101500/104950  val 0.012484  48 ms/step  eta 0.05 h
+  det step 102000/104950  val 0.012484  48 ms/step  eta 0.04 h
+  det step 102500/104950  val 0.012484  48 ms/step  eta 0.03 h
+  det step 103000/104950  val 0.012483  48 ms/step  eta 0.03 h
+  det step 103500/104950  val 0.012489  48 ms/step  eta 0.02 h
+  det step 104000/104950  val 0.012481  48 ms/step  eta 0.01 h
+  det step 104500/104950  val 0.012480  48 ms/step  eta 0.01 h
+  det step 104950/104950  val 0.012481  48 ms/step  eta 0.00 h
+DONE det: 4198 log points, final val 0.012481

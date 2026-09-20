@@ -1,0 +1,238 @@
+python   3.12.3
+torch    2.14.0+cu130
+numpy    2.5.3
+in colab False
+gpu      NVIDIA RTX PRO 6000 Blackwell Server Edition
+device   cuda
+cache    /home/ubuntu/lisa-rtm/lisa_rtm_cache
+seeded   0
+preset        FULL   run dir FULL_lam0.001
+rates         12000 Hz -> 48000 Hz  (4x)
+speakers      10 train / 3 held out
+transport     n_fft=2048 hop=512  high band = bins 256..1024
+evaluation    n_fft=1024 hop=256 (different basis, on purpose)
+LISA: 86,881 parameters  (paper reports ~89k)
+  encoder 9,984   decoder 76,897
+OV2 model/loss/trainer defined.  LISAS params: 87777
+OV3 model/distances defined.  LISASD params: 88,353  (LISAS 87,777; +4 decoder noise channels x 144 = 576 weights)
+OV3 trainer defined (train_ov3, time_ov3, val_loss, plot_curves).
+OV3 fast trainer defined (train_ov3_fast, time_ov3_fast, bench_fast, val_loss_fast, ArmStack).  flags: {'STACK': True, 'AMP': True, 'TF32': True, 'COMPILE': True, 'PIN': True, 'FUSED': True, 'STREAMS': False, 'CUDA_GRAPHS': False, 'GROUP_MAX': 1, 'DETERMINISTIC': False, 'COMPILE_MODE': 'default', 'SUBPIXEL': True, 'JITTER_PER_CELL': False}
+arm det_paper ('det', 0.0, 'LISAS')  device cuda  torch 2.14.0+cu130
+preflight: {"corpus_hours": 37.322358, "steps_per_epoch": 2099.383, "epochs": 49.9909, "n_utts": 39639, "milestones": [20990, 41980, 52475, 62970, 73465, 83960]}
+g3 (must match every other instance): {"corpus": "db078cefbdf5017ba8cbc8b523ba6adb", "batches": "0d24acf51dd75d0e1de44a54206c8d3e"}
+/home/ubuntu/lisa/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+torch.compile failed, falling back to eager MLP: InductorError('CalledProcessError: Command \'[\'/usr/bin/gcc\', \'/home/ubuntu/lisa/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.c\', \'-O3\', \'-shared\', \'-fPIC\', \'-Wno-psabi\'
+  det_paper step 500/104950  val 0.009722  54 ms/step  eta 1.57 h
+  det_paper step 1000/104950  val 0.016507  51 ms/step  eta 1.48 h
+  det_paper step 1500/104950  val 0.007692  50 ms/step  eta 1.44 h
+  det_paper step 2000/104950  val 0.007825  50 ms/step  eta 1.42 h
+  det_paper step 2500/104950  val 0.005790  49 ms/step  eta 1.41 h
+  det_paper step 3000/104950  val 0.007963  49 ms/step  eta 1.39 h
+  det_paper step 3500/104950  val 0.006231  49 ms/step  eta 1.38 h
+  det_paper step 4000/104950  val 0.007249  49 ms/step  eta 1.37 h
+  det_paper step 4500/104950  val 0.007642  49 ms/step  eta 1.36 h
+  det_paper step 5000/104950  val 0.005732  49 ms/step  eta 1.35 h
+  det_paper step 5500/104950  val 0.005114  49 ms/step  eta 1.35 h
+  det_paper step 6000/104950  val 0.005468  49 ms/step  eta 1.34 h
+  det_paper step 6500/104950  val 0.007169  49 ms/step  eta 1.33 h
+  det_paper step 7000/104950  val 0.005416  49 ms/step  eta 1.32 h
+  det_paper step 7500/104950  val 0.005920  49 ms/step  eta 1.32 h
+  det_paper step 8000/104950  val 0.005339  49 ms/step  eta 1.31 h
+  det_paper step 8500/104950  val 0.005476  49 ms/step  eta 1.30 h
+  det_paper step 9000/104950  val 0.005103  49 ms/step  eta 1.29 h
+  det_paper step 9500/104950  val 0.005367  49 ms/step  eta 1.29 h
+  det_paper step 10000/104950  val 0.004725  48 ms/step  eta 1.28 h
+  det_paper step 10500/104950  val 0.006369  48 ms/step  eta 1.27 h
+  det_paper step 11000/104950  val 0.004868  48 ms/step  eta 1.26 h
+  det_paper step 11500/104950  val 0.004464  48 ms/step  eta 1.26 h
+  det_paper step 12000/104950  val 0.005013  48 ms/step  eta 1.25 h
+  det_paper step 12500/104950  val 0.006582  48 ms/step  eta 1.24 h
+  det_paper step 13000/104950  val 0.004541  48 ms/step  eta 1.24 h
+  det_paper step 13500/104950  val 0.004611  48 ms/step  eta 1.23 h
+  det_paper step 14000/104950  val 0.005296  48 ms/step  eta 1.22 h
+  det_paper step 14500/104950  val 0.004998  48 ms/step  eta 1.22 h
+  det_paper step 15000/104950  val 0.007007  48 ms/step  eta 1.21 h
+  det_paper step 15500/104950  val 0.004704  48 ms/step  eta 1.20 h
+  det_paper step 16000/104950  val 0.005146  48 ms/step  eta 1.20 h
+  det_paper step 16500/104950  val 0.004258  48 ms/step  eta 1.19 h
+  det_paper step 17000/104950  val 0.004397  48 ms/step  eta 1.18 h
+  det_paper step 17500/104950  val 0.004723  48 ms/step  eta 1.17 h
+  det_paper step 18000/104950  val 0.004495  48 ms/step  eta 1.17 h
+  det_paper step 18500/104950  val 0.004472  48 ms/step  eta 1.16 h
+  det_paper step 19000/104950  val 0.005511  48 ms/step  eta 1.15 h
+  det_paper step 19500/104950  val 0.004434  48 ms/step  eta 1.15 h
+  det_paper step 20000/104950  val 0.004540  48 ms/step  eta 1.14 h
+  det_paper step 20500/104950  val 0.005730  48 ms/step  eta 1.13 h
+  det_paper step 21000/104950  val 0.004906  48 ms/step  eta 1.13 h
+  det_paper step 21500/104950  val 0.004137  48 ms/step  eta 1.12 h
+  det_paper step 22000/104950  val 0.005454  48 ms/step  eta 1.11 h
+  det_paper step 22500/104950  val 0.004244  48 ms/step  eta 1.11 h
+  det_paper step 23000/104950  val 0.004255  48 ms/step  eta 1.10 h
+  det_paper step 23500/104950  val 0.004494  48 ms/step  eta 1.09 h
+  det_paper step 24000/104950  val 0.004345  48 ms/step  eta 1.09 h
+  det_paper step 24500/104950  val 0.004229  48 ms/step  eta 1.08 h
+  det_paper step 25000/104950  val 0.004796  48 ms/step  eta 1.07 h
+  det_paper step 25500/104950  val 0.004124  48 ms/step  eta 1.07 h
+  det_paper step 26000/104950  val 0.004163  48 ms/step  eta 1.06 h
+  det_paper step 26500/104950  val 0.004257  48 ms/step  eta 1.05 h
+  det_paper step 27000/104950  val 0.004631  48 ms/step  eta 1.05 h
+  det_paper step 27500/104950  val 0.004248  48 ms/step  eta 1.04 h
+  det_paper step 28000/104950  val 0.004155  48 ms/step  eta 1.03 h
+  det_paper step 28500/104950  val 0.004335  48 ms/step  eta 1.03 h
+  det_paper step 29000/104950  val 0.004276  48 ms/step  eta 1.02 h
+  det_paper step 29500/104950  val 0.004375  48 ms/step  eta 1.01 h
+  det_paper step 30000/104950  val 0.004132  48 ms/step  eta 1.01 h
+  det_paper step 30500/104950  val 0.004529  48 ms/step  eta 1.00 h
+  det_paper step 31000/104950  val 0.004250  48 ms/step  eta 0.99 h
+  det_paper step 31500/104950  val 0.004542  48 ms/step  eta 0.99 h
+  det_paper step 32000/104950  val 0.004683  48 ms/step  eta 0.98 h
+  det_paper step 32500/104950  val 0.004377  48 ms/step  eta 0.97 h
+  det_paper step 33000/104950  val 0.004219  48 ms/step  eta 0.96 h
+  det_paper step 33500/104950  val 0.004119  48 ms/step  eta 0.96 h
+  det_paper step 34000/104950  val 0.004397  48 ms/step  eta 0.95 h
+  det_paper step 34500/104950  val 0.004563  48 ms/step  eta 0.94 h
+  det_paper step 35000/104950  val 0.004241  48 ms/step  eta 0.94 h
+  det_paper step 35500/104950  val 0.004226  48 ms/step  eta 0.93 h
+  det_paper step 36000/104950  val 0.004343  48 ms/step  eta 0.92 h
+  det_paper step 36500/104950  val 0.004802  48 ms/step  eta 0.92 h
+  det_paper step 37000/104950  val 0.004206  48 ms/step  eta 0.91 h
+  det_paper step 37500/104950  val 0.004345  48 ms/step  eta 0.90 h
+  det_paper step 38000/104950  val 0.004365  48 ms/step  eta 0.90 h
+  det_paper step 38500/104950  val 0.004185  48 ms/step  eta 0.89 h
+  det_paper step 39000/104950  val 0.004237  48 ms/step  eta 0.88 h
+  det_paper step 39500/104950  val 0.004285  48 ms/step  eta 0.88 h
+  det_paper step 40000/104950  val 0.004179  48 ms/step  eta 0.87 h
+  det_paper step 40500/104950  val 0.004549  48 ms/step  eta 0.86 h
+  det_paper step 41000/104950  val 0.004224  48 ms/step  eta 0.86 h
+  det_paper step 41500/104950  val 0.004113  48 ms/step  eta 0.85 h
+  det_paper step 42000/104950  val 0.004321  48 ms/step  eta 0.84 h
+  det_paper step 42500/104950  val 0.004161  48 ms/step  eta 0.84 h
+  det_paper step 43000/104950  val 0.004071  48 ms/step  eta 0.83 h
+  det_paper step 43500/104950  val 0.004079  48 ms/step  eta 0.82 h
+  det_paper step 44000/104950  val 0.004212  48 ms/step  eta 0.82 h
+  det_paper step 44500/104950  val 0.004086  48 ms/step  eta 0.81 h
+  det_paper step 45000/104950  val 0.004091  48 ms/step  eta 0.80 h
+  det_paper step 45500/104950  val 0.004172  48 ms/step  eta 0.80 h
+  det_paper step 46000/104950  val 0.004118  48 ms/step  eta 0.79 h
+  det_paper step 46500/104950  val 0.004070  48 ms/step  eta 0.78 h
+  det_paper step 47000/104950  val 0.004351  48 ms/step  eta 0.78 h
+  det_paper step 47500/104950  val 0.004194  48 ms/step  eta 0.77 h
+  det_paper step 48000/104950  val 0.004314  48 ms/step  eta 0.76 h
+  det_paper step 48500/104950  val 0.004140  48 ms/step  eta 0.76 h
+  det_paper step 49000/104950  val 0.004129  48 ms/step  eta 0.75 h
+  det_paper step 49500/104950  val 0.004081  48 ms/step  eta 0.74 h
+  det_paper step 50000/104950  val 0.004143  48 ms/step  eta 0.74 h
+  det_paper step 50500/104950  val 0.004131  48 ms/step  eta 0.73 h
+  det_paper step 51000/104950  val 0.004429  48 ms/step  eta 0.72 h
+  det_paper step 51500/104950  val 0.004127  48 ms/step  eta 0.72 h
+  det_paper step 52000/104950  val 0.004061  48 ms/step  eta 0.71 h
+  det_paper step 52500/104950  val 0.004053  48 ms/step  eta 0.70 h
+  det_paper step 53000/104950  val 0.004096  48 ms/step  eta 0.70 h
+  det_paper step 53500/104950  val 0.004070  48 ms/step  eta 0.69 h
+  det_paper step 54000/104950  val 0.004084  48 ms/step  eta 0.68 h
+  det_paper step 54500/104950  val 0.004068  48 ms/step  eta 0.68 h
+  det_paper step 55000/104950  val 0.004059  48 ms/step  eta 0.67 h
+  det_paper step 55500/104950  val 0.004068  48 ms/step  eta 0.66 h
+  det_paper step 56000/104950  val 0.004065  48 ms/step  eta 0.66 h
+  det_paper step 56500/104950  val 0.004053  48 ms/step  eta 0.65 h
+  det_paper step 57000/104950  val 0.004074  48 ms/step  eta 0.64 h
+  det_paper step 57500/104950  val 0.004056  48 ms/step  eta 0.64 h
+  det_paper step 58000/104950  val 0.004092  48 ms/step  eta 0.63 h
+  det_paper step 58500/104950  val 0.004080  48 ms/step  eta 0.62 h
+  det_paper step 59000/104950  val 0.004076  48 ms/step  eta 0.62 h
+  det_paper step 59500/104950  val 0.004103  48 ms/step  eta 0.61 h
+  det_paper step 60000/104950  val 0.004059  48 ms/step  eta 0.60 h
+  det_paper step 60500/104950  val 0.004095  48 ms/step  eta 0.60 h
+  det_paper step 61000/104950  val 0.004078  48 ms/step  eta 0.59 h
+  det_paper step 61500/104950  val 0.004072  48 ms/step  eta 0.58 h
+  det_paper step 62000/104950  val 0.004098  48 ms/step  eta 0.58 h
+  det_paper step 62500/104950  val 0.004108  48 ms/step  eta 0.57 h
+  det_paper step 63000/104950  val 0.004068  48 ms/step  eta 0.56 h
+  det_paper step 63500/104950  val 0.004086  48 ms/step  eta 0.56 h
+  det_paper step 64000/104950  val 0.004065  48 ms/step  eta 0.55 h
+  det_paper step 64500/104950  val 0.004055  48 ms/step  eta 0.54 h
+  det_paper step 65000/104950  val 0.004088  48 ms/step  eta 0.54 h
+  det_paper step 65500/104950  val 0.004049  48 ms/step  eta 0.53 h
+  det_paper step 66000/104950  val 0.004054  48 ms/step  eta 0.52 h
+  det_paper step 66500/104950  val 0.004089  48 ms/step  eta 0.52 h
+  det_paper step 67000/104950  val 0.004068  48 ms/step  eta 0.51 h
+  det_paper step 67500/104950  val 0.004076  48 ms/step  eta 0.50 h
+  det_paper step 68000/104950  val 0.004067  48 ms/step  eta 0.50 h
+  det_paper step 68500/104950  val 0.004064  48 ms/step  eta 0.49 h
+  det_paper step 69000/104950  val 0.004073  48 ms/step  eta 0.48 h
+  det_paper step 69500/104950  val 0.004074  48 ms/step  eta 0.47 h
+  det_paper step 70000/104950  val 0.004068  48 ms/step  eta 0.47 h
+  det_paper step 70500/104950  val 0.004058  48 ms/step  eta 0.46 h
+  det_paper step 71000/104950  val 0.004072  48 ms/step  eta 0.45 h
+  det_paper step 71500/104950  val 0.004069  48 ms/step  eta 0.45 h
+  det_paper step 72000/104950  val 0.004059  48 ms/step  eta 0.44 h
+  det_paper step 72500/104950  val 0.004065  48 ms/step  eta 0.43 h
+  det_paper step 73000/104950  val 0.004095  48 ms/step  eta 0.43 h
+  det_paper step 73500/104950  val 0.004090  48 ms/step  eta 0.42 h
+  det_paper step 74000/104950  val 0.004046  48 ms/step  eta 0.41 h
+  det_paper step 74500/104950  val 0.004050  48 ms/step  eta 0.41 h
+  det_paper step 75000/104950  val 0.004107  48 ms/step  eta 0.40 h
+  det_paper step 75500/104950  val 0.004091  48 ms/step  eta 0.39 h
+  det_paper step 76000/104950  val 0.004106  48 ms/step  eta 0.39 h
+  det_paper step 76500/104950  val 0.004085  48 ms/step  eta 0.38 h
+  det_paper step 77000/104950  val 0.004092  48 ms/step  eta 0.37 h
+  det_paper step 77500/104950  val 0.004102  48 ms/step  eta 0.37 h
+  det_paper step 78000/104950  val 0.004044  48 ms/step  eta 0.36 h
+  det_paper step 78500/104950  val 0.004054  48 ms/step  eta 0.35 h
+  det_paper step 79000/104950  val 0.004048  48 ms/step  eta 0.35 h
+  det_paper step 79500/104950  val 0.004046  48 ms/step  eta 0.34 h
+  det_paper step 80000/104950  val 0.004088  48 ms/step  eta 0.33 h
+  det_paper step 80500/104950  val 0.004086  48 ms/step  eta 0.33 h
+  det_paper step 81000/104950  val 0.004069  48 ms/step  eta 0.32 h
+  det_paper step 81500/104950  val 0.004057  48 ms/step  eta 0.31 h
+  det_paper step 82000/104950  val 0.004082  48 ms/step  eta 0.31 h
+  det_paper step 82500/104950  val 0.004057  48 ms/step  eta 0.30 h
+  det_paper step 83000/104950  val 0.004064  48 ms/step  eta 0.29 h
+  det_paper step 83500/104950  val 0.004049  48 ms/step  eta 0.29 h
+  det_paper step 84000/104950  val 0.004049  48 ms/step  eta 0.28 h
+  det_paper step 84500/104950  val 0.004051  48 ms/step  eta 0.27 h
+  det_paper step 85000/104950  val 0.004051  48 ms/step  eta 0.27 h
+  det_paper step 85500/104950  val 0.004063  48 ms/step  eta 0.26 h
+  det_paper step 86000/104950  val 0.004078  48 ms/step  eta 0.25 h
+  det_paper step 86500/104950  val 0.004062  48 ms/step  eta 0.25 h
+  det_paper step 87000/104950  val 0.004063  48 ms/step  eta 0.24 h
+  det_paper step 87500/104950  val 0.004059  48 ms/step  eta 0.23 h
+  det_paper step 88000/104950  val 0.004079  48 ms/step  eta 0.23 h
+  det_paper step 88500/104950  val 0.004067  48 ms/step  eta 0.22 h
+  det_paper step 89000/104950  val 0.004067  48 ms/step  eta 0.21 h
+  det_paper step 89500/104950  val 0.004052  48 ms/step  eta 0.21 h
+  det_paper step 90000/104950  val 0.004050  48 ms/step  eta 0.20 h
+  det_paper step 90500/104950  val 0.004058  48 ms/step  eta 0.19 h
+  det_paper step 91000/104950  val 0.004069  48 ms/step  eta 0.19 h
+  det_paper step 91500/104950  val 0.004091  48 ms/step  eta 0.18 h
+  det_paper step 92000/104950  val 0.004047  48 ms/step  eta 0.17 h
+  det_paper step 92500/104950  val 0.004045  48 ms/step  eta 0.17 h
+  det_paper step 93000/104950  val 0.004047  48 ms/step  eta 0.16 h
+  det_paper step 93500/104950  val 0.004080  48 ms/step  eta 0.15 h
+  det_paper step 94000/104950  val 0.004052  48 ms/step  eta 0.15 h
+  det_paper step 94500/104950  val 0.004053  48 ms/step  eta 0.14 h
+  det_paper step 95000/104950  val 0.004107  48 ms/step  eta 0.13 h
+  det_paper step 95500/104950  val 0.004060  48 ms/step  eta 0.13 h
+  det_paper step 96000/104950  val 0.004085  48 ms/step  eta 0.12 h
+  det_paper step 96500/104950  val 0.004088  48 ms/step  eta 0.11 h
+  det_paper step 97000/104950  val 0.004046  48 ms/step  eta 0.11 h
+  det_paper step 97500/104950  val 0.004050  48 ms/step  eta 0.10 h
+  det_paper step 98000/104950  val 0.004084  48 ms/step  eta 0.09 h
+  det_paper step 98500/104950  val 0.004083  48 ms/step  eta 0.09 h
+  det_paper step 99000/104950  val 0.004048  48 ms/step  eta 0.08 h
+  det_paper step 99500/104950  val 0.004047  48 ms/step  eta 0.07 h
+  det_paper step 100000/104950  val 0.004045  48 ms/step  eta 0.07 h
+  det_paper step 100500/104950  val 0.004045  48 ms/step  eta 0.06 h
+  det_paper step 101000/104950  val 0.004048  48 ms/step  eta 0.05 h
+  det_paper step 101500/104950  val 0.004048  48 ms/step  eta 0.05 h
+  det_paper step 102000/104950  val 0.004070  48 ms/step  eta 0.04 h
+  det_paper step 102500/104950  val 0.004096  48 ms/step  eta 0.03 h
+  det_paper step 103000/104950  val 0.004044  48 ms/step  eta 0.03 h
+  det_paper step 103500/104950  val 0.004049  48 ms/step  eta 0.02 h
+  det_paper step 104000/104950  val 0.004060  48 ms/step  eta 0.01 h
+  det_paper step 104500/104950  val 0.004056  48 ms/step  eta 0.01 h
+  det_paper step 104950/104950  val 0.004063  48 ms/step  eta 0.00 h
+DONE det_paper: 4198 log points, final val 0.004063

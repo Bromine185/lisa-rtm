@@ -1,0 +1,29 @@
+{
+ "repo": "sanchit-gandhi/vctk",
+ "n": 39639,
+ "hours": 37.32235759259259,
+ "seg_hi": 48000,
+ "R": 4,
+ "fs_hi": 48000,
+ "peak": 0.95,
+ "test_speakers": [
+  "p236",
+  "p237",
+  "p238"
+ ],
+ "n_test_utts": 1285,
+ "n_paper_test": 2961,
+ "bytes": {
+  "Y": 25797213568,
+  "X": 6449303392
+ },
+ "g3": {
+  "corpus": "db078cefbdf5017ba8cbc8b523ba6adb",
+  "batches": "0d24acf51dd75d0e1de44a54206c8d3e",
+  "batch_tag": "OV50/batches",
+  "val_tag": "OV50/val",
+  "steps": 104950,
+  "batch": 64
+ },
+ "staged_secs": 106.2
+}
