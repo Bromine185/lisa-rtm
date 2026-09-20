@@ -56,25 +56,41 @@ def arm_seed(arm, seed=SEED):
     return (int.from_bytes(h, "big") ^ seed) % (2 ** 63)
 
 
-def boot(smoke=False, device=None, root=None):
+def boot(smoke=False, device=None, root=None, cells=()):
     """Exec the notebook definition cells in dependency order, exactly as
-    overnight3/smoke_fast_local.py does. Returns the globals dict."""
+    overnight3/smoke_fast_local.py does. Returns the globals dict.
+
+    `cells` names EXTRA notebook cells to run after the model cell and before overnight2/c1_model.py:
+    each entry is a substring of the cell's source, or a (substring, cut) pair that keeps only what
+    precedes `cut` -- the same split trick this function already uses on overnight/cell2_trainer.py,
+    and necessary because the notebook's cells mix definitions with the code that runs them.
+
+    Training needs none. Evaluation needs the inference cell's definitions,
+    ("def sample_batch(utts, cfg, rng):", "CKPT_PATH = "), for two reasons. It defines
+    naive_upsample, which e4_eval's floor/ceiling conditions are built from; and the tail after the
+    cut is a full training loop over `test_utts` -- running the whole cell raises NameError at boot,
+    and running it once test_utts exists would train a model nobody asked for. The cell also defines
+    a reconstruct() that c1_model.py then overrides with the tau/seed-aware one, so this must run
+    BEFORE c1_model rather than after the boot: the notebook's version ignores tau, and putting it
+    back would evaluate every stochastic arm at eps = 0 -- silently, and with no missing symbol to
+    notice."""
     os.environ.setdefault("MPLBACKEND", "Agg")
     import torch
     nb = json.loads((REPO / "lisa_rtm.ipynb").read_text())
     code = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
     G = {"__name__": "__main__"}
 
-    def run(mark):
-        exec(compile(next(s for s in code if mark in s), f"<nb {mark[:20]}>", "exec"), G)
+    def run(mark, cut=None):
+        src = next(s for s in code if mark in s)
+        exec(compile(src.split(cut)[0] if cut else src, f"<nb {mark[:20]}>", "exec"), G)
 
     run("import importlib, subprocess, sys")
     G["DEVICE"] = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
     run("@dataclasses.dataclass(frozen=True)")
     G["CFG"] = G["SMOKE"] if smoke else G["FULL"]
     for m in ("def _hann(n):", "class QuantileMap:", "def snr_db(y, y_hat):", "VCTK_URL = ",
-              "class LISAEncoder(nn.Module):"):
-        run(m)
+              "class LISAEncoder(nn.Module):") + tuple(cells):
+        run(*(m if isinstance(m, (tuple, list)) else (m,)))
     xl = (REPO / "overnight/cell2_trainer.py").read_text()
     exec(xl.split("def train_paired")[0], G)
     exec("def save_ckpt" + xl.split("def save_ckpt")[1], G)
