@@ -52,6 +52,16 @@ esac
 mkdir -p "$ROOT" "$RUN"
 cd "$REPO"
 
+# A venv left by an earlier run is the interpreter that owns this machine's torch. Adopt it before
+# anything probes for torch, or a resume would find a bare system python and re-download three
+# gigabytes of wheel it already has.
+VENV="${VENV:-$ROOT/venv}"
+if [ -x "$VENV/bin/activate" ] || [ -f "$VENV/bin/activate" ]; then
+  # shellcheck disable=SC1091
+  . "$VENV/bin/activate"
+  log "using venv $VENV"
+fi
+
 # ---- 1. torch, matched to the driver ------------------------------------------------------------
 log "driver:"; nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv,noheader | head -1
 # A Google Deep Learning VM image ships torch preinstalled -- typically a cu129 build whose arch
@@ -81,6 +91,22 @@ else
     torch==*) log "installing $WHEEL";;
     *) log "FATAL: no usable wheel for this driver ($WHEEL)"; exit 1;;
   esac
+  # A stock Ubuntu image ships python3 with no pip at all, and even where pip exists PEP 668 refuses
+  # to install into the system interpreter. A venv answers both, and it is created only on this
+  # branch -- activating one unconditionally would HIDE a preinstalled torch that was perfectly good.
+  if ! python3 -m pip --version >/dev/null 2>&1; then
+    if [ ! -x "$VENV/bin/python3" ]; then
+      log "  no pip in $(command -v python3) -- building a venv at $VENV"
+      python3 -m venv "$VENV" 2>/dev/null || {
+        log "  python3-venv is not installed; apt-get installing it"
+        sudo apt-get update -qq && sudo apt-get install -y -qq python3-venv
+        python3 -m venv "$VENV"
+      }
+    fi
+    # shellcheck disable=SC1091
+    . "$VENV/bin/activate"
+    log "  using $(command -v python3)  (re-activate with: source $VENV/bin/activate)"
+  fi
   python3 -m pip install -q --upgrade pip
   # shellcheck disable=SC2086
   python3 -m pip install -q --force-reinstall $WHEEL
