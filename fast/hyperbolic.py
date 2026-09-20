@@ -103,13 +103,19 @@ class Hyperbolic:
         with STATE.open("a") as f:
             f.write(json.dumps({"t": int(time.time()), "event": event, **payload}) + "\n")
 
-    def create(self, label, gpu_count=1, gpu_type=GPU_TYPE, region=REGION, confirm=False):
+    def create(self, label, gpu_count=1, gpu_type=GPU_TYPE, region=REGION, confirm=False,
+               ssh_public_key=None):
         """Create one rental. Refuses without confirm=True. Journalled before the request goes out,
         so a crash between send and response still leaves something reap() can find."""
         opt = self.option_for(gpu_count, gpu_type, region)
         if opt is None:
             raise RuntimeError(f"no enabled option for {gpu_type} x{gpu_count} in {region}")
+        # region MUST be explicit: it defaults to us-central-1, which is disabled. A probe that
+        # omitted it got past schema validation and was stopped only by REGION_DISABLED -- i.e. an
+        # incomplete body can still reach the provisioner.
         body = {"gpuType": gpu_type, "gpuCount": gpu_count, "region": region, "label": label}
+        if ssh_public_key:
+            body["sshPublicKey"] = ssh_public_key.strip()
         est = opt["costPerHourCents"] / 100.0
         if self.dry_run:
             return {"dry_run": True, "body": body, "usd_per_hour": est}
