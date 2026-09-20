@@ -16,10 +16,11 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-ROOT = Path("/Users/raghavsharma/projects/lisa-rtm")
-HIST = ROOT / "lisa_rtm_cache/results/ov3_history_OV3_fast.json"
+ROOT = Path(__file__).resolve().parents[1]
+TAG = sys.argv[1] if len(sys.argv) > 1 else "OV3_fast"
+HIST = ROOT / f"lisa_rtm_cache/results/ov3_history_{TAG}.json"
 FIGS = ROOT / "notes/analysis/figs"
-OUT = ROOT / "lisa_rtm_cache/results/dynamics_OV3_fast.json"
+OUT = ROOT / f"lisa_rtm_cache/results/dynamics_{TAG}.json"
 FIGS.mkdir(parents=True, exist_ok=True)
 
 ARMS = ["det", "es_marg", "es_marg_l0.1", "es_split_l0.1", "es_erb_l0.1", "es_dec_l0.1", "es_dec_erb_l0.1"]
@@ -27,11 +28,9 @@ ARMS = ["det", "es_marg", "es_marg_l0.1", "es_split_l0.1", "es_erb_l0.1", "es_de
 COL = {"det": "#2a78d6", "es_marg": "#eb6834", "es_marg_l0.1": "#1baf7a", "es_split_l0.1": "#eda100",
        "es_erb_l0.1": "#e87ba4", "es_dec_l0.1": "#008300", "es_dec_erb_l0.1": "#4a3aa7"}
 SURFACE, INK, INK2, MUTED, GRID, AXIS = "#fcfcfb", "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7"
-STEPS = 16000
-MILESTONES = [int(f * STEPS) for f in (0.2, 0.4, 0.5, 0.6, 0.7, 0.8)]
+LR_FRACS = (0.2, 0.4, 0.5, 0.6, 0.7, 0.8)
 LR0 = 1e-3
 STEPS_PER_EPOCH = 2099
-GAP_STEPS = [4000, 8000, 12000, 16000]
 DEF_THRESH = -12.0
 
 plt.rcParams.update({
@@ -47,14 +46,27 @@ plt.rcParams.update({
 
 H = json.load(open(HIST))
 
+# STEPS, the lr milestones and the quarter boundaries are DERIVED from the history, never hardcoded.
+# At 16,000 steps these reproduce the previous literals exactly ([4000, 8000, 12000, 16000]); at the
+# 50-epoch 104,950 they do not, and the old literals silently analysed the first 15% of the run.
+STEPS = int(max(max(H[a]["step"]) for a in ARMS))
+MILESTONES = [int(f * STEPS) for f in LR_FRACS]
+Q1, Q2, Q3, Q4 = STEPS // 4, STEPS // 2, 3 * (STEPS // 4), STEPS
+GAP_STEPS = [Q1, Q2, Q3, Q4]
+
 
 def arr(a, k):
     return np.array([np.nan if v is None else v for v in H[a][k]], dtype=float)
 
 
 def at(steps, vals, s):
+    """Nearest logged point to s.  The trainer logs every log_every=25 steps and validates every 500,
+    so an exact hit exists for every window the 16,000-step run asks for and this is unchanged there.
+    At 104,950 the derived quarters are not multiples of 25, so snap (within one logging interval)
+    rather than assert."""
     i = int(np.argmin(np.abs(steps - s)))
-    assert abs(steps[i] - s) < 1e-9, (s, steps[i])
+    tol = float(np.median(np.diff(steps))) if steps.size > 1 else 1.0
+    assert abs(steps[i] - s) <= max(tol, 1.0), (s, steps[i], tol)
     return float(vals[i])
 
 
@@ -102,7 +114,7 @@ for a in ARMS:
         r["spread"] = {"final_200step_mean": float(np.mean(spread[-8:])),
                        "peak": float(np.nanmax(sm)), "peak_step": int(sm_steps[np.nanargmax(sm)]),
                        "at": {str(s): window_mean(st, spread, s - 200, s) for s in GAP_STEPS},
-                       "slope_last4000_pct_per_1000": pct_slope(sm_steps, sm, 12000, 16000)}
+                       "slope_last4000_pct_per_1000": pct_slope(sm_steps, sm, Q3, Q4)}
     # def1 threshold crossing
     if stoch:
         idx = np.where(def1 > DEF_THRESH)[0]
@@ -125,21 +137,21 @@ for a in ARMS:
                                   "def1_diff_std": None if not stoch else float(np.std(np.diff(def1[-8:]))),
                                   "snr0_diff_std": float(np.std(np.diff(snr0[-8:])))}
     # slopes over the last 4000 steps
-    r["val_loss_slope_last4000_pct_per_1000"] = pct_slope(vs, vl, 12000, 16000)
-    r["train_ema_slope_last4000_pct_per_1000"] = pct_slope(vs, tr, 12000, 16000)
-    r["val_wave_slope_last4000_pct_per_1000"] = pct_slope(vs, vw, 12000, 16000)
-    r["val_spec_slope_last4000_pct_per_1000"] = pct_slope(vs, vsp, 12000, 16000)
-    r["val_loss_slope_8000_12000_pct_per_1000"] = pct_slope(vs, vl, 8000, 12000)
-    r["val_loss_slope_4000_8000_pct_per_1000"] = pct_slope(vs, vl, 4000, 8000)
+    r["val_loss_slope_last4000_pct_per_1000"] = pct_slope(vs, vl, Q3, Q4)
+    r["train_ema_slope_last4000_pct_per_1000"] = pct_slope(vs, tr, Q3, Q4)
+    r["val_wave_slope_last4000_pct_per_1000"] = pct_slope(vs, vw, Q3, Q4)
+    r["val_spec_slope_last4000_pct_per_1000"] = pct_slope(vs, vsp, Q3, Q4)
+    r["val_loss_slope_8000_12000_pct_per_1000"] = pct_slope(vs, vl, Q2, Q3)
+    r["val_loss_slope_4000_8000_pct_per_1000"] = pct_slope(vs, vl, Q1, Q2)
     # last-quarter rise
-    q = vs >= 12000
+    q = vs >= Q3
     vq = vl[q]
     runmin = np.minimum.accumulate(vq)
-    r["last_quarter"] = {"val_12000": float(at(vs, vl, 12000)), "val_16000": float(vl[-1]),
-                         "change_pct": float(100 * (vl[-1] / at(vs, vl, 12000) - 1)),
+    r["last_quarter"] = {f"val_{Q3}": float(at(vs, vl, Q3)), f"val_{Q4}": float(vl[-1]),
+                         "change_pct": float(100 * (vl[-1] / at(vs, vl, Q3) - 1)),
                          "max_rise_above_running_min_pct": float(100 * np.max(vq / runmin - 1)),
                          "n_upticks_of_8": int(np.sum(np.diff(vq) > 0)),
-                         "rose": bool(vl[-1] > at(vs, vl, 12000))}
+                         "rose": bool(vl[-1] > at(vs, vl, Q3))}
     # val/train ratio trend (generalisation gap)
     r["val_over_train_at"] = {str(s): float(at(vs, vl, s) / at(vs, tr, s)) for s in GAP_STEPS}
     # lr milestones: val change over the straddling 500-step window vs the previous window;
@@ -148,7 +160,8 @@ for a in ARMS:
     for M in MILESTONES:
         pre = 500 * (M // 500); post = pre + 500
         v_pre, v_post, v_prev = at(vs, vl, pre), at(vs, vl, post), at(vs, vl, pre - 500)
-        ms[str(M)] = {"lr_after": float(lr[st == M][0]), "val_window": [pre, post],
+        _j = np.nonzero(st >= M)[0]        # first logged step at or after the milestone, not an exact hit
+        ms[str(M)] = {"lr_after": float(lr[_j[0]] if _j.size else lr[-1]), "val_window": [pre, post],
                       "val_change_pct": float(100 * (v_post / v_pre - 1)),
                       "prev_window_change_pct": float(100 * (v_pre / v_prev - 1)),
                       "train_wave_change_pct": float(100 * (window_mean(st, wave, M, M + 400)
@@ -369,7 +382,7 @@ for a in ARMS:
 print()
 for a in ARMS:
     r = res["arms"][a]
-    print(f"{a:16} v/t ratio at 4k/8k/12k/16k: " + " ".join(f"{r['val_over_train_at'][str(s)]:.3f}" for s in GAP_STEPS)
+    print(f"{a:16} v/t ratio at " + "/".join(f"{x//1000}k" for x in GAP_STEPS) + ": " + " ".join(f"{r['val_over_train_at'][str(s)]:.3f}" for s in GAP_STEPS)
           + f"   best val step {r['best_val']['step']}   lastQ max rise {r['last_quarter']['max_rise_above_running_min_pct']:.2f}% upticks {r['last_quarter']['n_upticks_of_8']}"
           + f"   slopes 4-8k {r['val_loss_slope_4000_8000_pct_per_1000']:+.2f} 8-12k {r['val_loss_slope_8000_12000_pct_per_1000']:+.2f} 12-16k {r['val_loss_slope_last4000_pct_per_1000']:+.2f}"
           + f"   wave {r['val_wave_slope_last4000_pct_per_1000']:+.2f} spec {r['val_spec_slope_last4000_pct_per_1000']:+.2f}")
