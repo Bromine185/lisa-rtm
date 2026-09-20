@@ -78,12 +78,13 @@ Table 1 (as `2026-09-17-lisa-reported-numbers-audit.md` §3.2 notes). A literal 
 train a different task and be incomparable to the other seven arms. So `det_paper` means **their loss
 and hyperparameters, our task**.
 
-**OPEN:** decoder width for `det_paper` — their 128 or our 144. Recommendation: **144**, so that λ is
-the only thing varying across the eight arms and no second architecture enters the run. Using 128
-would make it a faithful reproduction at the cost of a confounded comparison.
+**DECIDED:** decoder width stays at this repo's **144** for `det_paper`, not their 128, so that λ is
+the only thing varying across the eight arms and no second architecture enters the run. The cost is
+that `det_paper` is their *loss and schedule*, not their *architecture*; say so when reporting it.
 
-**Cheap win:** with λ = 0 the det branch still computes the three STFT scales and then multiplies by
-zero (`e2b_fast.py`, det path). A two-line skip makes `det_paper` cheaper than `det`.
+**DECIDED — not taken:** with λ = 0 the det branch still computes the three STFT scales and
+multiplies by zero. A two-line skip would make `det_paper` cheaper than `det`; judged not worth the
+code risk, so both det arms cost the same.
 
 ## Cut from the original seven, and why
 
