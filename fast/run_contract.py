@@ -149,6 +149,46 @@ def g3_digest(n, hours, lens, y, x, batch_tag=BATCH_TAG, n_steps=1000):
     }
 
 
+def barrier_decision(reports, expect=None):
+    """Decide whether eight instances may start training. Pure, so it is testable.
+
+    Each instance publishes {"arm", "g3": {"corpus", "batches"}, "hours", "n"} after staging and
+    then blocks. This compares them. The barrier exists because the eight VMs share no filesystem:
+    identical batch indices into different corpora are different data, and nothing downstream would
+    notice -- the only symptom is that the per-arm loss curves stop sharing step-to-step noise.
+
+    Fails CLOSED. A missing arm, a duplicate arm, or any digest disagreement blocks the whole fleet,
+    because a run where seven arms are comparable and one is not is not a paired experiment, and
+    finding out afterwards costs the entire spend.
+    """
+    expect = set(expect or ARMS)
+    problems, got = [], {}
+    for r in reports:
+        a = r.get("arm")
+        if a in got:
+            problems.append(f"duplicate report for arm {a!r}")
+        got[a] = r
+    missing = expect - set(got)
+    extra = set(got) - expect
+    if missing:
+        problems.append(f"no report from: {sorted(missing)}")
+    if extra:
+        problems.append(f"unexpected arms: {sorted(extra)}")
+    for field in ("corpus", "batches"):
+        vals = {}
+        for a, r in got.items():
+            vals.setdefault((r.get("g3") or {}).get(field), []).append(a)
+        if len(vals) > 1:
+            groups = "; ".join(f"{d}: {sorted(arms)}" for d, arms in sorted(vals.items(), key=lambda kv: str(kv[0])))
+            problems.append(f"{field} digests disagree -- {groups}")
+    for a, r in got.items():
+        h = r.get("hours")
+        if h is not None and not (37.2 < h < 37.4):
+            problems.append(f"{a}: corpus.hours {h} outside (37.2, 37.4)")
+    return {"go": not problems, "problems": problems, "n_reports": len(got),
+            "arms": sorted(got), "corpus": next((( r.get("g3") or {}).get("corpus") for r in got.values()), None)}
+
+
 def preflight(n, hours, seg_hi, val_n=None, n_test_utts=None, steps=STEPS, batch=BATCH):
     """The hard gate, run before the optimiser is constructed.  Raises on any failure.
 

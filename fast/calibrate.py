@@ -256,7 +256,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", default="calibration.json")
     ap.add_argument("--rows", type=int, default=6_144_000, help="one ES arm at batch 64")
+    ap.add_argument("--wheel-only", action="store_true",
+                    help="print the pip install line and exit; imports nothing, so it runs BEFORE torch exists")
     a = ap.parse_args()
+
+    if a.wheel_only:
+        d = m0_driver()
+        print(d.get("wheel", "unknown"))
+        return 0 if d.get("wheel", "").startswith("torch==") else 1
 
     res = {"host": platform.node(), "python": sys.version.split()[0], "m0_driver": m0_driver()}
     print("M0 driver/wheel:", json.dumps(res["m0_driver"], indent=1))

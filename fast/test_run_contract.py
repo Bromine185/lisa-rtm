@@ -12,8 +12,9 @@ import pathlib
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from fast.run_contract import (ARMS, BATCH, BATCH_TAG, MILESTONES, SEED, STEPS, batch_plan_digest,
-                               corpus_fingerprint, draw_batch, g3_digest, preflight, stream)
+from fast.run_contract import (ARMS, BATCH, BATCH_TAG, MILESTONES, SEED, STEPS, barrier_decision,
+                               batch_plan_digest, corpus_fingerprint, draw_batch, g3_digest,
+                               preflight, stream)
 
 ok = 0
 
@@ -92,6 +93,26 @@ for label, kw in (("200-utterance corpus (0.19 h)", dict(n=200, hours=0.19, seg_
         check(label, False, "preflight did NOT raise")
     except SystemExit as e:
         check(label, True, str(e).splitlines()[1].strip()[:70])
+
+print("\n6b. the G3 barrier fails closed")
+def rep(arm, corpus="C", batches="B", hours=37.316):
+    return {"arm": arm, "g3": {"corpus": corpus, "batches": batches}, "hours": hours, "n": 400}
+allrep = [rep(a) for a in ARMS]
+check("all eight agreeing -> go", barrier_decision(allrep)["go"])
+one_off = [rep(a) for a in ARMS]
+one_off[3]["g3"]["batches"] = "DIFFERENT"
+d = barrier_decision(one_off)
+check("one divergent batch stream blocks the fleet", not d["go"])
+check("  ...and names the odd one out", "es_erb_l0.001" in str(d["problems"]), str(d["problems"])[:90])
+d = barrier_decision([rep(a) for a in list(ARMS)[:7]])
+check("a missing instance blocks", not d["go"] and "no report from" in str(d["problems"]))
+bad = [rep(a) for a in ARMS]; bad[0]["g3"]["corpus"] = "OTHER"
+check("a different corpus blocks", not barrier_decision(bad)["go"])
+trim = [rep(a) for a in ARMS]; trim[2]["hours"] = 0.19
+d = barrier_decision(trim)
+check("a trimmed corpus blocks even if digests agree", not d["go"], str(d["problems"])[:70])
+dup = [rep(a) for a in ARMS] + [rep("det")]
+check("a duplicate report blocks", not barrier_decision(dup)["go"])
 
 print("\n7. milestones land where the spec says")
 check("six milestones", len(MILESTONES) == 6)
