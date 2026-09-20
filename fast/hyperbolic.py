@@ -121,10 +121,18 @@ class Hyperbolic:
         return r
 
     def terminate(self, rental_id):
+        """Terminate one rental.
+
+        The field is `rentalId` and it wants a NUMBER -- the rental's `id` (e.g. 18272), not the
+        string field confusingly also called `rentalId` (e.g. "6qsRH8--y1YL"). Verified live on
+        2026-09-20: {"id": ...} and {"rentalId": "<string>"} both return
+        'Input validation failed ... rentalId: expected number, received NaN'.
+        """
         if self.dry_run:
-            return {"dry_run": True, "id": rental_id}
-        r = self._req("POST", "/on-demand/virtual-machine-rentals/terminate", {"id": rental_id})
-        self._journal("terminated", {"id": rental_id})
+            return {"dry_run": True, "rentalId": rental_id}
+        r = self._req("POST", "/on-demand/virtual-machine-rentals/terminate",
+                      {"rentalId": int(rental_id)})
+        self._journal("terminated", {"rentalId": int(rental_id)})
         return r
 
     def precheck(self, n, gpu_count=1, est_total_usd=None):
@@ -159,7 +167,7 @@ class Hyperbolic:
         except Exception:
             self._journal("fleet_rollback", {"made": len(made), "labels": labels})
             for r in made:
-                rid = (r or {}).get("id") or (r or {}).get("rentalId")
+                rid = (r or {}).get("id")
                 if rid:
                     try:
                         self.terminate(rid)
@@ -173,8 +181,8 @@ class Hyperbolic:
         live = self.rentals()
         out = []
         for r in live:
-            rid = r.get("id") or r.get("rentalId")
-            if not rid:
+            rid = r.get("id")                      # the numeric id, not the rentalId string
+            if not rid or r.get("status") in ("Terminating", "Terminated"):
                 continue
             if not confirm and not self.dry_run:
                 out.append({"id": rid, "skipped": "needs confirm"})
