@@ -54,7 +54,28 @@ cd "$REPO"
 
 # ---- 1. torch, matched to the driver ------------------------------------------------------------
 log "driver:"; nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv,noheader | head -1
-if ! python3 -c "import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then
+# A Google Deep Learning VM image ships torch preinstalled -- typically a cu129 build whose arch
+# list stops short of sm_120. "torch imports and sees a GPU" is therefore NOT the test: the test is
+# whether it carries an sm_12x cubin, because release wheels ship SASS with no PTX fallback and a
+# cu126/cu129 build imports fine, reports the GPU, then dies at the first kernel launch with
+# "no kernel image is available".
+have_sm12x() {
+  python3 -c "
+import sys
+try:
+    import torch
+    ok = torch.cuda.is_available() and any(a.startswith('sm_12') for a in torch.cuda.get_arch_list())
+except Exception:
+    ok = False
+sys.exit(0 if ok else 1)
+" 2>/dev/null
+}
+
+if have_sm12x; then
+  log "preinstalled torch already carries sm_12x kernels -- keeping it"
+else
+  python3 -c "import torch;print('  preinstalled:',torch.__version__,torch.cuda.get_arch_list())" 2>/dev/null \
+    || log "  no usable torch present"
   WHEEL="$(python3 fast/calibrate.py --wheel-only || true)"
   case "$WHEEL" in
     torch==*) log "installing $WHEEL";;
@@ -62,17 +83,14 @@ if ! python3 -c "import torch,sys; sys.exit(0 if torch.cuda.is_available() else 
   esac
   python3 -m pip install -q --upgrade pip
   # shellcheck disable=SC2086
-  python3 -m pip install -q $WHEEL
+  python3 -m pip install -q --force-reinstall $WHEEL
   python3 -m pip install -q numpy scipy soundfile huggingface_hub pyarrow matplotlib
+  have_sm12x || { log "FATAL: still no sm_12x cubin after installing $WHEEL"; exit 1; }
 fi
-# Release wheels ship SASS with no PTX fallback, so a missing sm_12x cubin is fatal, not slow.
-python3 - <<'PY' || { echo "FATAL: wheel has no sm_12x cubin"; exit 1; }
-import sys, torch
-print(f"torch {torch.__version__} cuda {torch.version.cuda} "
-      f"cc {torch.cuda.get_device_capability()} gpus {torch.cuda.device_count()} "
-      f"arch {torch.cuda.get_arch_list()}")
-sys.exit(0 if any(a.startswith("sm_12") for a in torch.cuda.get_arch_list()) else 1)
-PY
+python3 -c "
+import torch
+print(f'  torch {torch.__version__} cuda {torch.version.cuda} cc {torch.cuda.get_device_capability()} gpus {torch.cuda.device_count()}')
+print(f'  arch {torch.cuda.get_arch_list()}')"
 
 # ---- 2. calibrate on GPU 0. Cheap, and it is the only measurement of this card that exists. ------
 if [ ! -f "$RUN/calibration.json" ]; then
