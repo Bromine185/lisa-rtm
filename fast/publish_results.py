@@ -56,6 +56,7 @@ def plan(tag):
     items += [(f"ov3/results_{tag}.json", "EVAL12: every metric, every arm, every condition"),
               (f"ov3/table_{tag}.md", "EVAL12 table"),
               (f"ov3/val_wave_{tag}.json", "val_wave verification: seeds, AMP, bands, residuals"),
+              (f"ov3/val_wave_decompose_{tag}.json", "val_wave split into single-draw L1 and spread, per seed"),
               (f"ov3/visqol_{tag}.json", "ViSQOL / PESQ per condition"),
               (f"ov3/visqol_table_{tag}.md", "ViSQOL table"),
               (f"ov3/metrics_{tag}.md", "every metric, all eight arms, one document"),

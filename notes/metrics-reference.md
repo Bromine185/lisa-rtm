@@ -42,7 +42,7 @@ segments drawn by `stream(VAL_TAG)`, identical across the eight VMs by construct
 | `spread` | `dwf(y1, y2)`, the energy score's ensemble spread | yes |
 | `lr` | learning rate | -- |
 | `val_loss` | the arm's **own objective** on the fixed val batches | **no** |
-| **`val_wave`** | **the waveform term, same function for every arm** | **YES -- this is the column** |
+| **`val_wave`** | **the two-draw energy score of the waveform; plain L1 for a det arm** | **yes, as a proper score -- see below** |
 | `val_spec` | the spectral term | yes, with one exception below |
 
 **`val_loss` is not a leaderboard.** The eight objectives are different functions. `det_paper` has
@@ -53,6 +53,34 @@ and `fast/plot_histories.py` deliberately never overlays `val_loss` on a shared 
 
 `val_loss` **is** comparable within a shared `(kind, lambda)` pair, which here means exactly two
 pairs: `{es_marg, es_dec_l0.01}` and `{es_erb_l0.1, es_dec_erb_l0.1}`.
+
+**`val_wave` is a proper score, not a reconstruction error, and the difference is the whole
+column.** `ArmStack.losses` (`e2b_fast.py:339, 358`) returns plain `|yh - y|` for a deterministic
+arm and `0.5(|y-y1| + |y-y2|) - 0.5|y1-y2|` for a sampler. The energy score of a point mass IS its
+MAE, so these are one proper score with the det branch as its degenerate case, and comparing them
+across arms is legitimate in exactly the way CRPS is. But a sampler's number is its mean single-draw
+L1 *minus half its ensemble spread*, and on OV50 the validation-time spread is 63-154% of `val_wave`
+itself. Measured on the run's own validation batches by `fast/val_wave_decompose.py` -- the
+identities `dw == 0.5(d1+d2) - 0.5 d12` and `spread == d12` verified at tensor level to 9e-10 from
+an independent forward, the `val_wave` anchored to the recorded curves to 3e-10, seed noise on the
+single-draw L1 under 0.13%:
+
+| arm | val_wave | val spread | spread / val_wave | single-draw L1 |
+|---|---|---|---|---|
+| det_paper | 0.004027 | 0 | -- | **0.004027** |
+| det | 0.004323 | 0 | -- | 0.004323 |
+| es_dec_erb_l0.1 | 0.003564 | 0.002236 | 0.63 | 0.004682 |
+| es_erb_l0.1 | 0.003561 | 0.002308 | 0.65 | 0.004715 |
+| es_marg | 0.003249 | 0.003971 | 1.22 | 0.005234 |
+| es_dec_l0.01 | 0.003250 | 0.003970 | 1.22 | 0.005235 |
+| es_erb_l0.01 | 0.003262 | 0.004035 | 1.24 | 0.005279 |
+| es_erb_l0.001 | 0.003212 | 0.004939 | 1.54 | **0.005681** |
+
+The ranking reverses end to end. The arm with the best `val_wave` has the worst waveform error,
+because it has the largest spread and is credited the most. Read the column as "which predictive
+distribution scores best", never as "which arm reconstructs the waveform best" -- the latter is the
+right-hand column, and `det_paper` wins it, which is the same fact as its -27.6 dB deficit seen from
+the other side: emitting nothing above 6 kHz is the L1-optimal answer to an unpredictable band.
 
 **`spread` is exactly 0 at every logged step for `det` and `det_paper`** and non-zero for all six
 samplers. That is how the det/es split in `ARMS` is confirmed from the training record rather than

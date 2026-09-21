@@ -174,8 +174,34 @@ is latent rather than a live bug -- but it is worth knowing before anyone does.
 | det_paper | 0.004063 | 1.603377 | 0.004063 | det | 0 | LISAS |
 | det | 0.004341 | 0.814028 | 0.012481 | det | 0.01 | LISAS |
 
-Every sampler beats both deterministic arms on the shared waveform term. `det_paper` beats `det` on
-it, which is what a pure L1 objective should do and is the reason `det_paper` is not a strawman.
+On `val_wave` every sampler sits below both deterministic arms, and `det_paper` sits below `det`.
+**Read that column carefully, because it is not what it looks like.** `ArmStack.losses` returns
+plain `|yh - y|` for a deterministic arm and the two-draw energy score
+`0.5(|y-y1| + |y-y2|) - 0.5|y1-y2|` for a sampler. Those are one proper score -- a point mass's
+energy score is its MAE -- so the comparison is legitimate in exactly the way CRPS is. But a
+sampler's number is its single-draw L1 *minus half its spread*, and on the validation batches that
+spread is 63-154% of `val_wave`. `fast/val_wave_decompose.py` measures the parts, with the
+identities checked at tensor level (9e-10) and the `val_wave` anchored to the recorded curves
+(3e-10):
+
+| arm | val_wave | val spread | single-draw L1 | vs det |
+|---|---|---|---|---|
+| det_paper | 0.004027 | 0 | **0.004027** | -7% |
+| det | 0.004323 | 0 | 0.004323 | -- |
+| es_dec_erb_l0.1 | 0.003564 | 0.002236 | 0.004682 | +8% |
+| es_erb_l0.1 | 0.003561 | 0.002308 | 0.004715 | +9% |
+| es_marg | 0.003249 | 0.003971 | 0.005234 | +21% |
+| es_dec_l0.01 | 0.003250 | 0.003970 | 0.005235 | +21% |
+| es_erb_l0.01 | 0.003262 | 0.004035 | 0.005279 | +22% |
+| es_erb_l0.001 | 0.003212 | 0.004939 | **0.005681** | +31% |
+
+On waveform error the ranking reverses end to end: `det_paper` is the best waveform predictor in the
+run and `es_erb_l0.001`, first on `val_wave`, is the worst. `det_paper` winning plain L1 is what a
+pure L1 objective should do and is the reason it is not a strawman -- and it is the same fact as its
+-27.6 dB deficit: emitting nothing above 6 kHz is the L1-optimal answer to an unpredictable band.
+The earlier version of this note said "every sampler beats both deterministic arms on the shared
+waveform term" and let that stand as a result. It is a proper-score result, with the same caveat as
+the CRPS one: the samplers are credited for spread a deterministic arm structurally cannot have.
 
 ## EVAL12
 
@@ -260,8 +286,7 @@ energy columns. If one number has to be picked, lambda = 0.01 is the better poin
 lambda = 0.001 is not a weak version of the others, it is a different animal: PIT end 3.38x ideal,
 top bin 5.64x, deficit -12.34, next to deterministic `det`'s -12.61. At that
 weight the spectral term cannot pay for the spread the energy score would otherwise buy, and the arm
-collapses back toward a point predictor. Its val_wave is the best in the run, which is exactly what a
-collapsed sampler should score on an L1 term.
+collapses back toward a point predictor. Its val_wave is the best in the run and its single-draw waveform L1 is the worst (0.005681, 31% above `det`): the largest spread in the run buys it the largest credit on a proper score while it reconstructs the waveform worse than any other arm.
 
 **Does decoder noise help?** Yes, small and consistent. Both matched `(kind, lambda)` pairs move the
 same way, which is what the paired batch stream was built to detect:
