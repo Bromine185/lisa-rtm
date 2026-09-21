@@ -45,4 +45,5 @@ Kuleshov et al.: "a simple procedure for calibrating any regression algorithm" (
 5. **Per-band temperature τ_k** set so per-band spread/skill = sqrt(M/(M+1)) (FlowDec-style). Prediction: small CRPS gain (< 3 %), LSD neutral, energy deficit unchanged.
 6. **Global τ sweep** (control). Prediction: τ<1 (WaveGlow/Glow direction) lowers high-band energy further and worsens LSD in-distribution; τ≈1.05 (ArchesWeatherGen) leaves CRPS flat and LSD flat; neither fixes the bias.
 
+
 Unverified: Leutbecher's exact formula, Fortin's derivation, Ephraim–Malah 1985 text, Kuleshov's algorithm details, PNS abstract, Jax 2004 quote (all paywalled or PDF-unreadable in this session).
