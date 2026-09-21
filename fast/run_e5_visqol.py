@@ -30,6 +30,7 @@ PESQ.  --n-utts trims EVAL12 if you only want a smoke test; the JSON is rewritte
 utterance, so an interrupted run still leaves usable partial results.
 """
 import argparse
+import json
 import os
 import pathlib
 import sys
@@ -51,6 +52,9 @@ def main():
     ap.add_argument("--n-utts", type=int, default=12)
     ap.add_argument("--per-speaker", type=int, default=40)
     ap.add_argument("--threads", type=int, default=max(1, (os.cpu_count() or 4) - 2))
+    ap.add_argument("--table-only", action="store_true",
+                    help="rebuild visqol_table_<tag>.md from visqol_<tag>.json without recomputing; "
+                         "the ViSQOL pass is 29 minutes and re-rendering should not be")
     a = ap.parse_args()
 
     src = pathlib.Path(a.src).expanduser().resolve()
@@ -83,6 +87,14 @@ def main():
             models[p.stem], _ = G["load_arm"](p)
             models[p.stem].eval()
     print(f"\n{len(models)} arms, M={a.M}, speech mapping {G['VISQOL_SP_MAPPING']}", flush=True)
+
+    if a.table_only:
+        d = json.loads((src / "ov3" / f"visqol_{a.tag}.json").read_text())
+        TABLE = G["visqol_table"](d["agg"], d["n"], d["M"], d["speech_mapping"])
+        (src / "ov3" / f"visqol_table_{a.tag}.md").write_text(TABLE)
+        print(TABLE)
+        print(f"\nrebuilt {src / 'ov3' / f'visqol_table_{a.tag}.md'} from the JSON", flush=True)
+        return 0
 
     t0 = time.time()
     AGG, TABLE = G["run_visqol"](models, utts[:a.n_utts], a.M, a.tag)

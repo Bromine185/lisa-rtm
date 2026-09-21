@@ -109,6 +109,38 @@ def conditions_for(models, y, M):
 
 KEYS = ("snr", "lsd", "hb_lsd", "visqol_speech16k", "nsim_speech16k", "pesq_wb", "visqol_audio48k", "nsim_audio48k")
 
+def _cell(s):
+    '''Escape a markdown table cell.
+
+    conditions_for() names its rows "<arm> <readout> | passthrough", and a raw pipe inside a cell
+    ENDS the cell.  Unescaped, every passthrough row rendered with one column too many and every
+    value after the condition shifted one place right -- so the LSD column displayed the SNR, and
+    "det + passthrough" appeared to have an LSD of 18.84.  The file parsed as valid markdown and the
+    numbers were individually correct, which is why it survived review: only the alignment was
+    wrong, and only in the rendered view.
+
+    Escaping here rather than renaming the conditions, because the names are also the JSON keys and
+    the OV2 tables use the same ones -- renaming would silently break cross-run key matching.'''
+    return str(s).replace("|", "\\|")
+
+
+def visqol_table(AGG, n, M, mapping):
+    '''The markdown table, from an aggregate dict -- so it can be rebuilt from visqol_<tag>.json
+    without re-running ViSQOL, which is 29 minutes.'''
+    lines = ["| condition | SNR | LSD | HB-LSD | ViSQOL speech16k | NSIM sp | PESQ wb | ViSQOL audio48k | NSIM au |",
+             "|---|---|---|---|---|---|---|---|---|"]
+    for c in sorted(AGG, key=lambda c: AGG[c]["lsd"]):
+        a = AGG[c]
+        lines.append(f"| {_cell(c)} | {a['snr']:.2f} | {a['lsd']:.3f} | {a['hb_lsd']:.3f} | "
+                     f"{a['visqol_speech16k']:.3f} | {a['nsim_speech16k']:.3f} | "
+                     f"{a['pesq_wb']:.3f} | {a['visqol_audio48k']:.3f} | {a['nsim_audio48k']:.3f} |")
+    lines.append(f"\nEVAL12 n={n}, M={M}; sorted by LSD; speech16k MOS mapping: {mapping}"
+                 + ("" if mapping == "lattice" else " (NOT the lattice mapping of the OV2 tables; compare NSIM)")
+                 + ". LSD is lsd_db: decades of power, x10 for dB. Read ViSQOL audio48k against the "
+                   "floor and ceiling rows; speech16k and PESQ cannot see the 6-24 kHz band.")
+    return chr(10).join(lines)
+
+
 def run_visqol(models, utts, M, tag):
     out_dir = ROOT / "ov3"; out_dir.mkdir(parents=True, exist_ok=True)
     per, t0 = {}, time.time()
@@ -120,15 +152,7 @@ def run_visqol(models, utts, M, tag):
         json.dump({"per_utt": per, "n": ui + 1, "M": M, "speech_mapping": VISQOL_SP_MAPPING}, open(out_dir / f"visqol_{tag}.json", "w"))
     AGG = {c: {k: float(np.nanmean([r[k] for r in rows])) for k in KEYS} for c, rows in per.items()}
     json.dump({"agg": AGG, "per_utt": per, "n": len(utts), "M": M, "speech_mapping": VISQOL_SP_MAPPING}, open(out_dir / f"visqol_{tag}.json", "w"), indent=1)
-    lines = ["| condition | SNR | LSD | HB-LSD | ViSQOL speech16k | NSIM sp | PESQ wb | ViSQOL audio48k | NSIM au |",
-             "|---|---|---|---|---|---|---|---|---|"]
-    for c in sorted(AGG, key=lambda c: AGG[c]["lsd"]):
-        a = AGG[c]
-        lines.append(f"| {c} | {a['snr']:.2f} | {a['lsd']:.3f} | {a['hb_lsd']:.3f} | {a['visqol_speech16k']:.3f} | {a['nsim_speech16k']:.3f} | "
-                     f"{a['pesq_wb']:.3f} | {a['visqol_audio48k']:.3f} | {a['nsim_audio48k']:.3f} |")
-    lines.append(f"\nEVAL12 n={len(utts)}, M={M}; sorted by LSD; speech16k MOS mapping: {VISQOL_SP_MAPPING}"
-                 + ("" if VISQOL_SP_MAPPING == "lattice" else " (NOT the lattice mapping of the OV2 tables; compare NSIM)") + ".")
-    TABLE = chr(10).join(lines)
+    TABLE = visqol_table(AGG, len(utts), M, VISQOL_SP_MAPPING)
     (out_dir / f"visqol_table_{tag}.md").write_text(TABLE)
     print(TABLE, flush=True)
     return AGG, TABLE
