@@ -28,7 +28,7 @@ Copied out of `/Users/raghavsharma/lisa-results` by `fast/publish_results.py` on
 | `val_wave_decompose_OV50.json` | val_wave split into single-draw L1 and spread, per seed |
 | `visqol_OV50.json` | ViSQOL / PESQ per condition |
 | `visqol_table_OV50.md` | ViSQOL table |
-| `metrics_OV50.md` | every metric, all eight arms, one document |
+| `DATASHEET_OV50.md` | MASTER: every comparative metric, one row per arm |
 | `ov3_spectrum_OV50.png` | energy ratio per band |
 | `ov3_calibration_OV50.png` | PIT histograms and spread-skill |
 | `train_val_OV50.png` | per-arm training and validation curves |
