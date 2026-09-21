@@ -1,0 +1,87 @@
+{
+ "host": "delightful-zinnia-eagle.us-east5-a.c.ai-dashboard-cfd6a.internal",
+ "python": "3.12.3",
+ "m0_driver": {
+  "raw": "NVIDIA RTX PRO 6000 Blackwell Server Edition, 12.0, 580.173.02, 97887 MiB\nNVIDIA RTX PRO 6000 Blackwell Server Edition, 12.0, 580.173.02, 97887 MiB\nNVIDIA RTX PRO 6000 Blackwell Server Edition, 12.0, 580.173.02, 97887 MiB\nNVIDIA RTX PRO 6000 Blackwell Server Edition, 12.0, 580.173.02, 97887 MiB\nNVIDIA RTX PRO 6000 Blackwell Server Edition, 12.0, 580.173.02, 97887 MiB\nNVIDIA RTX PRO 6000 Blackwell Server Edition, 12.0, 580.173.02, 97887 MiB\nNVIDIA RTX PRO 6000 Blackwell Server Edition, 12.0, 580.173.02, 97887 MiB\nNVIDIA RTX PRO 6000 Blackwell Server Edition, 12.0, 580.173.02, 97887 MiB",
+  "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "compute_cap": "12.0",
+  "driver": "580.173.02",
+  "memory": "97887 MiB\nNVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "driver_major": 580,
+  "wheel": "torch==2.14.0 --index-url https://download.pytorch.org/whl/cu130"
+ },
+ "m1_device": {
+  "capability": [
+   12,
+   0
+  ],
+  "arch_list": [
+   "sm_75",
+   "sm_80",
+   "sm_86",
+   "sm_90",
+   "sm_100",
+   "sm_120"
+  ],
+  "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "sm": 188,
+  "total_gb": 102.0,
+  "torch": "2.14.0+cu130",
+  "cuda": "13.0",
+  "l2_mb": 134.2,
+  "cubins_present": true,
+  "any_sm12x": true
+ },
+ "m1_device_secs": 0.0,
+ "m2_bandwidth": {
+  "copy_gbs": 1460.4,
+  "pct_of_peak": 91.4,
+  "vs_a100_peak": 0.716
+ },
+ "m2_bandwidth_secs": 0.2,
+ "m3_gemm": {
+  "N128": {
+   "ms": 1.072,
+   "tflops": 93.9,
+   "pct_dense": 19.6
+  },
+  "N144": {
+   "ms": 1.248,
+   "tflops": 102.1,
+   "pct_dense": 21.3
+  },
+  "N256": {
+   "ms": 2.146,
+   "tflops": 187.6,
+   "pct_dense": 39.1
+  },
+  "n144_penalty_vs_best": 1.837
+ },
+ "m3_gemm_secs": 0.1,
+ "m4_decoder_proxy": {
+  "rows": 6144000,
+  "ms": 65.1,
+  "tflops": 43.2,
+  "peak_gb": 14.3,
+  "mfu_pct": 9.0
+ },
+ "m4_decoder_proxy_secs": 0.8,
+ "m9_triton_gate": {
+  "issue": "pytorch#176426",
+  "rows": 6144000,
+  "ran": false,
+  "verdict": "FAIL -- InductorError: InductorError('CalledProcessError: Command \\'[\\'/usr/bin/gcc\\', \\'/home/ubuntu/lisa/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.c\\', \\'-O3\\', \\'-shared\\', \\'-fPIC\\', \\'-Wno-psabi\\'"
+ },
+ "m9_triton_gate_secs": 2.4,
+ "verdict": {
+  "blackwell_factor": 1.173,
+  "est_step_ms_8arm": 1167.1,
+  "est_1gpu_hours": 34.02,
+  "est_1gpu_usd": 60.9,
+  "est_parallel_hours": 4.86,
+  "est_parallel_usd": 65.2,
+  "cheapest_usd": 60.9,
+  "stop_reasons": [],
+  "status": "ASK -- $60.9 is over the $60 ceiling but under the account wall"
+ }
+}

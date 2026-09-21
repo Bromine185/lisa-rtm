@@ -1,0 +1,238 @@
+python   3.12.3
+torch    2.14.0+cu130
+numpy    2.5.3
+in colab False
+gpu      NVIDIA RTX PRO 6000 Blackwell Server Edition
+device   cuda
+cache    /home/ubuntu/lisa-rtm/lisa_rtm_cache
+seeded   0
+preset        FULL   run dir FULL_lam0.001
+rates         12000 Hz -> 48000 Hz  (4x)
+speakers      10 train / 3 held out
+transport     n_fft=2048 hop=512  high band = bins 256..1024
+evaluation    n_fft=1024 hop=256 (different basis, on purpose)
+LISA: 86,881 parameters  (paper reports ~89k)
+  encoder 9,984   decoder 76,897
+OV2 model/loss/trainer defined.  LISAS params: 87777
+OV3 model/distances defined.  LISASD params: 88,353  (LISAS 87,777; +4 decoder noise channels x 144 = 576 weights)
+OV3 trainer defined (train_ov3, time_ov3, val_loss, plot_curves).
+OV3 fast trainer defined (train_ov3_fast, time_ov3_fast, bench_fast, val_loss_fast, ArmStack).  flags: {'STACK': True, 'AMP': True, 'TF32': True, 'COMPILE': True, 'PIN': True, 'FUSED': True, 'STREAMS': False, 'CUDA_GRAPHS': False, 'GROUP_MAX': 1, 'DETERMINISTIC': False, 'COMPILE_MODE': 'default', 'SUBPIXEL': True, 'JITTER_PER_CELL': False}
+arm es_erb_l0.01 ('es_marg_erb', 0.01, 'LISAS')  device cuda  torch 2.14.0+cu130
+preflight: {"corpus_hours": 37.322358, "steps_per_epoch": 2099.383, "epochs": 49.9909, "n_utts": 39639, "milestones": [20990, 41980, 52475, 62970, 73465, 83960]}
+g3 (must match every other instance): {"corpus": "db078cefbdf5017ba8cbc8b523ba6adb", "batches": "0d24acf51dd75d0e1de44a54206c8d3e"}
+/home/ubuntu/lisa/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+torch.compile failed, falling back to eager MLP: InductorError('CalledProcessError: Command \'[\'/usr/bin/gcc\', \'/home/ubuntu/lisa/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.c\', \'-O3\', \'-shared\', \'-fPIC\', \'-Wno-psabi\'
+  es_erb_l0.01 step 500/104950  val 0.023759  102 ms/step  eta 2.97 h
+  es_erb_l0.01 step 1000/104950  val 0.019711  100 ms/step  eta 2.90 h
+  es_erb_l0.01 step 1500/104950  val 0.014993  100 ms/step  eta 2.87 h
+  es_erb_l0.01 step 2000/104950  val 0.013362  100 ms/step  eta 2.85 h
+  es_erb_l0.01 step 2500/104950  val 0.011506  99 ms/step  eta 2.83 h
+  es_erb_l0.01 step 3000/104950  val 0.011829  99 ms/step  eta 2.81 h
+  es_erb_l0.01 step 3500/104950  val 0.010425  99 ms/step  eta 2.79 h
+  es_erb_l0.01 step 4000/104950  val 0.010281  99 ms/step  eta 2.78 h
+  es_erb_l0.01 step 4500/104950  val 0.010315  99 ms/step  eta 2.76 h
+  es_erb_l0.01 step 5000/104950  val 0.012725  99 ms/step  eta 2.75 h
+  es_erb_l0.01 step 5500/104950  val 0.012134  99 ms/step  eta 2.73 h
+  es_erb_l0.01 step 6000/104950  val 0.010984  99 ms/step  eta 2.72 h
+  es_erb_l0.01 step 6500/104950  val 0.009032  99 ms/step  eta 2.70 h
+  es_erb_l0.01 step 7000/104950  val 0.008676  99 ms/step  eta 2.69 h
+  es_erb_l0.01 step 7500/104950  val 0.009261  99 ms/step  eta 2.68 h
+  es_erb_l0.01 step 8000/104950  val 0.010116  99 ms/step  eta 2.66 h
+  es_erb_l0.01 step 8500/104950  val 0.009881  99 ms/step  eta 2.65 h
+  es_erb_l0.01 step 9000/104950  val 0.009427  99 ms/step  eta 2.63 h
+  es_erb_l0.01 step 9500/104950  val 0.008941  99 ms/step  eta 2.62 h
+  es_erb_l0.01 step 10000/104950  val 0.008397  99 ms/step  eta 2.61 h
+  es_erb_l0.01 step 10500/104950  val 0.008773  99 ms/step  eta 2.59 h
+  es_erb_l0.01 step 11000/104950  val 0.007562  99 ms/step  eta 2.58 h
+  es_erb_l0.01 step 11500/104950  val 0.007896  99 ms/step  eta 2.57 h
+  es_erb_l0.01 step 12000/104950  val 0.007865  99 ms/step  eta 2.55 h
+  es_erb_l0.01 step 12500/104950  val 0.008529  99 ms/step  eta 2.54 h
+  es_erb_l0.01 step 13000/104950  val 0.007535  99 ms/step  eta 2.52 h
+  es_erb_l0.01 step 13500/104950  val 0.008535  99 ms/step  eta 2.51 h
+  es_erb_l0.01 step 14000/104950  val 0.009552  99 ms/step  eta 2.50 h
+  es_erb_l0.01 step 14500/104950  val 0.007829  99 ms/step  eta 2.48 h
+  es_erb_l0.01 step 15000/104950  val 0.007134  99 ms/step  eta 2.47 h
+  es_erb_l0.01 step 15500/104950  val 0.007671  99 ms/step  eta 2.45 h
+  es_erb_l0.01 step 16000/104950  val 0.007517  99 ms/step  eta 2.44 h
+  es_erb_l0.01 step 16500/104950  val 0.007384  99 ms/step  eta 2.43 h
+  es_erb_l0.01 step 17000/104950  val 0.007936  99 ms/step  eta 2.41 h
+  es_erb_l0.01 step 17500/104950  val 0.007475  99 ms/step  eta 2.40 h
+  es_erb_l0.01 step 18000/104950  val 0.007588  99 ms/step  eta 2.39 h
+  es_erb_l0.01 step 18500/104950  val 0.007385  99 ms/step  eta 2.37 h
+  es_erb_l0.01 step 19000/104950  val 0.008072  99 ms/step  eta 2.36 h
+  es_erb_l0.01 step 19500/104950  val 0.007702  99 ms/step  eta 2.34 h
+  es_erb_l0.01 step 20000/104950  val 0.007647  99 ms/step  eta 2.33 h
+  es_erb_l0.01 step 20500/104950  val 0.007573  99 ms/step  eta 2.32 h
+  es_erb_l0.01 step 21000/104950  val 0.007243  99 ms/step  eta 2.30 h
+  es_erb_l0.01 step 21500/104950  val 0.006738  99 ms/step  eta 2.29 h
+  es_erb_l0.01 step 22000/104950  val 0.007046  99 ms/step  eta 2.27 h
+  es_erb_l0.01 step 22500/104950  val 0.007732  99 ms/step  eta 2.26 h
+  es_erb_l0.01 step 23000/104950  val 0.006998  99 ms/step  eta 2.25 h
+  es_erb_l0.01 step 23500/104950  val 0.006996  99 ms/step  eta 2.23 h
+  es_erb_l0.01 step 24000/104950  val 0.006525  99 ms/step  eta 2.22 h
+  es_erb_l0.01 step 24500/104950  val 0.006778  99 ms/step  eta 2.21 h
+  es_erb_l0.01 step 25000/104950  val 0.006603  99 ms/step  eta 2.19 h
+  es_erb_l0.01 step 25500/104950  val 0.006575  99 ms/step  eta 2.18 h
+  es_erb_l0.01 step 26000/104950  val 0.006659  99 ms/step  eta 2.16 h
+  es_erb_l0.01 step 26500/104950  val 0.006898  99 ms/step  eta 2.15 h
+  es_erb_l0.01 step 27000/104950  val 0.007507  99 ms/step  eta 2.14 h
+  es_erb_l0.01 step 27500/104950  val 0.007148  99 ms/step  eta 2.12 h
+  es_erb_l0.01 step 28000/104950  val 0.006656  99 ms/step  eta 2.11 h
+  es_erb_l0.01 step 28500/104950  val 0.006732  99 ms/step  eta 2.10 h
+  es_erb_l0.01 step 29000/104950  val 0.006681  99 ms/step  eta 2.08 h
+  es_erb_l0.01 step 29500/104950  val 0.006504  99 ms/step  eta 2.07 h
+  es_erb_l0.01 step 30000/104950  val 0.006969  99 ms/step  eta 2.05 h
+  es_erb_l0.01 step 30500/104950  val 0.007189  99 ms/step  eta 2.04 h
+  es_erb_l0.01 step 31000/104950  val 0.006670  99 ms/step  eta 2.03 h
+  es_erb_l0.01 step 31500/104950  val 0.006523  99 ms/step  eta 2.01 h
+  es_erb_l0.01 step 32000/104950  val 0.006456  99 ms/step  eta 2.00 h
+  es_erb_l0.01 step 32500/104950  val 0.006932  99 ms/step  eta 1.99 h
+  es_erb_l0.01 step 33000/104950  val 0.006978  99 ms/step  eta 1.97 h
+  es_erb_l0.01 step 33500/104950  val 0.006476  99 ms/step  eta 1.96 h
+  es_erb_l0.01 step 34000/104950  val 0.006856  99 ms/step  eta 1.94 h
+  es_erb_l0.01 step 34500/104950  val 0.006641  99 ms/step  eta 1.93 h
+  es_erb_l0.01 step 35000/104950  val 0.006728  99 ms/step  eta 1.92 h
+  es_erb_l0.01 step 35500/104950  val 0.006636  99 ms/step  eta 1.90 h
+  es_erb_l0.01 step 36000/104950  val 0.006421  99 ms/step  eta 1.89 h
+  es_erb_l0.01 step 36500/104950  val 0.006613  99 ms/step  eta 1.88 h
+  es_erb_l0.01 step 37000/104950  val 0.006667  99 ms/step  eta 1.86 h
+  es_erb_l0.01 step 37500/104950  val 0.006712  99 ms/step  eta 1.85 h
+  es_erb_l0.01 step 38000/104950  val 0.006637  99 ms/step  eta 1.83 h
+  es_erb_l0.01 step 38500/104950  val 0.006658  99 ms/step  eta 1.82 h
+  es_erb_l0.01 step 39000/104950  val 0.006715  99 ms/step  eta 1.81 h
+  es_erb_l0.01 step 39500/104950  val 0.007062  99 ms/step  eta 1.79 h
+  es_erb_l0.01 step 40000/104950  val 0.006658  99 ms/step  eta 1.78 h
+  es_erb_l0.01 step 40500/104950  val 0.006612  99 ms/step  eta 1.77 h
+  es_erb_l0.01 step 41000/104950  val 0.006419  99 ms/step  eta 1.75 h
+  es_erb_l0.01 step 41500/104950  val 0.006499  99 ms/step  eta 1.74 h
+  es_erb_l0.01 step 42000/104950  val 0.006339  99 ms/step  eta 1.73 h
+  es_erb_l0.01 step 42500/104950  val 0.006487  99 ms/step  eta 1.71 h
+  es_erb_l0.01 step 43000/104950  val 0.006326  99 ms/step  eta 1.70 h
+  es_erb_l0.01 step 43500/104950  val 0.006294  99 ms/step  eta 1.68 h
+  es_erb_l0.01 step 44000/104950  val 0.006277  99 ms/step  eta 1.67 h
+  es_erb_l0.01 step 44500/104950  val 0.006363  99 ms/step  eta 1.66 h
+  es_erb_l0.01 step 45000/104950  val 0.006399  99 ms/step  eta 1.64 h
+  es_erb_l0.01 step 45500/104950  val 0.006402  99 ms/step  eta 1.63 h
+  es_erb_l0.01 step 46000/104950  val 0.006246  99 ms/step  eta 1.62 h
+  es_erb_l0.01 step 46500/104950  val 0.006315  99 ms/step  eta 1.60 h
+  es_erb_l0.01 step 47000/104950  val 0.006427  99 ms/step  eta 1.59 h
+  es_erb_l0.01 step 47500/104950  val 0.006294  99 ms/step  eta 1.57 h
+  es_erb_l0.01 step 48000/104950  val 0.006468  99 ms/step  eta 1.56 h
+  es_erb_l0.01 step 48500/104950  val 0.006329  99 ms/step  eta 1.55 h
+  es_erb_l0.01 step 49000/104950  val 0.006208  99 ms/step  eta 1.53 h
+  es_erb_l0.01 step 49500/104950  val 0.006448  99 ms/step  eta 1.52 h
+  es_erb_l0.01 step 50000/104950  val 0.006418  99 ms/step  eta 1.51 h
+  es_erb_l0.01 step 50500/104950  val 0.006253  99 ms/step  eta 1.49 h
+  es_erb_l0.01 step 51000/104950  val 0.006229  99 ms/step  eta 1.48 h
+  es_erb_l0.01 step 51500/104950  val 0.006292  99 ms/step  eta 1.46 h
+  es_erb_l0.01 step 52000/104950  val 0.006309  99 ms/step  eta 1.45 h
+  es_erb_l0.01 step 52500/104950  val 0.006174  99 ms/step  eta 1.44 h
+  es_erb_l0.01 step 53000/104950  val 0.006180  99 ms/step  eta 1.42 h
+  es_erb_l0.01 step 53500/104950  val 0.006218  99 ms/step  eta 1.41 h
+  es_erb_l0.01 step 54000/104950  val 0.006165  99 ms/step  eta 1.40 h
+  es_erb_l0.01 step 54500/104950  val 0.006154  99 ms/step  eta 1.38 h
+  es_erb_l0.01 step 55000/104950  val 0.006173  99 ms/step  eta 1.37 h
+  es_erb_l0.01 step 55500/104950  val 0.006193  99 ms/step  eta 1.35 h
+  es_erb_l0.01 step 56000/104950  val 0.006202  99 ms/step  eta 1.34 h
+  es_erb_l0.01 step 56500/104950  val 0.006214  99 ms/step  eta 1.33 h
+  es_erb_l0.01 step 57000/104950  val 0.006147  99 ms/step  eta 1.31 h
+  es_erb_l0.01 step 57500/104950  val 0.006221  99 ms/step  eta 1.30 h
+  es_erb_l0.01 step 58000/104950  val 0.006180  99 ms/step  eta 1.29 h
+  es_erb_l0.01 step 58500/104950  val 0.006171  99 ms/step  eta 1.27 h
+  es_erb_l0.01 step 59000/104950  val 0.006149  99 ms/step  eta 1.26 h
+  es_erb_l0.01 step 59500/104950  val 0.006182  99 ms/step  eta 1.25 h
+  es_erb_l0.01 step 60000/104950  val 0.006185  99 ms/step  eta 1.23 h
+  es_erb_l0.01 step 60500/104950  val 0.006200  99 ms/step  eta 1.22 h
+  es_erb_l0.01 step 61000/104950  val 0.006141  99 ms/step  eta 1.20 h
+  es_erb_l0.01 step 61500/104950  val 0.006180  99 ms/step  eta 1.19 h
+  es_erb_l0.01 step 62000/104950  val 0.006179  99 ms/step  eta 1.18 h
+  es_erb_l0.01 step 62500/104950  val 0.006175  99 ms/step  eta 1.16 h
+  es_erb_l0.01 step 63000/104950  val 0.006129  99 ms/step  eta 1.15 h
+  es_erb_l0.01 step 63500/104950  val 0.006126  99 ms/step  eta 1.14 h
+  es_erb_l0.01 step 64000/104950  val 0.006121  99 ms/step  eta 1.12 h
+  es_erb_l0.01 step 64500/104950  val 0.006118  99 ms/step  eta 1.11 h
+  es_erb_l0.01 step 65000/104950  val 0.006120  99 ms/step  eta 1.09 h
+  es_erb_l0.01 step 65500/104950  val 0.006139  99 ms/step  eta 1.08 h
+  es_erb_l0.01 step 66000/104950  val 0.006125  99 ms/step  eta 1.07 h
+  es_erb_l0.01 step 66500/104950  val 0.006159  99 ms/step  eta 1.05 h
+  es_erb_l0.01 step 67000/104950  val 0.006114  99 ms/step  eta 1.04 h
+  es_erb_l0.01 step 67500/104950  val 0.006118  99 ms/step  eta 1.03 h
+  es_erb_l0.01 step 68000/104950  val 0.006113  99 ms/step  eta 1.01 h
+  es_erb_l0.01 step 68500/104950  val 0.006115  99 ms/step  eta 1.00 h
+  es_erb_l0.01 step 69000/104950  val 0.006123  99 ms/step  eta 0.98 h
+  es_erb_l0.01 step 69500/104950  val 0.006114  99 ms/step  eta 0.97 h
+  es_erb_l0.01 step 70000/104950  val 0.006142  99 ms/step  eta 0.96 h
+  es_erb_l0.01 step 70500/104950  val 0.006112  99 ms/step  eta 0.94 h
+  es_erb_l0.01 step 71000/104950  val 0.006119  99 ms/step  eta 0.93 h
+  es_erb_l0.01 step 71500/104950  val 0.006116  99 ms/step  eta 0.92 h
+  es_erb_l0.01 step 72000/104950  val 0.006107  99 ms/step  eta 0.90 h
+  es_erb_l0.01 step 72500/104950  val 0.006109  99 ms/step  eta 0.89 h
+  es_erb_l0.01 step 73000/104950  val 0.006108  99 ms/step  eta 0.88 h
+  es_erb_l0.01 step 73500/104950  val 0.006127  99 ms/step  eta 0.86 h
+  es_erb_l0.01 step 74000/104950  val 0.006115  99 ms/step  eta 0.85 h
+  es_erb_l0.01 step 74500/104950  val 0.006104  99 ms/step  eta 0.83 h
+  es_erb_l0.01 step 75000/104950  val 0.006109  99 ms/step  eta 0.82 h
+  es_erb_l0.01 step 75500/104950  val 0.006110  99 ms/step  eta 0.81 h
+  es_erb_l0.01 step 76000/104950  val 0.006118  99 ms/step  eta 0.79 h
+  es_erb_l0.01 step 76500/104950  val 0.006100  99 ms/step  eta 0.78 h
+  es_erb_l0.01 step 77000/104950  val 0.006103  99 ms/step  eta 0.77 h
+  es_erb_l0.01 step 77500/104950  val 0.006119  99 ms/step  eta 0.75 h
+  es_erb_l0.01 step 78000/104950  val 0.006109  99 ms/step  eta 0.74 h
+  es_erb_l0.01 step 78500/104950  val 0.006110  99 ms/step  eta 0.72 h
+  es_erb_l0.01 step 79000/104950  val 0.006110  99 ms/step  eta 0.71 h
+  es_erb_l0.01 step 79500/104950  val 0.006103  99 ms/step  eta 0.70 h
+  es_erb_l0.01 step 80000/104950  val 0.006117  99 ms/step  eta 0.68 h
+  es_erb_l0.01 step 80500/104950  val 0.006094  99 ms/step  eta 0.67 h
+  es_erb_l0.01 step 81000/104950  val 0.006099  99 ms/step  eta 0.66 h
+  es_erb_l0.01 step 81500/104950  val 0.006095  99 ms/step  eta 0.64 h
+  es_erb_l0.01 step 82000/104950  val 0.006097  99 ms/step  eta 0.63 h
+  es_erb_l0.01 step 82500/104950  val 0.006095  99 ms/step  eta 0.62 h
+  es_erb_l0.01 step 83000/104950  val 0.006101  99 ms/step  eta 0.60 h
+  es_erb_l0.01 step 83500/104950  val 0.006092  99 ms/step  eta 0.59 h
+  es_erb_l0.01 step 84000/104950  val 0.006090  99 ms/step  eta 0.57 h
+  es_erb_l0.01 step 84500/104950  val 0.006090  99 ms/step  eta 0.56 h
+  es_erb_l0.01 step 85000/104950  val 0.006093  99 ms/step  eta 0.55 h
+  es_erb_l0.01 step 85500/104950  val 0.006089  99 ms/step  eta 0.53 h
+  es_erb_l0.01 step 86000/104950  val 0.006089  99 ms/step  eta 0.52 h
+  es_erb_l0.01 step 86500/104950  val 0.006087  99 ms/step  eta 0.51 h
+  es_erb_l0.01 step 87000/104950  val 0.006088  99 ms/step  eta 0.49 h
+  es_erb_l0.01 step 87500/104950  val 0.006085  99 ms/step  eta 0.48 h
+  es_erb_l0.01 step 88000/104950  val 0.006085  99 ms/step  eta 0.46 h
+  es_erb_l0.01 step 88500/104950  val 0.006088  99 ms/step  eta 0.45 h
+  es_erb_l0.01 step 89000/104950  val 0.006086  99 ms/step  eta 0.44 h
+  es_erb_l0.01 step 89500/104950  val 0.006094  99 ms/step  eta 0.42 h
+  es_erb_l0.01 step 90000/104950  val 0.006089  99 ms/step  eta 0.41 h
+  es_erb_l0.01 step 90500/104950  val 0.006087  99 ms/step  eta 0.40 h
+  es_erb_l0.01 step 91000/104950  val 0.006088  99 ms/step  eta 0.38 h
+  es_erb_l0.01 step 91500/104950  val 0.006087  99 ms/step  eta 0.37 h
+  es_erb_l0.01 step 92000/104950  val 0.006095  99 ms/step  eta 0.35 h
+  es_erb_l0.01 step 92500/104950  val 0.006084  99 ms/step  eta 0.34 h
+  es_erb_l0.01 step 93000/104950  val 0.006089  99 ms/step  eta 0.33 h
+  es_erb_l0.01 step 93500/104950  val 0.006086  99 ms/step  eta 0.31 h
+  es_erb_l0.01 step 94000/104950  val 0.006084  99 ms/step  eta 0.30 h
+  es_erb_l0.01 step 94500/104950  val 0.006084  99 ms/step  eta 0.29 h
+  es_erb_l0.01 step 95000/104950  val 0.006084  99 ms/step  eta 0.27 h
+  es_erb_l0.01 step 95500/104950  val 0.006086  99 ms/step  eta 0.26 h
+  es_erb_l0.01 step 96000/104950  val 0.006084  99 ms/step  eta 0.25 h
+  es_erb_l0.01 step 96500/104950  val 0.006084  99 ms/step  eta 0.23 h
+  es_erb_l0.01 step 97000/104950  val 0.006092  99 ms/step  eta 0.22 h
+  es_erb_l0.01 step 97500/104950  val 0.006086  99 ms/step  eta 0.20 h
+  es_erb_l0.01 step 98000/104950  val 0.006091  99 ms/step  eta 0.19 h
+  es_erb_l0.01 step 98500/104950  val 0.006090  99 ms/step  eta 0.18 h
+  es_erb_l0.01 step 99000/104950  val 0.006083  99 ms/step  eta 0.16 h
+  es_erb_l0.01 step 99500/104950  val 0.006088  99 ms/step  eta 0.15 h
+  es_erb_l0.01 step 100000/104950  val 0.006083  99 ms/step  eta 0.14 h
+  es_erb_l0.01 step 100500/104950  val 0.006081  99 ms/step  eta 0.12 h
+  es_erb_l0.01 step 101000/104950  val 0.006084  99 ms/step  eta 0.11 h
+  es_erb_l0.01 step 101500/104950  val 0.006082  99 ms/step  eta 0.09 h
+  es_erb_l0.01 step 102000/104950  val 0.006083  99 ms/step  eta 0.08 h
+  es_erb_l0.01 step 102500/104950  val 0.006084  99 ms/step  eta 0.07 h
+  es_erb_l0.01 step 103000/104950  val 0.006082  99 ms/step  eta 0.05 h
+  es_erb_l0.01 step 103500/104950  val 0.006080  99 ms/step  eta 0.04 h
+  es_erb_l0.01 step 104000/104950  val 0.006081  99 ms/step  eta 0.03 h
+  es_erb_l0.01 step 104500/104950  val 0.006081  99 ms/step  eta 0.01 h
+  es_erb_l0.01 step 104950/104950  val 0.006082  99 ms/step  eta 0.00 h
+DONE es_erb_l0.01: 4198 log points, final val 0.006082
