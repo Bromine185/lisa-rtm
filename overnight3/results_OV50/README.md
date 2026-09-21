@@ -25,13 +25,10 @@ Copied out of `/Users/raghavsharma/lisa-results` by `fast/publish_results.py` on
 | `results_OV50.json` | EVAL12: every metric, every arm, every condition |
 | `table_OV50.md` | EVAL12 table |
 | `val_wave_OV50.json` | val_wave verification: seeds, AMP, bands, residuals |
+| `visqol_OV50.json` | ViSQOL / PESQ per condition |
+| `visqol_table_OV50.md` | ViSQOL table |
 | `ov3_spectrum_OV50.png` | energy ratio per band |
 | `ov3_calibration_OV50.png` | PIT histograms and spread-skill |
-
-Not produced yet:
-
-- `visqol_OV50.json` -- ViSQOL / PESQ per condition
-- `visqol_table_OV50.md` -- ViSQOL table
 
 ## Not here
 

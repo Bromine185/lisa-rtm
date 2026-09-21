@@ -12,9 +12,8 @@ the checkpoints in `~/lisa-results/`. Nothing was retrained.
                              validation batches
     fast/run_e5_visqol.py    overnight3/e5_visqol.py, after a separate install
 
-Outputs are in `~/lisa-results/ov3/` (`results_OV50.json`, `table_OV50.md`, `val_wave_OV50.json`,
-`audio/`) and `~/lisa-results/figs/`. ViSQOL is installed and its runner is here; those numbers are
-not in this note yet.
+Outputs are in `overnight3/results_OV50/`, copied there by `fast/publish_results.py`. The 48 MB of audio stays
+out of the repo and is rebuilt in about three minutes by `fast/run_e4_eval.py`.
 
 ## The format gap, confirmed
 
@@ -65,80 +64,100 @@ The check that this is the same corpus is arithmetic, not faith. `manifest.json`
 to the sample. One utterance more, one fewer, one in a different place in the sort, and that integer
 moves.
 
-## Reproducing val_wave: what it can and cannot settle
+## Reproducing val_wave: the answer, and what it cost to get an honest one
 
-The point of re-running the weights is that `convert_ckpt.py` proves a faithful COPY and nothing
-more. A converter that paired `es_marg`'s weights with `es_erb_l0.1`'s name would pass every check
-in that file. Putting the converted weights back through `val_loss_fast` on the run's own validation
-batches is the check that catches it.
+`convert_ckpt.py` proves a faithful COPY and nothing more. A converter that paired `es_marg`'s
+weights with `es_erb_l0.1`'s name would pass every check in it. Putting the converted weights back
+through `val_loss_fast` on the run's own validation batches is the check that catches that, and the
+verification the handoff asked for.
 
 Two of the recorded number's inputs do not exist off the training hardware, and neither is a bug.
+**AMP**: `FAST["AMP"]` is `_CUDA`, so training ran the encoder and decoder under bf16 autocast with
+the distances in fp32; here the whole forward is fp32. **eps**: `val_loss_fast` draws the sampler's
+noise from `torch.Generator(device=DEVICE)`, and a CUDA generator and a CPU generator at seed 1234
+are different streams -- not recoverable by borrowing a GPU either, since per `train_arm.py`'s header
+the CUDA stream is not portable between GPU models. The two deterministic arms take the `is_det`
+branch, which never touches eps, so only AMP applies to them.
 
-**AMP.** `FAST["AMP"]` is `_CUDA`, so training ran the encoder and decoder under bf16 autocast with
-the distances in fp32. Here the whole forward is fp32. bf16 carries eight mantissa bits.
+**The first version of this check asserted a tolerance instead of measuring one, and that was the
+mistake worth recording.** In fp32 alone, `es_erb_l0.001`'s `val_spec` lands 8.9% from its own
+recorded curve and 3.6% from `es_marg`'s -- so on raw percentages it matches the wrong arm, and a
+nearest-match test reports a failure that is not one. Nothing about 8.9% is interpretable until you
+know what a different eps stream is worth on that particular arm.
 
-**eps.** `val_loss_fast` draws the sampler's noise from `torch.Generator(device=DEVICE)` at a fixed
-seed, and a CUDA generator and a CPU generator at seed 1234 are different streams. Per
-`train_arm.py`'s own header the CUDA stream is not portable between GPU models either, so this is
-not recoverable by borrowing a GPU. The two deterministic arms take the `is_det` branch, which never
-touches eps, so only AMP applies to them.
+So both terms get measured: four eps seeds for the spread, one bf16 recomputation for the AMP term.
+The verdict becomes a prediction -- recorded should equal `mean(fp32 over seeds) + (bf16 - fp32)`,
+inside `sd * t(n-1) * sqrt(1 + 1/n)`, the interval for one further draw.
 
-What came out:
+| arm | term | recorded | eps sd | AMP | residual | bands |
+|---|---|---|---|---|---|---|
+| det | wave | 0.00434071 | -- | +0.48% | -0.071% | 0.14 |
+| det | spec | 0.814028 | -- | +0.74% | +0.056% | 0.11 |
+| det_paper | wave | 0.00406263 | -- | +0.95% | -0.075% | 0.15 |
+| det_paper | spec | 1.60338 | -- | **-17.52%** | -0.026% | 0.05 |
+| es_dec_erb_l0.1 | wave | 0.00356711 | 0.085% | +0.52% | -0.334% | 1.11 |
+| es_dec_erb_l0.1 | spec | 0.276769 | 0.112% | -0.90% | -0.097% | 0.24 |
+| es_dec_l0.01 | wave | 0.00327247 | 0.084% | +0.94% | -0.163% | 0.55 |
+| es_dec_l0.01 | spec | 0.433973 | 0.113% | -1.87% | -0.629% | 1.53 |
+| es_erb_l0.001 | wave | 0.00321946 | 0.074% | +0.34% | -0.169% | 0.64 |
+| es_erb_l0.001 | spec | 0.386113 | 0.094% | **-8.34%** | +0.128% | 0.35 |
+| es_erb_l0.01 | wave | 0.00325941 | 0.049% | +0.13% | -0.142% | 0.81 |
+| es_erb_l0.01 | spec | 0.282234 | 0.070% | -1.94% | -0.123% | 0.48 |
+| es_erb_l0.1 | wave | 0.0035391 | 0.046% | -0.65% | -0.007% | 0.04 |
+| es_erb_l0.1 | spec | 0.277234 | 0.115% | -1.80% | -0.057% | 0.14 |
+| es_marg | wave | 0.00326217 | 0.028% | +0.41% | -0.028% | 0.28 |
+| es_marg | spec | 0.435952 | 0.249% | -4.49% | +0.353% | 0.38 |
 
-| arm | val_wave vs recorded | val_spec vs recorded |
-|---|---|---|
-| det | -0.41% | -0.79% |
-| det_paper | -0.87% | **+21.3%** |
-| es_dec_erb_l0.1 | -0.08% | +1.16% |
-| es_dec_l0.01 | -0.69% | +2.67% |
-| es_erb_l0.001 | -0.24% | **+8.87%** |
+Every arm reproduces its recorded curve to under 0.7% once AMP is accounted for, most to under 0.2%.
+The AMP column runs from +0.13% to -17.5% depending on the arm, which is exactly why one asserted
+tolerance was never going to fit.
 
-`val_wave` reproduces to under 1% everywhere, and the samplers do BETTER than the deterministic arms
-despite additionally drawing different noise. That is the energy score's shape doing it: its wave
-term is `0.5(d(y,y1) + d(y,y2)) - 0.5 d(y1,y2)`, a difference in which a systematic bf16 offset
-largely cancels, where `det`'s plain `|yhat - y|` carries it straight through.
+**The verdict is identity, and identity passes by 13 to 1800 bands.** Two residuals sit outside the
+band, at 1.1x and 1.5x, and the first version of the check failed the whole thing on them. That was
+the wrong call: the band models the eps draw, while the AMP correction is CPU bf16 standing in for
+A100 bf16 -- different kernels, different accumulation order -- and the error in that stand-in is
+not modelled by anything here. The sign test says so rather than leaving it arguable: all eight
+`val_wave` residuals come out negative (two-sided p = 0.0078) at 0.1-0.3%, while `val_spec` scatters
+5/8 (p = 0.73). The eps draw does not agree in sign eight times. Widening the band until the two fit
+would have been fitting the test to the answer, so the claim was split in two instead.
 
-`val_spec` is a different story and the two outliers are informative.
+### det_paper's recorded val_spec is AMP noise counted as signal
 
-`det_paper` at +21.3% is, I believe, AMP rounding noise being counted as signal. It is the quietest
-arm in the run by a long way -- 27.6 dB down in the high band, so its own high-band output sits
-around -58 dB of full scale, which is the order of bf16's per-sample rounding noise on a full-scale
-waveform. `lm = |log(H + 1e-7) - log(Y + 1e-7)|` is where that shows up: on the A100 the
-quantisation noise partly FILLED the band and made the recorded loss smaller than the arithmetic
-deserves. If that is right, `det_paper`'s recorded `val_spec` of 1.603 is contaminated and the fp32
-1.944 is the honest number. It changes no conclusion -- lambda = 0 means the spectral term was never
-in `det_paper`'s loss, so it is a diagnostic, not an objective -- but it should not be quoted as if
-it were comparable with the other arms'. `fast/val_wave_check.py`'s docstring records the test that
-settles it: recompute under `torch.autocast("cpu", dtype=torch.bfloat16)` and see whether 1.944 falls
-toward 1.603.
+The largest AMP term in the table, -17.5%, belongs to the quietest arm, and it is worth stating on
+its own. `det_paper` is 27.6 dB down in the high band, so its own output there sits around the order
+of bf16's per-sample rounding noise on a full-scale waveform, and `lm = |log(H + 1e-7) - log(Y + 1e-7)|`
+counts that noise as signal. On the A100 the quantisation partly FILLED the band; in fp32 the same
+checkpoint scores 1.944 where the run recorded 1.603.
 
-`es_erb_l0.001` at +8.87% is the eps draw. It has the largest `spread` in the run (max 0.115), and
-the energy score's spectral term is again a difference of similar quantities, so it is the arm most
-sensitive to being handed a different noise stream.
+It changes no conclusion -- lambda = 0 means the spectral term was never in `det_paper`'s loss, so
+it is a diagnostic there and not an objective -- but `det_paper`'s recorded `val_spec` should not be
+quoted beside the other arms' as though it measured the same thing.
 
-**The open item.** A "nearest recorded curve" test needs a tolerance, and I asserted one instead of
-measuring it. At an 8.87% diagonal, `es_erb_l0.001` sits closer to `es_marg`'s recorded pair (3.6%)
-than to its own, and they are the same class, so the matching criterion as first written reports a
-failure that is not one. The fix is to measure the eps-induced spread -- the same arm at several
-seeds -- and test against that, rather than against a number I picked. Until that lands, the identity
-of each converted file rests on `convert_ckpt.py`'s history check, which ties each checkpoint to its
-own curve bitwise and does not depend on any of this.
+The effect is not simply "quieter arms are more contaminated", which was the first guess and is
+wrong. `det` and `es_erb_l0.001` are equally quiet (-12.61 and -12.34 dB) and their AMP terms have
+opposite signs (+0.74% and -8.34%). They are not the same functional: the samplers' spectral term is
+an energy-score difference, `0.5(dl(Ly,L1) + dl(Ly,L2)) - 0.5 dl(L1,L2)`, so bf16 noise inflates the
+SUBTRACTED spread term and pushes the score down, while the `is_det` branch is `sc + lm` with nothing
+subtracted. Within each family quietness drives the effect monotonically; the families start from
+different baselines.
 
-What the rebuild DID settle, and it is the part that was in doubt: the validation batches are the
-run's own. `manifest.json` records `n = 39639` and `hours = 37.32235759259259`; the reconstructed
-index gives `n = 39639` and `sum(lens) = 6,449,303,392` samples, which is that figure to the sample.
-One utterance more, one fewer, or one in a different place in the sort, and that integer moves.
+### The corpus, rebuilt without the 32 GB
 
-There is also a real property of `ArmStack.losses` worth recording, found by splitting the batches
-for memory. Every term is a per-sample mean over the batch axis -- which averages correctly over
-equal chunks -- EXCEPT the spectral-convergence term in the `is_det` branch (`e2b_fast.py:347`):
+What the rebuild settled, and it was the part in doubt: the validation batches are the run's own.
+`manifest.json` records `n = 39639` and `hours = 37.32235759259259`; the reconstructed index gives
+`n = 39639` and `sum(lens) = 6,449,303,392` samples, that figure to the sample. One utterance more,
+one fewer, or one in a different place in the sort, and that integer moves.
+
+There is also a real property of `ArmStack.losses` found by splitting the batches for memory. Every
+term is a per-sample mean over the batch axis -- which averages correctly over equal chunks -- EXCEPT
+the spectral-convergence term in the `is_det` branch (`e2b_fast.py:347`):
 
     sc = (Y - H).pow(2).sum((1, 2, 3)).sqrt() / (tf.mag_norm[s] + 1e-8)
 
 That sums over the batch inside the square root and divides by a norm taken over the whole batch, so
 it is a ratio of batch aggregates and a mean of per-chunk ratios is a different number. Measured on
-`det`, splitting four ways moves `val_spec` by 0.2% and `val_wave` not at all. The deterministic arms
-therefore run unsplit; they can afford it, because `is_det` runs B sequences where a sampler runs 2B.
+`det`, splitting four ways moves `val_spec` by 0.2%. Nothing in the trainer splits batches, so this
+is latent rather than a live bug -- but it is worth knowing before anyone does.
 
 ## Cross-arm numbers from the training record
 
@@ -160,8 +179,12 @@ it, which is what a pure L1 objective should do and is the reason `det_paper` is
 
 ## EVAL12
 
-`~/lisa-results/ov3/table_OV50.md`. LSD here is `lsd_db`'s convention -- decades of power, not dB;
-multiply by 10 for dB, and do not put it beside LISA's published numbers without saying so.
+`overnight3/results_OV50/table_OV50.md`. Two warnings on the columns, both of which have already
+caught someone. LSD is `lsd_db`'s convention -- decades of power, not dB; multiply by 10 for dB, and
+do not put it beside LISA's published numbers without saying so. And the **`LSD` column here is RAW,
+with no baseband passthrough**, where the 16 Sep note reports every condition WITH passthrough. The
+passthrough columns are the last two. Comparing this table's `LSD` against that note's `LSD` compares
+different quantities and makes this run look worse than it is.
 
 | arm | SNR | LSD | HB-LSD | deficit dB | CRPS | sliced CRPS | HB kappa | PIT end | mean-16 SNR | mean deficit | SNR gap | 1-draw pt LSD | logmean16 pt LSD |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -261,6 +284,106 @@ on a single draw.
 2.122, deficit -27.63 dB, CRPS 2.56. It also has the best SNR in the table (19.01) and the highest
 high-band kappa (+0.269). It is behaving as a conditional mean: almost no output energy, and what
 little there is correlates with the truth.
+
+## Against the 16 Sep run: better, but not where it was supposed to be
+
+OV3_fast was 7.6 epochs; OV50 is 50. Like-for-like, one draw, both with passthrough:
+
+| arm | 16 Sep | OV50 | |
+|---|---|---|---|
+| `det` | 1.198 | 0.910 | -24% |
+| `es_erb_l0.1` | 0.972 | 0.936 | -3.7% |
+| `es_dec_erb_l0.1` | 0.999 | 0.932 | -6.7% |
+| `es_marg` | 0.946 | 0.969 | **+2.4% worse** |
+
+And `logmean16` + passthrough, the readout the 16 Sep note argued for: `es_erb_l0.1` 0.871 -> 0.844,
+`es_marg` 0.920 -> 0.883, `es_dec_erb_l0.1` 0.933 -> 0.835. Seven of eight figures improved.
+(`es_dec_l0.1` is not comparable: 16 Sep ran it at lambda = 0.1, OV50 at 0.01.)
+
+**The floor and ceiling rows are identical to three decimals across the two runs** -- LSD 5.606 and
+0.105, deficit -52.65 and -0.00, SNR 18.99 and 41.60. Those conditions are model-independent, so
+that is proof rather than coincidence that `fast/vctk_local.py`'s partial read reproduces exactly the
+EVAL12 the 16 Sep run used. The data path is verified by result, not only by construction.
+
+**But `det` gained far more than any sampler**, and that is the finding, not the LSD numbers. There
+is a mechanism for it. A single draw's LSD has an irreducible floor: even a perfectly learned
+conditional law produces draws that deviate from the conditional mean by the true conditional
+variance, and training does not remove it. `det` has no such floor and can keep walking toward the
+conditional-mean optimum. So with more epochs `det`'s single-draw LSD should keep improving while
+the samplers' saturates, and their `logmean16` should keep improving because it estimates the mean.
+Both runs show exactly that.
+
+## ViSQOL
+
+`overnight3/results_OV50/visqol_table_OV50.md`, 43 conditions, M = 16, lattice speech mapping (so
+the speech numbers are OV2-comparable; `ai_edge_litert` has a cp311 arm64 wheel and the run confirms
+the mapping is live). Audio mode at 48 kHz sees the whole 6-24 kHz band; speech mode resamples to
+16 kHz and sees about 11% of it. Lead with audio.
+
+Audio-mode floor 1.567, ceiling 4.725, range 3.158.
+
+| condition | audio48k | share of range | LSD |
+|---|---|---|---|
+| ceiling: passthrough + true HB | 4.725 | 100% | 0.105 |
+| `es_dec_erb_l0.1` logmean16 + pt | **3.021** | **46.0%** | 0.835 |
+| `det` + pt | 3.001 | 45.4% | 0.910 |
+| `es_erb_l0.1` logmean16 + pt | 2.991 | 45.1% | 0.844 |
+| `es_erb_l0.01` logmean16 + pt | 2.942 | 43.5% | 0.841 |
+| `es_dec_l0.01` logmean16 + pt | 2.927 | 43.1% | 0.873 |
+| `es_marg` logmean16 + pt | 2.877 | 41.5% | 0.883 |
+| `es_dec_erb_l0.1` one draw + pt | 2.815 | 39.5% | 0.932 |
+| `det_paper` + pt | 1.717 | 4.7% | 2.122 |
+| naive | 1.576 | 0.3% | 4.776 |
+| floor: passthrough + empty HB | 1.567 | 0% | 5.606 |
+
+**The sampler's advantage on the judge that can see the band has essentially gone.** On 16 Sep the
+best sampler readout beat `det` by 0.290 audio ViSQOL (2.773 against 2.483, 38.2% of range against
+29.0%). At 50 epochs it is 0.020 (3.021 against 3.001, 46.0% against 45.4%) -- six tenths of one
+percent of the range. `det` gained +0.518 over the two runs; the best sampler gained +0.248.
+
+That is the same saturation the LSD comparison shows, on an independent judge, and it is the
+strongest evidence in the run against the sampler programme as stated.
+
+### PESQ ranks doing nothing second
+
+| condition | PESQ wb | LSD | audio48k |
+|---|---|---|---|
+| ceiling | 4.615 | 0.105 | 4.725 |
+| **`det_paper` + pt** | **4.385** | 2.122 | 1.717 |
+| **naive** | **4.377** | 4.776 | 1.576 |
+| `es_marg` mean16 + pt | 4.354 | 1.193 | 2.576 |
+
+`det_paper` is 27.6 dB down in the high band and `naive` has no high band at all, and PESQ puts them
+second and third of 43 conditions, above every sampler. Speech-mode ViSQOL is milder but points the
+same way: its whole range for this task is 3.947 to 4.508, and `naive` scores 3.972, above six
+conditions that actually restore energy. Both judges should be retired for 12 -> 48 kHz, which the
+17 Sep TODO already proposed; this is the evidence for it.
+
+## Does the sampler programme clear its own bar?
+
+The rule set on 16 Sep was that a winner must improve **CRPS and calibration and LSD and audio-mode
+ViSQOL together**. At 50 epochs:
+
+- **CRPS** -- yes, 0.5700 against `det`'s 0.9597. But a point forecast is a degenerate predictive
+  distribution and must lose a proper probabilistic score, so this clause is partly definitional and
+  should not carry the argument.
+- **LSD** -- yes, at the right readout: 0.835 against 0.910, and five of six samplers beat `det`.
+- **audio ViSQOL** -- 3.021 against 3.001. Technically yes; 0.6% of the range, which is not a result.
+- **calibration** -- no. PIT end-bins 1.55x ideal at best against 1.79x in OV3_fast, with all the
+  excess in the top bin. The SNR gap is 0.69-1.04 dB against the 2.75 dB a calibrated 16-member
+  ensemble would give: every arm carries a quarter to a third of the spread it should. The
+  draw/logmean16 ratio puts the conditional variance at about a quarter of the squared bias.
+
+So: the samplers halve the high-band deficit against `det` (-6.26 dB against -12.61) and beat it at
+the right readout, and that part is real and reproducible. But they are conditional PREDICTORS with
+some usable spread, not calibrated conditional DISTRIBUTIONS, and 6.5x more training than OV3_fast
+did not move the calibration and let `det` close the perceptual gap to nothing.
+
+**What would change that verdict.** The top-bin excess is an energy bias, not a width problem -- the
+bottom bin is at its ideal value for every arm. Nobody has tried simply correcting it. If a per-band
+gain fitted on held-out data moves `pit_end` toward 0.118, then the ensembles were mis-calibrated in
+level and not in shape, which is a different and much more tractable claim. That test needs no
+retraining.
 
 ## Not done
 
