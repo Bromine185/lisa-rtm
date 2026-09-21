@@ -2,6 +2,10 @@
  *
  *   mount(el, {arm, cls, tokens, dims, onTime}) -> handle
  *   handle.setArm(arm, cls); play(); pause(); seek(t01); setInference(p01); dispose()
+ *   handle.focus(stage|null); reset(); panBy(dx, dy); zoomBy(f)   -- the camera, eased
+ *
+ * Controls: drag orbits; shift-drag, middle/right button, two fingers together or a two-finger
+ * swipe pan; pinch or ctrl/⌘-wheel zooms; double-click resets. Orbit never re-fits the framing.
  *
  * Needs three.js r128 UMD (window.THREE) loaded first. Nothing else.
  * Flow runs left to right along X; each stage keeps its own time axis along X too;
@@ -536,9 +540,10 @@ function mount(el, opts) {
     var f = clamp01((2.2 - aspect) / 1.5);
     return { az: lerp(WIDE.az, NARROW.az, f), el: lerp(WIDE.el, NARROW.el, f) };
   }
-  var cam = { az: WIDE.az, el: WIDE.el, zoom: 1, fitD: 40, target: new THREE.Vector3(0.25, 0, 0), driftFrom: 0, lastTouch: -1e9 };
-  var narrow = false, userMoved = false;
-  var AZ_LIM = 0.85, EL_MIN = 0.08, EL_MAX = 0.95;
+  var cam = { az: WIDE.az, el: WIDE.el, zoom: 1, d: 40, target: new THREE.Vector3(0.25, 0, 0), driftFrom: 0, lastTouch: -1e9 };
+  var goal = { az: WIDE.az, el: WIDE.el, zoom: 1, d: 40, target: new THREE.Vector3(0.25, 0, 0) };
+  var narrow = false, userMoved = false, focusIdx = null;
+  var AZ_LIM = 1.35, EL_MIN = 0.03, EL_MAX = 1.25, ZOOM_MIN = 0.3, ZOOM_MAX = 3.5;
 
   function hasNoiseIn() { return state.cls !== 'LISA'; }
   function hasNoiseDec() { return state.cls === 'LISASD'; }
@@ -815,12 +820,32 @@ function mount(el, opts) {
   }
 
   // ---- camera --------------------------------------------------------------
+  // Two orbits: `goal` is where the camera is asked to be, `cam` is where it is, and every frame
+  // `cam` eases toward `goal`. The framing solve runs on a fit (mount, resize, reset, a stage
+  // focus), never on a drag, so orbiting turns the scene about a fixed target instead of
+  // re-centring it under the cursor. Drag orbits; shift-drag, a middle or right button, two
+  // fingers together, or a two-finger swipe pan; pinch or ctrl/⌘-wheel zooms.
   var _v = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3();
   var BB = { x0: Lx.inX0 - 0.35, x1: Lx.outX1 + 0.35, y0: cSlider.y0 - 0.2, y1: Lx.warmLift + 1.05,
              z0: -1.35, z1: NZ_DZ * D.noiseIn + 0.1 };
-  var corners = [];
-  [BB.x0, BB.x1].forEach(function (x) { [BB.y0, BB.y1].forEach(function (y) { [BB.z0, BB.z1].forEach(function (z) {
-    corners.push(new THREE.Vector3(x, y, z)); }); }); });
+  // one box per stage along the flow, the full height and depth of the diagram
+  var STAGE_X = [
+    [Lx.inX0 - 0.35, Lx.inX1 + 0.35],
+    [Lx.slabX0 - 0.4, slabEnd + 0.4],
+    [Lx.ribX0 - 0.35, Lx.ribX1 + 0.35],
+    [decX[0] - 1.0, decX[decX.length - 1] + 1.0],
+    [Lx.outX0 - 0.35, Lx.outX1 + 0.35]
+  ];
+  function boxOf(i) {
+    if (i == null) return BB;
+    return { x0: STAGE_X[i][0], x1: STAGE_X[i][1], y0: BB.y0, y1: BB.y1, z0: BB.z0, z1: BB.z1 };
+  }
+  function cornersOf(b) {
+    var c = [];
+    [b.x0, b.x1].forEach(function (x) { [b.y0, b.y1].forEach(function (y) { [b.z0, b.z1].forEach(function (z) {
+      c.push(new THREE.Vector3(x, y, z)); }); }); });
+    return c;
+  }
   function setCam(target, d, az, el) {
     camera.position.set(
       target.x + d * Math.cos(el) * Math.sin(az),
@@ -829,18 +854,18 @@ function mount(el, opts) {
     camera.lookAt(target);
     camera.updateMatrixWorld();
   }
-  // Fit the diagram's bounding box into the viewport minus paddings (the right pad keeps room
-  // for the two labels that hang off the output), then recentre the target so the box sits in
-  // the middle of the padded region. Run for the current orbit angles, so rotating the scene
-  // reframes it instead of swinging it out of the viewport.
-  function fitCamera() {
+  // Solve the distance and target that frame `box` inside the viewport minus paddings at orbit
+  // (az, el): scale the distance until the projected corners fit, then walk the target so the box
+  // sits in the middle of the padded region. Four rounds converge to a pixel. The right pad on the
+  // whole diagram keeps room for the two labels that hang off the output.
+  function fitBox(box, az, el, padR) {
     var w = wrap.clientWidth, h = wrap.clientHeight;
-    if (!w || !h) return;
-    var o = { az: cam.az, el: cam.el };
-    var padL = narrow ? 16 : 22, padR = narrow ? 16 : 128, padT = narrow ? 20 : 44, padB = narrow ? 20 : 44;
+    var corners = cornersOf(box);
+    var padL = narrow ? 16 : 22, padT = narrow ? 20 : 44, padB = narrow ? 20 : 44;
+    if (padR == null) padR = narrow ? 16 : 128;
     var vf = camera.fov * Math.PI / 360;
     var d = Math.max(18 / (Math.tan(vf) * camera.aspect), 4.6 / Math.tan(vf));
-    var target = new THREE.Vector3((BB.x0 + BB.x1) / 2, (BB.y0 + BB.y1) / 2, (BB.z0 + BB.z1) / 2);
+    var target = new THREE.Vector3((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2, (box.z0 + box.z1) / 2);
     var ext = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
     function measure() {
       ext.minX = ext.minY = 1e9; ext.maxX = ext.maxY = -1e9;
@@ -852,13 +877,13 @@ function mount(el, opts) {
       }
     }
     for (var it = 0; it < 4; it++) {
-      setCam(target, d, o.az, o.el);
+      setCam(target, d, az, el);
       measure();
       var cx = w / 2, cy = h / 2;
       var sc = Math.max((cx - ext.minX) / (cx - padL), (ext.maxX - cx) / (w - padR - cx),
                         (cy - ext.minY) / (cy - padT), (ext.maxY - cy) / (h - padB - cy));
       d *= sc * 1.01;
-      setCam(target, d, o.az, o.el);
+      setCam(target, d, az, el);
       measure();
       var offX = (ext.minX + ext.maxX) / 2 - (padL + (w - padR)) / 2;
       var offY = (ext.minY + ext.maxY) / 2 - (padT + (h - padB)) / 2;
@@ -867,8 +892,41 @@ function mount(el, opts) {
       _u.setFromMatrixColumn(camera.matrixWorld, 1);
       target.addScaledVector(_r, offX * wpp).addScaledVector(_u, -offY * wpp);
     }
-    cam.fitD = d;
-    cam.target.copy(target);
+    return { d: d, target: target };
+  }
+  // re-solve the framing for the current focus (a stage, or the whole) at the goal orbit
+  function refit(immediate) {
+    if (!wrap.clientWidth || !wrap.clientHeight) return;
+    var padR = focusIdx == null || focusIdx === 4 ? null : (narrow ? 16 : 40);
+    var f = fitBox(boxOf(focusIdx), goal.az, goal.el, padR);
+    goal.d = f.d; goal.target.copy(f.target);
+    if (immediate) snapCamera();
+    state.needsRender = true;
+  }
+  function snapCamera() { cam.az = goal.az; cam.el = goal.el; cam.zoom = goal.zoom; cam.d = goal.d; cam.target.copy(goal.target); }
+  // ease `cam` toward `goal`; true while it is still moving
+  function easeCamera(dt) {
+    var k = 1 - Math.exp(-dt * 9);
+    cam.az += (goal.az - cam.az) * k; cam.el += (goal.el - cam.el) * k;
+    cam.zoom += (goal.zoom - cam.zoom) * k; cam.d += (goal.d - cam.d) * k;
+    cam.target.lerp(goal.target, k);
+    return Math.abs(goal.az - cam.az) + Math.abs(goal.el - cam.el) + Math.abs(goal.zoom - cam.zoom) > 1e-4 ||
+           Math.abs(goal.d - cam.d) > 1e-3 || cam.target.distanceToSquared(goal.target) > 1e-6;
+  }
+  // world units per screen pixel in the target's plane
+  function worldPerPixel() {
+    return 2 * cam.d * cam.zoom * Math.tan(camera.fov * Math.PI / 360) / Math.max(1, wrap.clientHeight);
+  }
+  // move the target in the camera's plane by a screen offset, kept within reach of the diagram
+  function pan(dx, dy) {
+    var wpp = worldPerPixel();
+    _r.setFromMatrixColumn(camera.matrixWorld, 0);
+    _u.setFromMatrixColumn(camera.matrixWorld, 1);
+    goal.target.addScaledVector(_r, dx * wpp).addScaledVector(_u, -dy * wpp);
+    goal.target.x = clamp(goal.target.x, BB.x0 - 6, BB.x1 + 6);
+    goal.target.y = clamp(goal.target.y, BB.y0 - 4, BB.y1 + 4);
+    goal.target.z = clamp(goal.target.z, BB.z0 - 4, BB.z1 + 4);
+    userMoved = true;
   }
   function placeCamera(now) {
     var az = cam.az, el = cam.el;
@@ -877,7 +935,7 @@ function mount(el, opts) {
       az += 0.05 * Math.sin(td * 0.11);
       el += 0.014 * Math.sin(td * 0.073);
     }
-    setCam(cam.target, cam.fitD * cam.zoom, az, el);
+    setCam(cam.target, cam.d * cam.zoom, az, el);
   }
   // Project every anchor, keep the text inside the viewport, then drop any dim label that
   // would land on top of one already placed. The stage's own labels are never dropped.
@@ -958,63 +1016,85 @@ function mount(el, opts) {
   }
 
   // ---- interaction ---------------------------------------------------------
-  var pointers = {}, nPointers = 0, lastX = 0, lastY = 0, pinchD = 0;
+  var pointers = {}, nPointers = 0, lastX = 0, lastY = 0, pinchD = 0, dragPan = false, lastC = null;
   function nowS() { return performance.now() / 1000; }
-  function onDown(e) {
-    pointers[e.pointerId] = { x: e.clientX, y: e.clientY }; nPointers++;
-    if (nPointers === 1) { lastX = e.clientX; lastY = e.clientY; canvas.classList.add('a3d-drag'); }
-    if (nPointers === 2) pinchD = pinchDist();
-    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
-    cam.lastTouch = nowS();
-  }
+  function touched() { cam.lastTouch = nowS(); cam.driftFrom = cam.lastTouch + 3.0; state.needsRender = true; }
   function pinchDist() {
     var ids = Object.keys(pointers); if (ids.length < 2) return 0;
     var a = pointers[ids[0]], b = pointers[ids[1]];
     return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+  function centroid() {
+    var ids = Object.keys(pointers), x = 0, y = 0;
+    for (var i = 0; i < ids.length; i++) { x += pointers[ids[i]].x; y += pointers[ids[i]].y; }
+    return { x: x / ids.length, y: y / ids.length };
+  }
+  function onDown(e) {
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY }; nPointers++;
+    if (nPointers === 1) {
+      lastX = e.clientX; lastY = e.clientY;
+      dragPan = e.shiftKey || e.button === 1 || e.button === 2;
+      canvas.classList.add('a3d-drag');
+    }
+    if (nPointers === 2) { pinchD = pinchDist(); lastC = centroid(); }
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    touched();
   }
   function onMove(e) {
     if (!pointers[e.pointerId]) return;
     pointers[e.pointerId].x = e.clientX; pointers[e.pointerId].y = e.clientY;
     if (nPointers >= 2) {
       var d = pinchDist();
-      if (pinchD > 0 && d > 0) { cam.zoom = clamp(cam.zoom * pinchD / d, 0.45, 2.4); pinchD = d; }
+      if (pinchD > 0 && d > 0) { goal.zoom = clamp(goal.zoom * pinchD / d, ZOOM_MIN, ZOOM_MAX); pinchD = d; }
+      var c = centroid();
+      if (lastC) pan(-(c.x - lastC.x), -(c.y - lastC.y));
+      lastC = c;
+    } else if (dragPan) {
+      pan(-(e.clientX - lastX), -(e.clientY - lastY));
+      lastX = e.clientX; lastY = e.clientY;
     } else {
-      cam.az = clamp(cam.az - (e.clientX - lastX) * 0.005, -AZ_LIM, AZ_LIM);
-      cam.el = clamp(cam.el + (e.clientY - lastY) * 0.004, EL_MIN, EL_MAX);
+      goal.az = clamp(goal.az - (e.clientX - lastX) * 0.005, -AZ_LIM, AZ_LIM);
+      goal.el = clamp(goal.el + (e.clientY - lastY) * 0.004, EL_MIN, EL_MAX);
       lastX = e.clientX; lastY = e.clientY;
       userMoved = true;
-      fitCamera();
     }
-    cam.lastTouch = nowS(); cam.driftFrom = cam.lastTouch + 3.0;
-    state.needsRender = true;
+    touched();
   }
   function onUp(e) {
     if (pointers[e.pointerId]) { delete pointers[e.pointerId]; nPointers = Math.max(0, nPointers - 1); }
-    if (nPointers === 0) canvas.classList.remove('a3d-drag');
-    else { var ids = Object.keys(pointers); lastX = pointers[ids[0]].x; lastY = pointers[ids[0]].y; }
+    if (nPointers === 0) { canvas.classList.remove('a3d-drag'); dragPan = false; lastC = null; }
+    else { var ids = Object.keys(pointers); lastX = pointers[ids[0]].x; lastY = pointers[ids[0]].y; lastC = null; }
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
-    cam.lastTouch = nowS(); cam.driftFrom = cam.lastTouch + 3.0;
+    touched();
   }
+  // A trackpad pinch arrives as a ctrl-wheel; a mouse holds ctrl or ⌘. Anything else is a
+  // two-finger swipe: horizontal travels along the flow, vertical moves up and down it. The page
+  // around the canvas is laid out not to need the wheel, so it is always taken.
   function onWheel(e) {
     e.preventDefault();
-    cam.zoom = clamp(cam.zoom * Math.exp(e.deltaY * 0.0012), 0.45, 2.4);
-    cam.lastTouch = nowS(); cam.driftFrom = cam.lastTouch + 3.0;
-    state.needsRender = true;
+    var dx = e.deltaX, dy = e.deltaY;
+    if (e.deltaMode === 1) { dx *= 16; dy *= 16; }
+    else if (e.deltaMode === 2) { dx *= wrap.clientWidth; dy *= wrap.clientHeight; }
+    if (e.ctrlKey || e.metaKey) goal.zoom = clamp(goal.zoom * Math.exp(clamp(dy, -40, 40) * 0.008), ZOOM_MIN, ZOOM_MAX);
+    else pan(dx, dy);
+    touched();
   }
-  function onDbl() {
+  function onCtx(e) { e.preventDefault(); }
+  function resetView() {
     var o = defaultOrbit(camera.aspect);
-    cam.az = o.az; cam.el = o.el; cam.zoom = 1;
-    userMoved = false;
-    fitCamera();
-    cam.lastTouch = nowS(); cam.driftFrom = cam.lastTouch + 3.0;
-    state.needsRender = true;
+    goal.az = o.az; goal.el = o.el; goal.zoom = 1;
+    userMoved = false; focusIdx = null;
+    refit(false);
+    touched();
   }
+  function onDbl() { resetView(); }
   canvas.addEventListener('pointerdown', onDown);
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerup', onUp);
   canvas.addEventListener('pointercancel', onUp);
   canvas.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('dblclick', onDbl);
+  canvas.addEventListener('contextmenu', onCtx);
   function onMql() { reducedMotion = !!(mql && mql.matches); state.dirty = true; state.needsRender = true; }
   if (mql) { if (mql.addEventListener) mql.addEventListener('change', onMql); else if (mql.addListener) mql.addListener(onMql); }
 
@@ -1029,10 +1109,9 @@ function mount(el, opts) {
     wrap.classList.toggle('a3d-narrow', narrow);
     if (!userMoved) {
       var o = defaultOrbit(camera.aspect);
-      cam.az = o.az; cam.el = o.el;
+      goal.az = o.az; goal.el = o.el;
     }
-    fitCamera();
-    state.needsRender = true;
+    refit(true);
   }
   var ro = null;
   if (global.ResizeObserver) { ro = new ResizeObserver(function () { resize(); }); ro.observe(wrap); }
@@ -1055,10 +1134,11 @@ function mount(el, opts) {
       }
       if (onTime) onTime(state.t);
     }
+    var moving = easeCamera(dt);
     // wall-clock effects (jitter, shimmer, drift) need a render every frame unless reduced motion
     var animate = !reducedMotion;
     if (state.dirty || animate) { applyTimeline(now); state.dirty = false; state.needsRender = true; }
-    if (state.needsRender || animate) {
+    if (state.needsRender || animate || moving) {
       placeCamera(now);
       renderer.render(scene, camera);
       placeLabels();
@@ -1094,6 +1174,18 @@ function mount(el, opts) {
       state.dirty = true; state.needsRender = true;
       return handle;
     },
+    // Fly to one stage of the flow (0..4), or back to the whole diagram with null. The orbit is kept;
+    // only the framing changes, eased.
+    focus: function (i) {
+      focusIdx = (i == null || i < 0 || i >= STAGE_X.length) ? null : i | 0;
+      goal.zoom = 1;
+      refit(false); touched();
+      return handle;
+    },
+    focused: function () { return focusIdx; },
+    reset: function () { resetView(); return handle; },
+    panBy: function (dx, dy) { pan(dx, dy); touched(); return handle; },
+    zoomBy: function (f) { goal.zoom = clamp(goal.zoom * (+f || 1), ZOOM_MIN, ZOOM_MAX); touched(); return handle; },
     dispose: function () {
       if (state.disposed) return;
       state.disposed = true;
@@ -1105,6 +1197,7 @@ function mount(el, opts) {
       canvas.removeEventListener('pointercancel', onUp);
       canvas.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('dblclick', onDbl);
+      canvas.removeEventListener('contextmenu', onCtx);
       if (mql) { if (mql.removeEventListener) mql.removeEventListener('change', onMql); else if (mql.removeListener) mql.removeListener(onMql); }
       scene.traverse(function (o) {
         if (o.geometry) o.geometry.dispose();

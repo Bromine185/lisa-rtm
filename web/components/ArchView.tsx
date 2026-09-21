@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { ArmClass } from "@/lib/arms";
 
 // public/arch3d.js is an imperative Three.js module that expects window.THREE and defines window.Arch3D.
@@ -11,6 +11,8 @@ interface Arch3DHandle {
   pause(): void;
   seek(t: number): void;
   setInference(p: number): void;
+  focus(stage: number | null): void;
+  reset(): void;
   dispose(): void;
 }
 interface Arch3DModule {
@@ -18,6 +20,12 @@ interface Arch3DModule {
 }
 declare global {
   interface Window { Arch3D?: Arch3DModule; THREE?: unknown }
+}
+
+/** What the page can ask of the camera. */
+export interface ArchViewHandle {
+  focus(stage: number | null): void;
+  reset(): void;
 }
 
 let loading: Promise<Arch3DModule | null> | null = null;
@@ -39,9 +47,9 @@ function getArch(): Promise<Arch3DModule | null> {
   return loading;
 }
 
-export function ArchView({ arm, cls, playing, seek, inference, onTime, onMissing }: {
+export const ArchView = forwardRef<ArchViewHandle, {
   arm: string; cls: ArmClass; playing: boolean; seek: number | null; inference?: number; onTime?: (t: number) => void; onMissing?: () => void;
-}) {
+}>(function ArchView({ arm, cls, playing, seek, inference, onTime, onMissing }, ref) {
   const el = useRef<HTMLDivElement>(null);
   const handle = useRef<Arch3DHandle | null>(null);
   // arch3d calls back on its own animation clock, so it gets a ref to the latest onTime, kept current
@@ -67,9 +75,13 @@ export function ArchView({ arm, cls, playing, seek, inference, onTime, onMissing
   }, []);
 
   useEffect(() => { handle.current?.setArm(arm, cls); }, [arm, cls]);
-  useEffect(() => { if (!handle.current) return; playing ? handle.current.play() : handle.current.pause(); }, [playing]);
+  useEffect(() => { if (!handle.current) return; if (playing) handle.current.play(); else handle.current.pause(); }, [playing]);
   useEffect(() => { if (seek != null) handle.current?.seek(seek); }, [seek]);
   useEffect(() => { if (inference != null) handle.current?.setInference(inference); }, [inference]);
+  useImperativeHandle(ref, () => ({
+    focus: (stage) => handle.current?.focus(stage),
+    reset: () => handle.current?.reset(),
+  }), []);
 
-  return <div ref={el} style={{ position: "absolute", inset: 0 }} aria-label={`${arm} architecture, animated`} role="img" />;
-}
+  return <div ref={el} style={{ position: "absolute", inset: 0 }} aria-label={`${arm} architecture, animated`} role="application" />;
+});

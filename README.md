@@ -97,6 +97,7 @@ web/                 "The Missing Band": the Next.js demo. Pick a speaker, watch
                      in the browser, hear the readouts, open a 3D view of any arm
 demo/                the demo's sources: SPEC.md, the plain-JS engine and 3D scene that web/public
                      serves, and the Python tools that render its audio, weights and numbers
+                     (the page itself, in English and Japanese, lives in web/components and web/lib)
 notes/               the research notes, in date order
 ```
 
@@ -114,6 +115,15 @@ before that setting existed was built from the repo root, found no app, and 404s
 dashboard flags this as *"Configuration Settings in the current Production deployment differ from
 your current Project Settings."* Push a commit to get a fresh build rather than redeploying the old
 one, which can carry its own Production Overrides forward.
+
+**Showing it.** `?` opens a five-card tour (the problem, the fix, listen, the three readouts, your voice
+and the blind test); `L` switches the whole page between English and Japanese; the key map sits under
+the instrument. `V` records from the laptop microphone (or drop any audio file on the left rail): the
+clip is band-limited with the fixture pipeline's own filter and becomes a speaker, and every one of the
+eight arms runs on it in the browser — training was English only, so a Japanese sentence is a live
+out-of-distribution test. `B` starts a blind A/B listening test: a random speaker, the sampler against
+the deterministic model, shuffled, vote by ear, tally kept on the laptop. On the architecture page,
+drag orbits, a two-finger swipe travels along the flow, pinch zooms, `1`–`5` fly to a stage, `0` fits.
 
 `web/public/assets` is committed on purpose — 222 WAVs (six speakers × eight OV50 arms, each as one
 draw, τ = 0, mean16, logmean16 and a ×8 render at 96 kHz), eight weight files, and the evaluation JSON,

@@ -1,22 +1,30 @@
-.page { min-height: 100%; display: flex; flex-direction: column; gap: 10px; padding-inline: 16px; padding-block: 0 16px; }
-.bar { display: flex; align-items: center; gap: 14px; padding-block: 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.back { font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); padding: 7px 10px; border: 1px solid var(--line-2); border-radius: 4px; }
+/* The whole page fits the viewport: the scene takes what the chrome leaves, and the wheel belongs
+   to the scene (it pans and zooms), so nothing here should ever need scrolling. */
+.page { height: 100dvh; display: flex; flex-direction: column; gap: 8px; padding-inline: 16px; padding-block: 0 12px; overflow: hidden; }
+.bar { display: flex; align-items: center; gap: 12px; padding-block: 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; flex: none; }
+.back { font-family: var(--font-mono), var(--font-jp); font-size: 11.5px; color: var(--dim); padding: 7px 10px; border: 1px solid var(--line-2); border-radius: 4px; display: inline-flex; gap: 6px; align-items: center; }
 .back:hover { color: var(--ink); }
-.title { font-family: var(--font-mono); font-size: 12px; }
+.title { font-family: var(--font-mono), var(--font-jp); font-size: 12px; }
 .title small { color: var(--dim); margin-left: 8px; }
 .arms { display: flex; gap: 2px; flex-wrap: wrap; }
 .arms a { font-family: var(--font-mono); font-size: 10.5px; color: var(--dim-2); padding: 4px 7px; border-radius: 3px; }
 .arms a:hover { color: var(--ink); }
 .arms a[aria-current="page"] { color: var(--warm); background: var(--panel-2); }
-.mount { position: relative; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); overflow: hidden; flex: 1; min-height: 420px; max-width: 100%; }
-.tl { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+.mount { position: relative; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); overflow: hidden; flex: 1 1 0; min-height: 240px; max-width: 100%; }
+.help { position: absolute; right: 12px; bottom: 9px; font-family: var(--font-mono), var(--font-jp); font-size: 10px; color: var(--dim-2); letter-spacing: .02em; white-space: pre; pointer-events: none; text-align: right; }
+.tl { flex: none; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; font-family: var(--font-mono), var(--font-jp); font-size: 11px; color: var(--dim); }
 .tl input[type=range] { width: 100%; accent-color: var(--warm); }
-.stages { display: flex; font-family: var(--font-mono); font-size: 10.5px; color: var(--dim-2); }
-.stages span { flex: 1; border-top: 1px solid var(--line-2); padding-top: 5px; }
+.stages { flex: none; display: flex; gap: 4px; }
+.stages button { flex: 1; text-align: left; border-top: 1px solid var(--line-2); padding: 6px 4px 4px; font-family: var(--font-mono), var(--font-jp); font-size: 10.5px; color: var(--dim-2); display: flex; gap: 8px; align-items: baseline; border-radius: 0 0 3px 3px; }
+.stages button:hover { color: var(--ink); background: var(--panel); }
+.stages button kbd { color: var(--dim-2); }
 .stages .on { color: var(--warm); border-top-color: var(--warm); }
+.stages .focused { background: var(--panel-2); color: var(--ink); }
+.stages .focused kbd { color: var(--warm); border-color: var(--warm); }
 .on { color: var(--warm); }
-.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 18px; margin: 4px 0 0; font-family: var(--font-mono); font-size: 11px; }
-.facts div { display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--line); padding-top: 8px; }
+.facts { flex: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px 16px; margin: 0; font-family: var(--font-mono), var(--font-jp); font-size: 11px; }
+.facts div { display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--line); padding-top: 6px; }
 .facts dt { color: var(--dim-2); letter-spacing: .12em; text-transform: uppercase; font-size: 10px; }
 .facts dd { margin: 0; color: var(--dim); }
-@media (max-width: 760px) { .arms { display: none; } }
+@media (max-width: 760px) { .arms { display: none; } .help { display: none; } }
+@media (max-height: 620px) { .facts { display: none; } }
