@@ -181,27 +181,99 @@ def build(d, tag):
     A("")
 
     # ---- 5. readouts --------------------------------------------------------------------------
-    A("## 5. Readouts -- one model, three answers (passthrough on)")
+    # Four readouts exist, not three: logmean4 is in results_<tag>.json and is a real intermediate
+    # point on the energy/distortion curve, not a curiosity.  ViSQOL scored only three of them
+    # (e5_visqol.py's conditions_for omits logmean4), so that column is blank for it -- blank
+    # because it was never computed, which is a different statement from a dash meaning "n/a".
+    RO = [("one draw", "single", "tau=1"), ("logmean4", "logmean4", None),
+          ("logmean16", "logmean16", "logmean16"), ("mean16", "mean", "mean16")]
+
+    def ro_block(k, key, pt):
+        """The metric dict for one (arm, readout, raw|pt), or None if that readout does not exist."""
+        r = g(k)
+        suf = "_pt" if pt else ""
+        if key in ("single", "mean"):
+            return r.get(key + suf)
+        return r.get("readouts" + suf, {}).get(key)
+
+    def ro_vq(k, vname, pt):
+        if vname is None:
+            return None
+        base = f"{k} {vname}" if vname else k
+        return V.get(base + (" | passthrough" if pt else ""), {}).get("visqol_audio48k")
+
+    A("## 5. Every readout")
     A("")
-    A("| arm | LSD 1-draw | LSD mean16 | LSD logmean16 | deficit 1-draw pt | deficit logmean16 | "
-      "audio ViSQOL 1-draw | audio ViSQOL logmean16 |")
-    A("|---|---|---|---|---|---|---|---|")
+    A("A sampler has **four** readouts and a deterministic arm has one. `raw` is the model's own "
+      "output; `pt` passes the given baseband through, which is how it would ship.")
+    A("")
+    A("| arm | readout | SNR | LSD raw | LSD pt | HB-LSD pt | deficit raw | deficit pt | HB kappa | "
+      "audio ViSQOL raw | audio ViSQOL pt |")
+    A("|---|---|---|---|---|---|---|---|---|---|---|")
+    for k in ORDER:
+        r = g(k)
+        rows = [("one output", "single", None)] if "readouts_pt" not in r else RO
+        for label, key, vname in rows:
+            raw, pt = ro_block(k, key, False), ro_block(k, key, True)
+            if pt is None:
+                continue
+            vr, vp = ro_vq(k, vname if vname is not None else "", False), ro_vq(k, vname if vname is not None else "", True)
+            if label == "one output":
+                vr, vp = V.get(k, {}).get("visqol_audio48k"), V.get(f"{k} | passthrough", {}).get("visqol_audio48k")
+            A(f"| `{k}` | {label} | {pt['snr']:.2f} | {fmt(raw['lsd'] if raw else None)} | {pt['lsd']:.3f} | "
+              f"{pt['hb_lsd']:.3f} | {fmt(raw['deficit'] if raw else None, 2, True)} | {pt['deficit']:+.2f} | "
+              f"{pt['hb_kappa']:+.3f} | {fmt(vr)} | {fmt(vp)} |")
+    A("")
+    A("`logmean4` was never scored by ViSQOL -- `e5_visqol.py`'s `conditions_for` builds one draw, "
+      "`mean16` and `logmean16` only -- so those two cells are blank because the number does not "
+      "exist, not because it does not apply.")
+    A("")
+
+    A("### 5b. The same thing pivoted, passthrough only -- for comparing across readouts")
+    A("")
+    for metric, label, nd, sign, ideal in (("lsd", "LSD", 3, False, "0"),
+                                           ("deficit", "deficit dB", 2, True, "0 dB"),
+                                           ("snr", "SNR dB", 2, False, "inert; see section 3")):
+        A(f"**{label}** (ideal {ideal})")
+        A("")
+        A("| arm | one draw | logmean4 | logmean16 | mean16 | best |")
+        A("|---|---|---|---|---|---|")
+        for k in ORDER:
+            r = g(k)
+            if "readouts_pt" not in r:
+                v = r["single_pt"][metric]
+                A(f"| `{k}` | {fmt(v, nd, sign)} | *no ensemble* | | | {fmt(v, nd, sign)} |")
+                continue
+            vals = {lb: ro_block(k, key, True)[metric] for lb, key, _ in RO}
+            pick = (max if (metric == "deficit" or metric == "snr") else min)(vals, key=lambda lb: vals[lb])
+            cells = " | ".join(f"**{fmt(vals[lb], nd, sign)}**" if lb == pick else fmt(vals[lb], nd, sign)
+                               for lb, _, _ in RO)
+            A(f"| `{k}` | {cells} | {pick} |")
+        A("")
+    A("**audio ViSQOL** (floor {:.3f}, ceiling {:.3f}; `logmean4` not scored)".format(
+        fl["visqol_audio48k"], ce["visqol_audio48k"]))
+    A("")
+    A("| arm | one draw | logmean16 | mean16 | best |")
+    A("|---|---|---|---|---|")
     for k in ORDER:
         r = g(k)
         if "readouts_pt" not in r:
-            A(f"| `{k}` | {r['single_pt']['lsd']:.3f} | *no ensemble* | | {r['single_pt']['deficit']:+.2f} | | "
-              f"{fmt(vq(k, None))} | |")
+            v = V.get(f"{k} | passthrough", {}).get("visqol_audio48k")
+            A(f"| `{k}` | {fmt(v)} | *no ensemble* | | {fmt(v)} |")
             continue
-        lm = r["readouts_pt"]["logmean16"]
-        A(f"| `{k}` | {r['single_pt']['lsd']:.3f} | {r['mean_pt']['lsd']:.3f} | **{lm['lsd']:.3f}** | "
-          f"{r['single_pt']['deficit']:+.2f} | {lm['deficit']:+.2f} | "
-          f"{fmt(V.get(f'{k} tau=1 | passthrough', {}).get('visqol_audio48k'))} | "
-          f"**{fmt(V.get(f'{k} logmean16 | passthrough', {}).get('visqol_audio48k'))}** |")
+        vals = {lb: ro_vq(k, vn, True) for lb, _, vn in RO if vn}
+        pick = max(vals, key=lambda lb: vals[lb] if vals[lb] is not None else -9)
+        cells = " | ".join(f"**{fmt(vals[lb])}**" if lb == pick else fmt(vals[lb]) for lb in ("one draw", "logmean16", "mean16"))
+        A(f"| `{k}` | {cells} | {pick} |")
     A("")
-    A("`logmean16` wins LSD and audio ViSQOL; `mean16` wins SNR and PESQ; the single draw wins the "
-      "**deficit** and is the only readout CRPS and PIT can be computed from. The energy advantage "
-      "lives in the draw and the distortion advantage in the readout -- one model spans that curve, "
-      "a deterministic arm occupies one point on it.")
+    A("**The readouts trace an energy/distortion curve and averaging moves along it monotonically.** "
+      "More draws averaged means less high-band energy (deficit falls) and a better estimate of the "
+      "log-magnitude conditional mean (LSD falls, then LSD's own optimum is reached). One draw holds "
+      "the energy; `logmean16` holds the spectrum; `logmean4` sits between and is the best single "
+      "compromise if energy matters as much as distortion. `mean16` -- averaging the WAVEFORMS rather "
+      "than the log-magnitudes -- is dominated on both LSD and deficit by `logmean16` while winning "
+      "SNR and PESQ, which is the clearest statement in the run that those two judges are measuring "
+      "the wrong thing. A deterministic arm occupies ONE point on this curve and cannot move along it.")
     A("")
 
     # ---- 6. perceptual ------------------------------------------------------------------------

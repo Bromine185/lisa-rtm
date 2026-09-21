@@ -75,20 +75,96 @@ Ideals: LSD 0 | deficit 0 dB | CRPS lower | PIT end 0.1176 | audio ViSQOL 4.725 
 
 PIT end ideal 0.1176; per-bin ideal 0.0588. **The bottom bin is at its ideal value for every arm and all the excess is in the top bin** -- a one-sided energy bias, not a narrow ensemble. Ranks are per time-frequency bin and heavily correlated, so binomial error bars on them are far too tight. The SNR gap says every arm carries a quarter to a third of the spread a calibrated ensemble would have.
 
-## 5. Readouts -- one model, three answers (passthrough on)
+## 5. Every readout
 
-| arm | LSD 1-draw | LSD mean16 | LSD logmean16 | deficit 1-draw pt | deficit logmean16 | audio ViSQOL 1-draw | audio ViSQOL logmean16 |
-|---|---|---|---|---|---|---|---|
-| `det_paper` | 2.122 | *no ensemble* | | -27.67 | | 1.717 | |
-| `det` | 0.910 | *no ensemble* | | -12.61 | | 3.001 | |
-| `es_marg` | 0.969 | 1.193 | **0.883** | -7.68 | -13.17 | 2.707 | **2.877** |
-| `es_dec_l0.01` | 0.956 | 1.200 | **0.873** | -7.05 | -13.12 | 2.776 | **2.927** |
-| `es_erb_l0.001` | 0.998 | 1.344 | **0.976** | -12.35 | -15.22 | 2.420 | **2.338** |
-| `es_erb_l0.01` | 0.946 | 1.160 | **0.841** | -7.02 | -12.70 | 2.694 | **2.942** |
-| `es_erb_l0.1` | 0.936 | 1.146 | **0.844** | -6.26 | -12.62 | 2.766 | **2.991** |
-| `es_dec_erb_l0.1` | 0.932 | 1.141 | **0.835** | -6.85 | -12.71 | 2.815 | **3.021** |
+A sampler has **four** readouts and a deterministic arm has one. `raw` is the model's own output; `pt` passes the given baseband through, which is how it would ship.
 
-`logmean16` wins LSD and audio ViSQOL; `mean16` wins SNR and PESQ; the single draw wins the **deficit** and is the only readout CRPS and PIT can be computed from. The energy advantage lives in the draw and the distortion advantage in the readout -- one model spans that curve, a deterministic arm occupies one point on it.
+| arm | readout | SNR | LSD raw | LSD pt | HB-LSD pt | deficit raw | deficit pt | HB kappa | audio ViSQOL raw | audio ViSQOL pt |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `det_paper` | one output | 19.01 | 2.122 | 2.122 | 2.447 | -27.63 | -27.67 | +0.266 | 1.718 | 1.717 |
+| `det` | one output | 18.84 | 0.916 | 0.910 | 1.045 | -12.61 | -12.61 | +0.086 | 3.000 | 3.001 |
+| `es_marg` | one draw | 18.21 | 0.999 | 0.969 | 1.113 | -7.68 | -7.68 | +0.007 | 2.687 | 2.707 |
+| `es_marg` | logmean4 | 18.66 | 0.924 | 0.900 | 1.032 | -11.94 | -11.94 | +0.011 | -- | -- |
+| `es_marg` | logmean16 | 18.74 | 0.905 | 0.883 | 1.012 | -13.17 | -13.17 | +0.013 | 2.863 | 2.877 |
+| `es_marg` | mean16 | 18.93 | 1.205 | 1.193 | 1.373 | -17.08 | -17.08 | +0.090 | 2.571 | 2.576 |
+| `es_dec_l0.01` | one draw | 18.16 | 0.982 | 0.956 | 1.097 | -7.05 | -7.05 | +0.013 | 2.757 | 2.776 |
+| `es_dec_l0.01` | logmean4 | 18.64 | 0.909 | 0.889 | 1.019 | -11.76 | -11.76 | +0.013 | -- | -- |
+| `es_dec_l0.01` | logmean16 | 18.73 | 0.891 | 0.873 | 1.002 | -13.12 | -13.12 | +0.017 | 2.914 | 2.927 |
+| `es_dec_l0.01` | mean16 | 18.94 | 1.208 | 1.200 | 1.380 | -17.39 | -17.40 | +0.114 | 2.605 | 2.609 |
+| `es_erb_l0.001` | one draw | 18.54 | 1.052 | 0.998 | 1.145 | -12.34 | -12.35 | +0.008 | 2.391 | 2.420 |
+| `es_erb_l0.001` | logmean4 | 18.73 | 1.025 | 0.980 | 1.125 | -14.49 | -14.49 | +0.009 | -- | -- |
+| `es_erb_l0.001` | logmean16 | 18.78 | 1.018 | 0.976 | 1.120 | -15.21 | -15.22 | +0.010 | 2.316 | 2.338 |
+| `es_erb_l0.001` | mean16 | 18.95 | 1.377 | 1.344 | 1.548 | -19.26 | -19.28 | +0.077 | 2.037 | 2.050 |
+| `es_erb_l0.01` | one draw | 18.15 | 0.972 | 0.946 | 1.086 | -7.02 | -7.02 | +0.016 | 2.682 | 2.694 |
+| `es_erb_l0.01` | logmean4 | 18.67 | 0.882 | 0.861 | 0.988 | -11.49 | -11.49 | +0.018 | -- | -- |
+| `es_erb_l0.01` | logmean16 | 18.74 | 0.860 | 0.841 | 0.965 | -12.70 | -12.70 | +0.018 | 2.934 | 2.942 |
+| `es_erb_l0.01` | mean16 | 18.94 | 1.169 | 1.160 | 1.334 | -17.45 | -17.46 | +0.116 | 2.564 | 2.566 |
+| `es_erb_l0.1` | one draw | 18.13 | 0.953 | 0.936 | 1.075 | -6.26 | -6.26 | +0.031 | 2.764 | 2.766 |
+| `es_erb_l0.1` | logmean4 | 18.70 | 0.872 | 0.860 | 0.986 | -11.08 | -11.08 | +0.054 | -- | -- |
+| `es_erb_l0.1` | logmean16 | 18.79 | 0.855 | 0.844 | 0.967 | -12.62 | -12.62 | +0.068 | 2.990 | 2.991 |
+| `es_erb_l0.1` | mean16 | 18.91 | 1.153 | 1.146 | 1.318 | -15.62 | -15.63 | +0.073 | 2.656 | 2.656 |
+| `es_dec_erb_l0.1` | one draw | 18.27 | 0.950 | 0.932 | 1.070 | -6.85 | -6.85 | +0.027 | 2.810 | 2.815 |
+| `es_dec_erb_l0.1` | logmean4 | 18.69 | 0.869 | 0.855 | 0.980 | -11.24 | -11.24 | +0.040 | -- | -- |
+| `es_dec_erb_l0.1` | logmean16 | 18.78 | 0.848 | 0.835 | 0.957 | -12.71 | -12.71 | +0.045 | 3.017 | 3.021 |
+| `es_dec_erb_l0.1` | mean16 | 18.92 | 1.149 | 1.141 | 1.312 | -15.93 | -15.94 | +0.103 | 2.639 | 2.641 |
+
+`logmean4` was never scored by ViSQOL -- `e5_visqol.py`'s `conditions_for` builds one draw, `mean16` and `logmean16` only -- so those two cells are blank because the number does not exist, not because it does not apply.
+
+### 5b. The same thing pivoted, passthrough only -- for comparing across readouts
+
+**LSD** (ideal 0)
+
+| arm | one draw | logmean4 | logmean16 | mean16 | best |
+|---|---|---|---|---|---|
+| `det_paper` | 2.122 | *no ensemble* | | | 2.122 |
+| `det` | 0.910 | *no ensemble* | | | 0.910 |
+| `es_marg` | 0.969 | 0.900 | **0.883** | 1.193 | logmean16 |
+| `es_dec_l0.01` | 0.956 | 0.889 | **0.873** | 1.200 | logmean16 |
+| `es_erb_l0.001` | 0.998 | 0.980 | **0.976** | 1.344 | logmean16 |
+| `es_erb_l0.01` | 0.946 | 0.861 | **0.841** | 1.160 | logmean16 |
+| `es_erb_l0.1` | 0.936 | 0.860 | **0.844** | 1.146 | logmean16 |
+| `es_dec_erb_l0.1` | 0.932 | 0.855 | **0.835** | 1.141 | logmean16 |
+
+**deficit dB** (ideal 0 dB)
+
+| arm | one draw | logmean4 | logmean16 | mean16 | best |
+|---|---|---|---|---|---|
+| `det_paper` | -27.67 | *no ensemble* | | | -27.67 |
+| `det` | -12.61 | *no ensemble* | | | -12.61 |
+| `es_marg` | **-7.68** | -11.94 | -13.17 | -17.08 | one draw |
+| `es_dec_l0.01` | **-7.05** | -11.76 | -13.12 | -17.40 | one draw |
+| `es_erb_l0.001` | **-12.35** | -14.49 | -15.22 | -19.28 | one draw |
+| `es_erb_l0.01` | **-7.02** | -11.49 | -12.70 | -17.46 | one draw |
+| `es_erb_l0.1` | **-6.26** | -11.08 | -12.62 | -15.63 | one draw |
+| `es_dec_erb_l0.1` | **-6.85** | -11.24 | -12.71 | -15.94 | one draw |
+
+**SNR dB** (ideal inert; see section 3)
+
+| arm | one draw | logmean4 | logmean16 | mean16 | best |
+|---|---|---|---|---|---|
+| `det_paper` | 19.01 | *no ensemble* | | | 19.01 |
+| `det` | 18.84 | *no ensemble* | | | 18.84 |
+| `es_marg` | 18.21 | 18.66 | 18.74 | **18.93** | mean16 |
+| `es_dec_l0.01` | 18.16 | 18.64 | 18.73 | **18.94** | mean16 |
+| `es_erb_l0.001` | 18.54 | 18.73 | 18.78 | **18.95** | mean16 |
+| `es_erb_l0.01` | 18.15 | 18.67 | 18.74 | **18.94** | mean16 |
+| `es_erb_l0.1` | 18.13 | 18.70 | 18.79 | **18.91** | mean16 |
+| `es_dec_erb_l0.1` | 18.27 | 18.69 | 18.78 | **18.92** | mean16 |
+
+**audio ViSQOL** (floor 1.567, ceiling 4.725; `logmean4` not scored)
+
+| arm | one draw | logmean16 | mean16 | best |
+|---|---|---|---|---|
+| `det_paper` | 1.717 | *no ensemble* | | 1.717 |
+| `det` | 3.001 | *no ensemble* | | 3.001 |
+| `es_marg` | 2.707 | **2.877** | 2.576 | logmean16 |
+| `es_dec_l0.01` | 2.776 | **2.927** | 2.609 | logmean16 |
+| `es_erb_l0.001` | **2.420** | 2.338 | 2.050 | one draw |
+| `es_erb_l0.01` | 2.694 | **2.942** | 2.566 | logmean16 |
+| `es_erb_l0.1` | 2.766 | **2.991** | 2.656 | logmean16 |
+| `es_dec_erb_l0.1` | 2.815 | **3.021** | 2.641 | logmean16 |
+
+**The readouts trace an energy/distortion curve and averaging moves along it monotonically.** More draws averaged means less high-band energy (deficit falls) and a better estimate of the log-magnitude conditional mean (LSD falls, then LSD's own optimum is reached). One draw holds the energy; `logmean16` holds the spectrum; `logmean4` sits between and is the best single compromise if energy matters as much as distortion. `mean16` -- averaging the WAVEFORMS rather than the log-magnitudes -- is dominated on both LSD and deficit by `logmean16` while winning SNR and PESQ, which is the clearest statement in the run that those two judges are measuring the wrong thing. A deterministic arm occupies ONE point on this curve and cannot move along it.
 
 ## 6. Perceptual -- each judge's whole range for this task
 
