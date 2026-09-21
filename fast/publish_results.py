@@ -58,8 +58,12 @@ def plan(tag):
               (f"ov3/val_wave_{tag}.json", "val_wave verification: seeds, AMP, bands, residuals"),
               (f"ov3/visqol_{tag}.json", "ViSQOL / PESQ per condition"),
               (f"ov3/visqol_table_{tag}.md", "ViSQOL table"),
+              (f"ov3/metrics_{tag}.md", "every metric, all eight arms, one document"),
               (f"figs/ov3_spectrum_{tag}.png", "energy ratio per band"),
-              (f"figs/ov3_calibration_{tag}.png", "PIT histograms and spread-skill")]
+              (f"figs/ov3_calibration_{tag}.png", "PIT histograms and spread-skill"),
+              (f"figs/train_val_{tag}.png", "per-arm training and validation curves"),
+              (f"figs/cross_arm_{tag}.png", "val_wave, val_spec and spread on shared axes"),
+              (f"figs/endgame_{tag}.png", "the last 12k steps, linear axes")]
     return items
 
 

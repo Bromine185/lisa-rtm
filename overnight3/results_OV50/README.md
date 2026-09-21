@@ -27,8 +27,12 @@ Copied out of `/Users/raghavsharma/lisa-results` by `fast/publish_results.py` on
 | `val_wave_OV50.json` | val_wave verification: seeds, AMP, bands, residuals |
 | `visqol_OV50.json` | ViSQOL / PESQ per condition |
 | `visqol_table_OV50.md` | ViSQOL table |
+| `metrics_OV50.md` | every metric, all eight arms, one document |
 | `ov3_spectrum_OV50.png` | energy ratio per band |
 | `ov3_calibration_OV50.png` | PIT histograms and spread-skill |
+| `train_val_OV50.png` | per-arm training and validation curves |
+| `cross_arm_OV50.png` | val_wave, val_spec and spread on shared axes |
+| `endgame_OV50.png` | the last 12k steps, linear axes |
 
 ## Not here
 
