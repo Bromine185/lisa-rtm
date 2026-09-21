@@ -10,8 +10,14 @@ arms fold lambda x (ERB term) INSIDE the objective, so a bigger lambda mechanica
 number.  Read as a leaderboard, that column ranks the arms by which loss function they were handed.
 es_erb_l0.1's `val` is large because lambda is 0.1, not because the arm is losing.
 
-val_wave is the same waveform term for every arm.  It is recorded in the checkpoint history and
-never printed by the trainer, which is the gap this fills.
+val_wave is the same PROPER SCORE for every arm -- the two-draw energy score of the waveform
+(overnight3/e2b_fast.py:358), which for a deterministic arm reduces to plain L1 (e2b_fast.py:339).
+It is comparable across arms in exactly the sense CRPS is, and NOT as a reconstruction error: a
+sampler's val_wave is its mean single-draw L1 MINUS half its ensemble spread, and on OV50 that
+spread is 63-154% of val_wave itself.  fast/val_wave_decompose.py measures the parts on the run's
+own validation batches; on single-draw L1 the ranking reverses end to end (det_paper best,
+es_erb_l0.001 worst).  val_wave is recorded in the checkpoint history and never printed by the
+trainer, which is the gap this fills.
 
 Arms reach a given step at different times, so the table is taken at the latest step EVERY arm has
 validated at -- comparing arm A at step 40000 against arm B at step 20000 is not a comparison.
@@ -74,8 +80,10 @@ def main():
     for w, s, own, arm, kind, lam, cls, now in rows:
         print(f"  {arm:<18} {w:10.6f} {s:10.6f}  | {own:9.6f}  {kind:<13} {lam:>6g} {cls:<7} {now:>7}")
 
-    print("\n  val_wave is the one column comparable across every arm: same waveform term, same")
-    print("  fixed validation batches.  Lower is better.  val_spec likewise.")
+    print("\n  val_wave is comparable across every arm as a PROPER SCORE -- the two-draw energy score")
+    print("  of the waveform, plain L1 for a det arm -- on the same fixed validation batches.  Lower is")
+    print("  better.  It is NOT a reconstruction error: a sampler's value is its single-draw L1 minus")
+    print("  half its spread.  fast/val_wave_decompose.py prints both parts.  val_spec likewise.")
     print("\n  'own obj' is what the log prints.  It is comparable ONLY between arms sharing a")
     print("  (kind, lambda) pair, because only those minimise the same function:")
     groups = {}
