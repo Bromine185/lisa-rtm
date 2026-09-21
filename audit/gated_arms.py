@@ -1,28 +1,39 @@
 """Does the high band gate with the speech, for every arm?
 
 Repeats the measurement of audit/band_gating.py (notes/2026-09-17-snr-ceiling-gating-and-scale.md
-section 2.1) on all seven FINAL checkpoints and twelve held-out utterances.  Per arm and utterance:
+section 2.1) on every checkpoint in a directory and twelve held-out utterances.  Per arm and utterance:
 one draw (tau=1, seed=0; tau=0 for det) and the noiseless pass (tau=0); the mean third-octave
 deficit; the same deficit restricted to loud / mid / quiet frames of the target; SNR of the draw,
 the tau=0 pass and naive sinc upsampling; and the per-band ratios.
 
-    venv/bin/python audit/gated_arms.py [--tag OV3_fast]
+    venv/bin/python audit/gated_arms.py [--tag OV3_fast] [--ckpt-dir lisa_rtm_cache/ckpt/final]
+                                        [--out-dir lisa_rtm_cache/results]
+    AUDIT_DATA=lisa_rtm_cache/audit venv/bin/python audit/gated_arms.py --tag OV50 \
+        --ckpt-dir ~/lisa-results/ckpt/OV50 --out-dir ~/lisa-results/ov3
 
-Writes lisa_rtm_cache/results/gated_<tag>.json.  The figure and note come from audit/gated_arms_report.py.
+The arms are the *.pt files in --ckpt-dir; the name is the file stem with any _stepNNNN suffix dropped,
+the rule demo/tools/make_fixtures.py uses.  Known arms keep the order of ORDER below (the seven OV3_fast
+arms in their old order, the OV50 arms slotted in), anything else follows sorted.  The held-out audio is
+read from AUDIT_DATA (audit/vctk_fixtures.py; default lisa_rtm_cache/audit).  Paired differences are
+reported for every pair in PAIRS whose two arms are present.
+
+Writes <out-dir>/gated_<tag>.json.  The figure and note come from audit/gated_arms_report.py.
 """
-import json, pathlib, sys, time
+import argparse, json, pathlib, re, sys, time
 import numpy as np
 import scipy.signal as sps
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 from audit.boot import boot                                   # noqa: E402
-from audit.vctk_fixtures import load                          # noqa: E402
+from audit.vctk_fixtures import DATA as AUDIO, load           # noqa: E402  (AUDIO honours AUDIT_DATA)
 
-ARMS = ["det", "es_marg", "es_marg_l0.1", "es_split_l0.1", "es_erb_l0.1", "es_dec_l0.1", "es_dec_erb_l0.1"]
+# The order arms are measured and written in, when present.  The OV3_fast seven keep their old
+# relative order; the OV50 names sit where fast/run_contract.py lists them.
+ORDER = ["det_paper", "det", "es_marg", "es_marg_l0.1", "es_split_l0.1",
+         "es_erb_l0.001", "es_erb_l0.01", "es_erb_l0.1", "es_dec_l0.01", "es_dec_l0.1", "es_dec_erb_l0.1"]
 SPEAKERS = ["p236", "p237", "p238", "p360", "p361", "p374"]
 CKPT = REPO / "lisa_rtm_cache" / "ckpt" / "final"
-AUDIO = REPO / "lisa_rtm_cache" / "audit"
 OUT = REPO / "lisa_rtm_cache" / "results"
 
 SCALARS = ["deficit_draw", "deficit_tau0", "loud", "mid", "quiet", "swing",
@@ -30,6 +41,35 @@ SCALARS = ["deficit_draw", "deficit_tau0", "loud", "mid", "quiet", "swing",
            "snr_draw", "snr_tau0", "snr_naive", "snr_draw_minus_naive",
            "hb_share_loud_pct", "hb_share_mid_pct", "hb_share_quiet_pct", "hb_share_pct",
            "target_contrast_lq", "model_contrast_lq", "model_contrast_lq_tau0", "gating_fraction"]
+
+# Paired differences over the same utterances: the questions the notes ask.  Only the pairs whose
+# two arms were measured are written.  The first eight are the OV3_fast questions; the rest are OV50's.
+PAIRS = {"erb_term": ("es_erb_l0.1", "es_marg_l0.1"), "dec_noise": ("es_dec_l0.1", "es_marg_l0.1"),
+         "dec_noise_on_erb": ("es_dec_erb_l0.1", "es_erb_l0.1"), "erb_term_on_dec": ("es_dec_erb_l0.1", "es_dec_l0.1"),
+         "lam_0.1_vs_0.01": ("es_marg_l0.1", "es_marg"), "split_wave_term": ("es_split_l0.1", "es_marg_l0.1"),
+         "sampler_vs_det": ("es_marg", "det"), "best_vs_det": ("es_dec_erb_l0.1", "det"),
+         "erb_term_matched_lam": ("es_erb_l0.01", "es_marg"), "dec_noise_matched_lam": ("es_dec_l0.01", "es_marg"),
+         "erb_lam_0.1_vs_0.01": ("es_erb_l0.1", "es_erb_l0.01"), "erb_lam_0.01_vs_0.001": ("es_erb_l0.01", "es_erb_l0.001"),
+         "det_vs_det_paper": ("det", "det_paper")}
+
+
+def arm_name(ckpt):
+    """File stem with any _stepNNNN suffix removed: the rule demo/tools/make_fixtures.py uses."""
+    return re.sub(r"_step\d+$", "", pathlib.Path(ckpt).stem)
+
+
+def arms_in(ckpt_dir):
+    """{arm: checkpoint path} for the *.pt files in ckpt_dir, in ORDER, then anything unknown sorted."""
+    found = {}
+    for p in sorted(pathlib.Path(ckpt_dir).glob("*.pt")):
+        a = arm_name(p)
+        if a in found:
+            raise SystemExit(f"two checkpoints for arm {a!r} in {ckpt_dir}: {found[a].name} and {p.name}")
+        found[a] = p
+    if not found:
+        raise SystemExit(f"no *.pt in {ckpt_dir}")
+    order = [a for a in ORDER if a in found] + sorted(a for a in found if a not in ORDER)
+    return {a: found[a] for a in order}
 
 
 def frame_masks(G, y, CFG):
@@ -50,7 +90,9 @@ def frame_masks(G, y, CFG):
     return masks, share
 
 
-def main(tag="OV3_fast"):
+def main(tag="OV3_fast", ckpt_dir=CKPT, out_dir=OUT):
+    ckpts = arms_in(ckpt_dir)
+    print(f"{len(ckpts)} arms in {ckpt_dir}: {', '.join(ckpts)}", flush=True)
     G = boot()
     CFG, snr_db = G["CFG"], G["snr_db"]
     R = CFG.upsample
@@ -76,8 +118,8 @@ def main(tag="OV3_fast"):
                          "deficit": "mean over third-octave bands from fs_lo/2 to fs_hi/2 of "
                                     "10*log10(sum|S_hat|^2 / sum|S|^2), frames restricted by the mask"}}
     t0 = time.time()
-    for arm in ARMS:
-        m, ck = G["load_arm"](CKPT / f"{arm}.pt", CFG)
+    for arm, ckpt in ckpts.items():
+        m, ck = G["load_arm"](ckpt, CFG)
         step = int(ck["step"])
         results["_meta"]["step"] = step
         is_det = arm.startswith("det")
@@ -120,24 +162,26 @@ def main(tag="OV3_fast"):
         print(f"{arm:<16} step {step}  deficit {mean['deficit_draw']:+7.2f}  loud {mean['loud']:+7.2f}  "
               f"mid {mean['mid']:+7.2f}  quiet {mean['quiet']:+7.2f}  swing {mean['swing']:6.2f}  "
               f"SNR {mean['snr_draw']:6.2f} (naive {mean['snr_naive']:6.2f})   {time.time()-t0:5.1f}s", flush=True)
-    # paired differences over the same utterances: the questions the note asks
+
     def paired(a, b, k):
         d = np.array([ra[k] - rb[k] for ra, rb in zip(results[a]["per_utt"], results[b]["per_utt"])])
         return {"mean": float(d.mean()), "se": float(d.std(ddof=1) / np.sqrt(len(d))),
                 "n_pos": int((d > 0).sum()), "n_neg": int((d < 0).sum())}
-    PAIRS = {"erb_term": ("es_erb_l0.1", "es_marg_l0.1"), "dec_noise": ("es_dec_l0.1", "es_marg_l0.1"),
-             "dec_noise_on_erb": ("es_dec_erb_l0.1", "es_erb_l0.1"), "erb_term_on_dec": ("es_dec_erb_l0.1", "es_dec_l0.1"),
-             "lam_0.1_vs_0.01": ("es_marg_l0.1", "es_marg"), "split_wave_term": ("es_split_l0.1", "es_marg_l0.1"),
-             "sampler_vs_det": ("es_marg", "det"), "best_vs_det": ("es_dec_erb_l0.1", "det")}
     results["_paired"] = {name: {"first": a, "second": b,
                                  **{k: paired(a, b, k) for k in ("deficit_draw", "loud", "mid", "quiet", "swing",
                                                                  "snr_draw", "gating_fraction")}}
-                          for name, (a, b) in PAIRS.items()}
-    OUT.mkdir(parents=True, exist_ok=True)
-    out = OUT / f"gated_{tag}.json"
+                          for name, (a, b) in PAIRS.items() if a in ckpts and b in ckpts}
+    out_dir = pathlib.Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"gated_{tag}.json"
     out.write_text(json.dumps(results, indent=1))
     print("wrote", out)
 
 
 if __name__ == "__main__":
-    main(sys.argv[sys.argv.index("--tag") + 1] if "--tag" in sys.argv else "OV3_fast")
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--tag", default="OV3_fast")
+    ap.add_argument("--ckpt-dir", type=pathlib.Path, default=CKPT, help="directory of <arm>.pt blobs load_arm reads")
+    ap.add_argument("--out-dir", type=pathlib.Path, default=OUT, help="where gated_<tag>.json goes")
+    a = ap.parse_args()
+    main(a.tag, a.ckpt_dir.expanduser(), a.out_dir.expanduser())

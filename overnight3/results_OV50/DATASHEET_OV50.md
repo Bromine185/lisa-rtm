@@ -215,7 +215,26 @@ Measured by `fast/bench_latency.py` on Apple M4, 8 threads, torch 2.13.0, fp32 e
 - **Algorithmic lookahead is 0.5 ms**: 6 input samples (encoder receptive field plus the decoder's right-hand neighbour). One-draw output can stream; passthrough and logmean16 cannot as written.
 - **MPS wins only at length.** Whole utterance 41-45 ms against 47-59 ms on CPU (0.84x); 20 ms frame 0.72-1.98 ms against 0.47-0.67 ms (1.37x), where the small kernels are dispatch-bound. Run-to-run scatter on the short frame is large, so treat the frame ratio as an order of magnitude, not a figure.
 
-## 9. Provenance
+## 9. High band by frame loudness
+
+Measured by `audit/gated_arms.py` on 12 held-out utterances (p236, p237, p238, p360, p361, p374; NOT EVAL12, and the only multi-speaker set in this datasheet). Frames are split by the TARGET's frame energy: loud = top 25%, mid = 25-75%, quiet = bottom 25%. Each cell is the mean third-octave high-band energy ratio over those frames, one draw (tau = 0 for a det arm), in dB, 0 = correct. `swing` = loud minus quiet. `gating` = the model's loud/quiet high-band contrast divided by the target's: 1 gates like the speech, 0 is a flat high band. This is the gated deficit the 17 Sep note asked for; the mean deficit in sections 1 and 3 hides it.
+
+| arm | all frames | loud | mid | quiet | swing | gating | quiet, tau = 0 |
+|---|---|---|---|---|---|---|---|
+| `det_paper` | -24.53 | -24.39 | -24.20 | -20.04 | -4.35 | 0.88 | -20.04 |
+| `det` | -7.57 | -8.04 | -4.82 | -1.11 | -6.94 | 0.81 | -1.11 |
+| `es_marg` | -2.33 | -3.33 | +1.44 | -0.15 | -3.19 | 0.93 | -13.93 |
+| `es_dec_l0.01` | -2.85 | -3.75 | +0.82 | -0.08 | -3.67 | 0.91 | -12.82 |
+| `es_erb_l0.001` | -6.71 | -7.24 | -3.85 | -2.19 | -5.05 | 0.87 | -11.16 |
+| `es_erb_l0.01` | -2.30 | -2.94 | +0.84 | +0.02 | -2.96 | 0.94 | -7.77 |
+| `es_erb_l0.1` | -1.58 | -2.49 | +2.01 | +0.59 | -3.08 | 0.93 | -10.01 |
+| `es_dec_erb_l0.1` | -1.92 | -2.92 | +1.69 | -0.46 | -2.46 | 0.95 | -13.18 |
+
+- **Where the energy goes.** For the 5 samplers that gate at 0.9 or better, quiet frames are -0.46 to +0.59 dB from the truth: there is no hiss in the gaps. The shortfall is on the loud frames, -3.75 to -2.49 dB, and mid frames run +0.82 to +2.01 dB over. That is the opposite distribution to the 17 Sep probe of the 7.6-epoch run (-11.7 dB loud, +1.0 dB quiet), and it means the level error sections 1-4 report is a loud-frame error, not a floor of noise. `es_erb_l0.001` gates like the det arms and is the exception.
+- **Gating.** Sampler gating fraction 0.87 to 0.95 against 0.81 for `det`: the high band rises and falls with the speech. A per-band gain fitted on all frames would lift the quiet frames past the truth while closing the loud ones; the correction that section 4's PIT asks for is frame-conditional.
+- **Not EVAL12.** On these twelve utterances across six speakers the all-frames deficit is -6.71 to -1.58 dB for the samplers, against -6 to -8 dB on EVAL12 in section 3. Same models, same metric, different utterances: EVAL12 is one speaker, and that speaker draws a deeper deficit than the six-speaker mean. Every EVAL12 level in this datasheet is a p236 number.
+
+## 10. Provenance
 
 - `fast/convert_ckpt.py` -- train_arm checkpoints to the blob `load_arm` reads; 4 checks x 8 arms
 - `fast/vctk_local.py` -- EVAL12 by partial read (~230 MB, not 11.7 GB)
@@ -224,6 +243,7 @@ Measured by `fast/bench_latency.py` on Apple M4, 8 threads, torch 2.13.0, fp32 e
 - `fast/val_wave_check.py` -> `val_wave_OV50.json`
 - `fast/val_wave_decompose.py` -> `val_wave_decompose_OV50.json`
 - `fast/bench_latency.py` -> `latency_OV50.json` (this machine, fp32 eager)
+- `audit/gated_arms.py --tag OV50` -> `gated_OV50.json` (12 utterances, six speakers, frame-gated deficit)
 - `fast/plot_histories.py`, `fast/compare.py`, `fast/publish_results.py`
 
 Full definitions, traps and provenance for every metric: `notes/metrics-reference.md`. Findings and interpretation: `notes/2026-09-21-eval-results.md`.

@@ -85,26 +85,6 @@ export function specFill(sp: Spectrogram, uptoSample: number): Spectrogram {
   return sp;
 }
 
-/** 48 kHz -> 24 kHz: 63-tap Hann-windowed sinc at half Nyquist, then take every other sample. */
-export function decimate2(x: Float32Array): Float32Array<ArrayBuffer> {
-  const T = 63, m = (T - 1) / 2, h = new Float32Array(T);
-  let sum = 0;
-  for (let i = 0; i < T; i++) {
-    const t = i - m;
-    const s = t === 0 ? 0.5 : Math.sin(Math.PI * 0.5 * t) / (Math.PI * t);
-    const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (T - 1));
-    h[i] = s * w; sum += h[i];
-  }
-  for (let i = 0; i < T; i++) h[i] /= sum;
-  const n = x.length >> 1, y = new Float32Array(n);
-  for (let k = 0; k < n; k++) {
-    let a = 0; const c = 2 * k;
-    for (let i = 0; i < T; i++) { const j = c + i - m; if (j >= 0 && j < x.length) a += h[i] * x[j]; }
-    y[k] = a;
-  }
-  return y;
-}
-
 /** Share of energy at or above `hz`, from 4096-sample windows strided across the signal. */
 export function energyAbove(sig: Signal, hz: number): number {
   const n = 4096;

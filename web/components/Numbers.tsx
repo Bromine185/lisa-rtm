@@ -1,9 +1,12 @@
 "use client";
 import s from "@/app/page.module.css";
-import { ARM_META, type ArmName } from "@/lib/arms";
+import { ARM_META, REF_ARM, type ArmName } from "@/lib/arms";
 import type { GatedDeficit, Results } from "@/lib/types";
 
 const fmt = (v: number | null | undefined, d = 2) => (v == null || !isFinite(v) ? "—" : v.toFixed(d));
+const fmtInt = (v: number | null | undefined) => (v == null || !isFinite(v) ? "—" : Math.round(v).toLocaleString("en-US"));
+// milliseconds: two figures under 10 ms, one under 100, whole above
+const ms = (v: number | null | undefined) => (v == null || !isFinite(v) ? "—" : (v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : v.toFixed(0)) + " ms");
 
 function delta(v: number | null | undefined, ref: number | null | undefined, betterLow: boolean): [string, string] {
   if (v == null || ref == null || !isFinite(v) || !isFinite(ref)) return ["", ""];
@@ -28,8 +31,13 @@ const RO_LABEL: Record<string, string> = { draw_pt: "1 draw", mean16_pt: "mean16
 export function Numbers({ arm, results, onOpen }: { arm: ArmName; results: Results | null; onOpen: () => void }) {
   const meta = ARM_META[arm];
   const a = results?.arms?.[arm];
-  const det = results?.arms?.det;
+  // every delta is against det (L1 + λ·STFT, τ = 0), not det_paper: det shares the samplers' spectral term
+  const det = results?.arms?.[REF_ARM];
+  const vs = " vs " + REF_ARM;
   const nv = results?.naive;
+  const lat = a?.latency, env = results?.latency_env;
+  const speakers = results?.eval_speakers?.length ? results.eval_speakers : null;
+  const epochs = /^OV(\d+)/.exec(results?.tag ?? "")?.[1] ?? null;
   // every judge is quoted at the readout that arm actually wins on, and the readout is named
   const roKey = a?.best_readout ?? "draw_pt";
   const ro = a?.readouts?.[roKey];
@@ -48,26 +56,41 @@ export function Numbers({ arm, results, onOpen }: { arm: ArmName; results: Resul
           <>
             <div className={s.kv}>
               <Head t="the disease and the cure" />
-              {(() => { const [d, c] = delta(a.deficit_draw, det?.deficit_tau0, false); return <Row k="deficit · 1 draw" v={fmt(a.deficit_draw) + " dB"} d={d && d + " det"} cls={c} />; })()}
+              {(() => { const [d, c] = delta(a.deficit_draw, det?.deficit_tau0, false); return <Row k="deficit · 1 draw" v={fmt(a.deficit_draw) + " dB"} d={d && d + vs} cls={c} />; })()}
               <Row k="deficit · τ = 0" v={fmt(a.deficit_tau0) + " dB"} />
-              {(() => { const [d, c] = delta(a.crps, det?.crps, true); return <Row k="CRPS" v={fmt(a.crps, 3)} d={d && d + " det"} cls={c} />; })()}
+              {(() => { const [d, c] = delta(a.crps, det?.crps, true); return <Row k="CRPS" v={fmt(a.crps, 3)} d={d && d + vs} cls={c} />; })()}
               {a.coherent != null && <Row k="coherent fraction" v={fmt(100 * a.coherent, 1) + " %"} />}
               {a.kappa != null && <Row k="κ · hallucinated?" v={fmt(a.kappa, 3)} />}
               {a.pit_end != null && <Row k="PIT end bins" v={fmt(a.pit_end, 3)} d="ideal .118" />}
               <Head t="the judges · with passthrough" />
-              {(() => { const [d, c] = delta(ro?.lsd, det?.readouts?.draw_pt?.lsd, true); return <Row k={`LSD · ${roName}`} v={fmt(ro?.lsd, 3)} d={d && d + " det"} cls={c} />; })()}
+              {(() => { const [d, c] = delta(ro?.lsd, det?.readouts?.draw_pt?.lsd, true); return <Row k={`LSD · ${roName}`} v={fmt(ro?.lsd, 3)} d={d && d + vs} cls={c} />; })()}
               {a.readouts?.draw_pt && roKey !== "draw_pt" && <Row k="LSD · 1 draw" v={fmt(a.readouts.draw_pt.lsd, 3)} />}
-              {(() => { const [d, c] = delta(ro?.visqol_audio, det?.readouts?.draw_pt?.visqol_audio, false); return <Row k={`ViSQOL audio · ${roName}`} v={fmt(ro?.visqol_audio)} d={d && d + " det"} cls={c} />; })()}
+              {(() => { const [d, c] = delta(ro?.visqol_audio, det?.readouts?.draw_pt?.visqol_audio, false); return <Row k={`ViSQOL audio · ${roName}`} v={fmt(ro?.visqol_audio)} d={d && d + vs} cls={c} />; })()}
               {share != null && <Row k="share of the band" v={fmt(100 * share, 1) + " %"} d="floor→ceiling" />}
               {ro?.visqol_speech != null && <Row k="ViSQOL speech" v={fmt(ro.visqol_speech)} />}
               {ro?.pesq != null && <Row k="PESQ wb" v={fmt(ro.pesq)} />}
+              {lat && (
+                <>
+                  <Head t="cost · measured, one thread pool" />
+                  <Row k="parameters" v={fmtInt(lat.params)} />
+                  <Row k="one pass · per s of audio" v={ms(lat.one_pass_ms_per_s)} d={lat.rtf_one_pass ? `${(1 / lat.rtf_one_pass).toFixed(0)}× realtime` : undefined} />
+                  <Row k="one 20 ms frame" v={ms(lat.frame_20ms_ms)} />
+                  <Row k="shipped · 1 output + pt" v={ms(lat.shipped_one_ms)} d={env?.utt_seconds != null ? `${env.utt_seconds.toFixed(2)} s utt` : undefined} />
+                  {!a.det && <Row k="shipped · logmean16 + pt" v={ms(lat.shipped_logmean16_ms)} d={lat.rtf_logmean16 != null ? `RTF ${fmt(lat.rtf_logmean16)}` : undefined} />}
+                  {env?.lookahead_ms != null && <Row k="algorithmic lookahead" v={ms(env.lookahead_ms)} />}
+                </>
+              )}
               <Head t="SNR · maximised by doing nothing" />
               {(() => { const [d, c] = delta(ro?.snr, nv?.snr, false); return <Row k={roName} v={fmt(ro?.snr) + " dB"} d={d && d + " naive"} cls={c} />; })()}
               {nv && <Row k="naive sinc upsample" v={fmt(nv.snr) + " dB"} />}
               {results?.floor && <Row k="floor · empty high band" v={fmt(results.floor.snr) + " dB"} />}
               {results?.ceiling && <Row k="ceiling · true high band" v={fmt(results.ceiling.snr) + " dB"} />}
             </div>
-            <div className={s.note}>{results?.n_utts ?? 12} held-out utterances · {results?.M ?? 16} draws · {results?.tag ?? ""}</div>
+            <div className={s.note}>
+              {results?.n_utts ?? 12} held-out utterances{speakers ? ` of ${speakers.length === 1 ? "one speaker" : `${speakers.length} speakers`} (${speakers.join(", ")})` : ""} · {results?.M ?? 16} draws · {results?.tag ?? ""}{epochs ? ` · ${epochs} epochs` : ""}
+              {" · "}Δ {vs.trim()} ({det?.kind ?? "L1 + λ·STFT"}, τ = 0); det_paper is the paper’s model
+              {env && <>{" · "}cost on {env.cpu ?? "the bench CPU"}, {env.threads ?? "—"} threads, {env.precision ?? "fp32 eager"}, torch {env.torch ?? "—"}, median of repeats; passthrough alone {ms(env.passthrough_ms)}</>}
+            </div>
           </>
         )}
       </div>
@@ -77,7 +100,9 @@ export function Numbers({ arm, results, onOpen }: { arm: ArmName; results: Resul
         <div className={s.note}>A correct sampler shows the same ratio in every row. A ratio that rises as frames get quieter is energy where the truth has none — that is what a listener hears as hiss.</div>
       </div>
       <button type="button" className={s.open3d} onClick={onOpen}><span>open the architecture</span><span>↗</span></button>
-      <div className={s.note}>Numbers are from the evaluation the training notebook wrote, on 12 held-out utterances, 16 draws. Nothing on this page is typed in.</div>
+      <div className={s.note}>
+        Numbers are from the evaluation the run wrote, on {results?.n_utts ?? 12} held-out utterances{speakers ? ` of ${speakers.length === 1 ? "one speaker" : `${speakers.length} speakers`} (${speakers.join(", ")})` : ""}, {results?.M ?? 16} draws{epochs ? `, ${epochs} epochs` : ""}. Nothing on this page is typed in.
+      </div>
     </>
   );
 }

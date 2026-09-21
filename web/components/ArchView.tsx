@@ -44,8 +44,10 @@ export function ArchView({ arm, cls, playing, seek, inference, onTime, onMissing
 }) {
   const el = useRef<HTMLDivElement>(null);
   const handle = useRef<Arch3DHandle | null>(null);
+  // arch3d calls back on its own animation clock, so it gets a ref to the latest onTime, kept current
+  // after each render rather than written during it
   const onTimeRef = useRef(onTime);
-  onTimeRef.current = onTime;
+  useEffect(() => { onTimeRef.current = onTime; }, [onTime]);
 
   useEffect(() => {
     let dead = false;

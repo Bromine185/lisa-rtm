@@ -2,9 +2,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import s from "@/app/page.module.css";
-import { A100_REALTIME, ARM_META, DEFAULT_ARM, FS_LO, type ArmName } from "@/lib/arms";
+import { ARM_META, DEFAULT_ARM, FS_LO, type ArmName, type Rate } from "@/lib/arms";
 import { ABPlayer, type SourceName } from "@/lib/audio";
-import { decimate2, energyAbove, parseWav, specFill, specOf, type Spectrogram } from "@/lib/dsp";
+import { energyAbove, parseWav, specFill, specOf, type Spectrogram } from "@/lib/dsp";
 import { getEngine, type Engine } from "@/lib/engine";
 import type { AudioManifest, Results, Signal, Speaker, WeightsManifest } from "@/lib/types";
 import { Instrument, type InstrumentHandle } from "./Instrument";
@@ -12,11 +12,14 @@ import { Numbers } from "./Numbers";
 import { DrawKnobs, ModelList, RateSeg, ReadoutSeg, SpeakerList, ViewSeg } from "./Rails";
 
 type View = "output" | "truth" | "input";
-type Rate = 2 | 4 | 8;
 // The readouts the fixtures carry. `draw` is one sample; `logmean16` is the per-bin mean of
 // log|STFT| over 16 draws, which is the condition that wins the perceptual judges.
 const READOUTS = ["draw", "mean16", "logmean16", "tau0"] as const;
 type Readout = (typeof READOUTS)[number];
+
+// A share of energy as a percentage. Small enough shares would round to 0.00 %, which reads as a claim;
+// keep two significant figures instead so the number stays the number.
+const pct = (v: number) => { const p = 100 * v; return (p >= 0.01 ? p.toFixed(2) : p.toPrecision(2)) + " %"; };
 
 async function getJSON<T>(u: string): Promise<T | null> {
   try { const r = await fetch(u); return r.ok ? ((await r.json()) as T) : null; } catch { return null; }
@@ -59,6 +62,8 @@ export function App() {
   const outputTag = useRef("");
   const outputLive = useRef(false);
   const timing = useRef<{ rtf: number; above24: number | null } | null>(null);
+  // the measured share above 24 kHz of a precomputed ×8 file, from the audio manifest; null otherwise
+  const x8Above24 = useRef<number | null>(null);
 
   const det = ARM_META[arm].det;
   const effTau = det ? 0 : tau;
@@ -79,14 +84,19 @@ export function App() {
     }
     if (mode) { setStatus(<span>{mode}</span>); return; }
     const t = timing.current;
+    // the bench number is measured, not asserted: one pass on the bench CPU, from results.json
+    const lat = results?.arms?.[arm]?.latency, env = results?.latency_env;
+    const bench = lat?.rtf_one_pass ? 1 / lat.rtf_one_pass : null;
+    const x8 = !outputLive.current && rate === 8 ? x8Above24.current : null;
     setStatus(<>
       <span>{spk}</span><span>{arm}</span><span>×{rate} · {((FS_LO * rate) / 1000).toFixed(0)} kHz</span>
       {sig.current.output && <span>{outputTag.current}</span>}
-      {t && outputLive.current && <span><b>{t.rtf.toFixed(2)}×</b> realtime here · <b>{A100_REALTIME}×</b> on an A100</span>}
-      {t && outputLive.current && t.above24 != null && <span>above 24 kHz at ×8: <b>{(100 * t.above24).toFixed(2)} %</b></span>}
+      {t && outputLive.current && <span><b>{t.rtf.toFixed(2)}×</b> realtime here{bench != null && <> · <b>{bench.toFixed(0)}×</b> on an {env?.cpu ?? "the bench"} CPU, one pass</>}</span>}
+      {t && outputLive.current && t.above24 != null && <span>above 24 kHz at ×8: <b>{pct(t.above24)}</b></span>}
+      {sig.current.output && x8 != null && <span>above 24 kHz at ×8: <b>{pct(x8)}</b></span>}
       {!sig.current.output && <span>no output yet — run inference</span>}
     </>);
-  }, [speaker, arm, rate]);
+  }, [speaker, arm, rate, results]);
 
   // ---- playback ---------------------------------------------------------------------------------
   const stopAudio = useCallback(() => {
@@ -111,7 +121,7 @@ export function App() {
     if (!eng || !x) return;
     const g = ++gen.current;
     setRunning(true);
-    const R = rate === 2 ? 4 : rate, fsOut = FS_LO * R, N = x.data.length * R;
+    const R = rate, fsOut = FS_LO * R, N = x.data.length * R;
     const out = new Float32Array(N);
     const live: Signal = { data: out, fs: fsOut };
     const sp = specOf(live);
@@ -138,35 +148,38 @@ export function App() {
     } catch (e) { if (g !== gen.current) return; setRunning(false); showStatus("error: " + ((e as Error).message ?? e)); return; }
     if (g !== gen.current) return;
     const dt = (performance.now() - t0) / 1000, secs = N / fsOut;
-    let final: Signal = live;
-    if (rate === 2) { final = { data: decimate2(out), fs: 24000 }; spec.current.output = specFill(specOf(final), final.data.length); }
-    sig.current.output = final;
+    sig.current.output = live;
     timing.current = { rtf: secs / dt, above24: rate === 8 ? energyAbove(live, 24000) : null };
+    x8Above24.current = null;
     outputTag.current = `live · this browser · τ ${effTau.toFixed(2)} · seed ${seed}`;
     setRunning(false); inst.current?.setSweep(null);
     paintView(view); showStatus();
-    player.current?.swap({ input: sig.current.input ?? undefined, output: final, truth: sig.current.truth ?? undefined });
+    player.current?.swap({ input: sig.current.input ?? undefined, output: live, truth: sig.current.truth ?? undefined });
   }, [arm, rate, effTau, seed, view, paintView, showStatus]);
 
   const cancelInference = useCallback(() => { gen.current++; setRunning(false); inst.current?.setSweep(null); showStatus("stopped"); }, [showStatus]);
 
   // ---- data -------------------------------------------------------------------------------------
-  // A precomputed file exists only for the rendered conditions: x4, seed 0, τ ∈ {0, 1}. Anything else
-  // (another seed, another τ, another rate) has to come from the engine, which is the point of it.
+  // A precomputed file exists only for the rendered conditions: ×4 at seed 0 with τ ∈ {0, 1} for every
+  // readout, and ×8 at seed 0 for one draw (τ = 1; τ = 0 for a deterministic arm, whose one output is
+  // its only readout). Anything else (another seed, another τ) has to come from the engine, which is
+  // the point of it.
   const loadOutput = useCallback(async (sp: Speaker) => {
     const a = sp.files?.arms?.[arm];
-    let path: string | undefined;
+    let path: string | undefined, lbl = "";
+    x8Above24.current = null;
     if (a && rate === 4 && seed === 0) {
-      if (det || effTau === 0) path = a.tau0 ?? a.draw;
-      else if (effTau === 1) path = a[readout] ?? a.draw;
+      if (det || effTau === 0) { path = a.tau0 ?? a.draw; lbl = "τ = 0"; }
+      else if (effTau === 1) { path = a[readout] ?? a.draw; lbl = readout === "draw" ? "one draw" : readout === "mean16" ? "mean of 16" : "log-mean of 16"; }
+    } else if (a?.x8 && rate === 8 && seed === 0 && (det || (effTau === 1 && readout === "draw"))) {
+      path = a.x8; lbl = (det ? "τ = 0" : "one draw") + " · ×8"; x8Above24.current = a.x8_above24 ?? null;
     }
     if (path) {
       try {
         const o = await getWav(path.startsWith("/") ? path : `/assets/audio/${path}`);
         sig.current.output = o; spec.current.output = specOf(o); outputLive.current = false;
-        const lbl = det || effTau === 0 ? "τ = 0" : readout === "draw" ? "one draw" : readout === "mean16" ? "mean of 16" : "log-mean of 16";
-        outputTag.current = `${lbl} · precomputed on an A100`;
-      } catch { sig.current.output = null; spec.current.output = null; }
+        outputTag.current = `${lbl} · precomputed · 50-epoch checkpoint`;
+      } catch { sig.current.output = null; spec.current.output = null; x8Above24.current = null; }
     } else { sig.current.output = null; spec.current.output = null; }
     paintView(view); showStatus();
     if (autorun && engine.current && wman?.arms?.[arm]) void runInference();
@@ -198,12 +211,15 @@ export function App() {
     })();
     return () => { dead = true; };
   }, []);
-  // first speaker once the manifest is in
+  // first speaker once the manifest is in: the load is the response to the manifest arriving, and it
+  // sets state on its way (speaker, the empty label) before its first await
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (speakers.length && !speaker) void loadSpeaker(speakers[0]); }, [speakers, speaker, loadSpeaker]);
   // arm / rate / tau-commit / seed → reload the output for the current speaker
   const firstRun = useRef(true);
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return; }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (speaker) void loadOutput(speaker);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [arm, rate, tauCommit, seed, readout]);

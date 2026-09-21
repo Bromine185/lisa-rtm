@@ -29,6 +29,7 @@ Copied out of `/Users/raghavsharma/lisa-results` by `fast/publish_results.py` on
 | `visqol_OV50.json` | ViSQOL / PESQ per condition |
 | `visqol_table_OV50.md` | ViSQOL table |
 | `latency_OV50.json` | inference latency per arm, fp32 eager on the eval laptop |
+| `gated_OV50.json` | high-band deficit by frame loudness (loud / mid / quiet), audit/gated_arms.py |
 | `DATASHEET_OV50.md` | MASTER: every comparative metric, one row per arm |
 | `ov3_spectrum_OV50.png` | energy ratio per band |
 | `ov3_calibration_OV50.png` | PIT histograms and spread-skill |

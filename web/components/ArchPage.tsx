@@ -16,6 +16,8 @@ export function ArchPage({ arm }: { arm: ArmName }) {
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
+    // the media query is client-only, so the initial state cannot know it; one settle on mount
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) setPlaying(false);
     const h = (e: KeyboardEvent) => {
       if (e.code === "Space") { e.preventDefault(); setPlaying((p) => !p); }

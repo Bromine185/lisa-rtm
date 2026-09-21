@@ -1,6 +1,6 @@
 "use client";
 import s from "@/app/page.module.css";
-import { ARM_META, ARM_ORDER, type ArmName } from "@/lib/arms";
+import { ARM_META, ARM_ORDER, FS_LO, RATES, type ArmName, type Rate } from "@/lib/arms";
 import type { ArmResult, Speaker } from "@/lib/types";
 
 const fmt = (v: number | null | undefined, d = 2) => (v == null || !isFinite(v) ? "—" : v.toFixed(d));
@@ -21,11 +21,11 @@ export function SpeakerList({ speakers, current, onPick }: { speakers: Speaker[]
   );
 }
 
-export function RateSeg({ rate, onPick }: { rate: 2 | 4 | 8; onPick: (r: 2 | 4 | 8) => void }) {
+export function RateSeg({ rate, onPick }: { rate: Rate; onPick: (r: Rate) => void }) {
   return (
     <div className={s.seg} role="radiogroup" aria-label="output rate">
-      {([2, 4, 8] as const).map((r) => (
-        <button key={r} type="button" aria-pressed={rate === r} onClick={() => onPick(r)}>×{r} · {(12 * r).toFixed(0)} kHz</button>
+      {RATES.map((r) => (
+        <button key={r} type="button" aria-pressed={rate === r} onClick={() => onPick(r)}>×{r} · {((FS_LO * r) / 1000).toFixed(0)} kHz</button>
       ))}
     </div>
   );

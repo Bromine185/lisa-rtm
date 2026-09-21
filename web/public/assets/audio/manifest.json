@@ -22,43 +22,63 @@
     "arms": {
      "det": {
       "draw": "p236/det.wav",
-      "tau0": "p236/det.wav"
+      "tau0": "p236/det.wav",
+      "x8": "p236/det_x8.wav",
+      "x8_above24": 9e-06
+     },
+     "det_paper": {
+      "draw": "p236/det_paper.wav",
+      "tau0": "p236/det_paper.wav",
+      "x8": "p236/det_paper_x8.wav",
+      "x8_above24": 3e-06
      },
      "es_dec_erb_l0.1": {
       "draw": "p236/es_dec_erb_l0.1.wav",
       "tau0": "p236/es_dec_erb_l0.1_tau0.wav",
       "logmean16": "p236/es_dec_erb_l0.1_logmean16.wav",
-      "mean16": "p236/es_dec_erb_l0.1_mean16.wav"
+      "mean16": "p236/es_dec_erb_l0.1_mean16.wav",
+      "x8": "p236/es_dec_erb_l0.1_x8.wav",
+      "x8_above24": 1.5e-05
      },
-     "es_dec_l0.1": {
-      "draw": "p236/es_dec_l0.1.wav",
-      "tau0": "p236/es_dec_l0.1_tau0.wav",
-      "logmean16": "p236/es_dec_l0.1_logmean16.wav",
-      "mean16": "p236/es_dec_l0.1_mean16.wav"
+     "es_dec_l0.01": {
+      "draw": "p236/es_dec_l0.01.wav",
+      "tau0": "p236/es_dec_l0.01_tau0.wav",
+      "logmean16": "p236/es_dec_l0.01_logmean16.wav",
+      "mean16": "p236/es_dec_l0.01_mean16.wav",
+      "x8": "p236/es_dec_l0.01_x8.wav",
+      "x8_above24": 1.3e-05
+     },
+     "es_erb_l0.001": {
+      "draw": "p236/es_erb_l0.001.wav",
+      "tau0": "p236/es_erb_l0.001_tau0.wav",
+      "logmean16": "p236/es_erb_l0.001_logmean16.wav",
+      "mean16": "p236/es_erb_l0.001_mean16.wav",
+      "x8": "p236/es_erb_l0.001_x8.wav",
+      "x8_above24": 4.5e-05
+     },
+     "es_erb_l0.01": {
+      "draw": "p236/es_erb_l0.01.wav",
+      "tau0": "p236/es_erb_l0.01_tau0.wav",
+      "logmean16": "p236/es_erb_l0.01_logmean16.wav",
+      "mean16": "p236/es_erb_l0.01_mean16.wav",
+      "x8": "p236/es_erb_l0.01_x8.wav",
+      "x8_above24": 2.6e-05
      },
      "es_erb_l0.1": {
       "draw": "p236/es_erb_l0.1.wav",
       "tau0": "p236/es_erb_l0.1_tau0.wav",
       "logmean16": "p236/es_erb_l0.1_logmean16.wav",
-      "mean16": "p236/es_erb_l0.1_mean16.wav"
+      "mean16": "p236/es_erb_l0.1_mean16.wav",
+      "x8": "p236/es_erb_l0.1_x8.wav",
+      "x8_above24": 1.1e-05
      },
      "es_marg": {
       "draw": "p236/es_marg.wav",
       "tau0": "p236/es_marg_tau0.wav",
       "logmean16": "p236/es_marg_logmean16.wav",
-      "mean16": "p236/es_marg_mean16.wav"
-     },
-     "es_marg_l0.1": {
-      "draw": "p236/es_marg_l0.1.wav",
-      "tau0": "p236/es_marg_l0.1_tau0.wav",
-      "logmean16": "p236/es_marg_l0.1_logmean16.wav",
-      "mean16": "p236/es_marg_l0.1_mean16.wav"
-     },
-     "es_split_l0.1": {
-      "draw": "p236/es_split_l0.1.wav",
-      "tau0": "p236/es_split_l0.1_tau0.wav",
-      "logmean16": "p236/es_split_l0.1_logmean16.wav",
-      "mean16": "p236/es_split_l0.1_mean16.wav"
+      "mean16": "p236/es_marg_mean16.wav",
+      "x8": "p236/es_marg_x8.wav",
+      "x8_above24": 1.5e-05
      }
     }
    }
@@ -79,43 +99,63 @@
     "arms": {
      "det": {
       "draw": "p237/det.wav",
-      "tau0": "p237/det.wav"
+      "tau0": "p237/det.wav",
+      "x8": "p237/det_x8.wav",
+      "x8_above24": 7e-06
+     },
+     "det_paper": {
+      "draw": "p237/det_paper.wav",
+      "tau0": "p237/det_paper.wav",
+      "x8": "p237/det_paper_x8.wav",
+      "x8_above24": 1e-06
      },
      "es_dec_erb_l0.1": {
       "draw": "p237/es_dec_erb_l0.1.wav",
       "tau0": "p237/es_dec_erb_l0.1_tau0.wav",
       "logmean16": "p237/es_dec_erb_l0.1_logmean16.wav",
-      "mean16": "p237/es_dec_erb_l0.1_mean16.wav"
+      "mean16": "p237/es_dec_erb_l0.1_mean16.wav",
+      "x8": "p237/es_dec_erb_l0.1_x8.wav",
+      "x8_above24": 2.3e-05
      },
-     "es_dec_l0.1": {
-      "draw": "p237/es_dec_l0.1.wav",
-      "tau0": "p237/es_dec_l0.1_tau0.wav",
-      "logmean16": "p237/es_dec_l0.1_logmean16.wav",
-      "mean16": "p237/es_dec_l0.1_mean16.wav"
+     "es_dec_l0.01": {
+      "draw": "p237/es_dec_l0.01.wav",
+      "tau0": "p237/es_dec_l0.01_tau0.wav",
+      "logmean16": "p237/es_dec_l0.01_logmean16.wav",
+      "mean16": "p237/es_dec_l0.01_mean16.wav",
+      "x8": "p237/es_dec_l0.01_x8.wav",
+      "x8_above24": 1.1e-05
+     },
+     "es_erb_l0.001": {
+      "draw": "p237/es_erb_l0.001.wav",
+      "tau0": "p237/es_erb_l0.001_tau0.wav",
+      "logmean16": "p237/es_erb_l0.001_logmean16.wav",
+      "mean16": "p237/es_erb_l0.001_mean16.wav",
+      "x8": "p237/es_erb_l0.001_x8.wav",
+      "x8_above24": 4.9e-05
+     },
+     "es_erb_l0.01": {
+      "draw": "p237/es_erb_l0.01.wav",
+      "tau0": "p237/es_erb_l0.01_tau0.wav",
+      "logmean16": "p237/es_erb_l0.01_logmean16.wav",
+      "mean16": "p237/es_erb_l0.01_mean16.wav",
+      "x8": "p237/es_erb_l0.01_x8.wav",
+      "x8_above24": 1.6e-05
      },
      "es_erb_l0.1": {
       "draw": "p237/es_erb_l0.1.wav",
       "tau0": "p237/es_erb_l0.1_tau0.wav",
       "logmean16": "p237/es_erb_l0.1_logmean16.wav",
-      "mean16": "p237/es_erb_l0.1_mean16.wav"
+      "mean16": "p237/es_erb_l0.1_mean16.wav",
+      "x8": "p237/es_erb_l0.1_x8.wav",
+      "x8_above24": 1.1e-05
      },
      "es_marg": {
       "draw": "p237/es_marg.wav",
       "tau0": "p237/es_marg_tau0.wav",
       "logmean16": "p237/es_marg_logmean16.wav",
-      "mean16": "p237/es_marg_mean16.wav"
-     },
-     "es_marg_l0.1": {
-      "draw": "p237/es_marg_l0.1.wav",
-      "tau0": "p237/es_marg_l0.1_tau0.wav",
-      "logmean16": "p237/es_marg_l0.1_logmean16.wav",
-      "mean16": "p237/es_marg_l0.1_mean16.wav"
-     },
-     "es_split_l0.1": {
-      "draw": "p237/es_split_l0.1.wav",
-      "tau0": "p237/es_split_l0.1_tau0.wav",
-      "logmean16": "p237/es_split_l0.1_logmean16.wav",
-      "mean16": "p237/es_split_l0.1_mean16.wav"
+      "mean16": "p237/es_marg_mean16.wav",
+      "x8": "p237/es_marg_x8.wav",
+      "x8_above24": 1.1e-05
      }
     }
    }
@@ -136,43 +176,63 @@
     "arms": {
      "det": {
       "draw": "p238/det.wav",
-      "tau0": "p238/det.wav"
+      "tau0": "p238/det.wav",
+      "x8": "p238/det_x8.wav",
+      "x8_above24": 1.2e-05
+     },
+     "det_paper": {
+      "draw": "p238/det_paper.wav",
+      "tau0": "p238/det_paper.wav",
+      "x8": "p238/det_paper_x8.wav",
+      "x8_above24": 3e-06
      },
      "es_dec_erb_l0.1": {
       "draw": "p238/es_dec_erb_l0.1.wav",
       "tau0": "p238/es_dec_erb_l0.1_tau0.wav",
       "logmean16": "p238/es_dec_erb_l0.1_logmean16.wav",
-      "mean16": "p238/es_dec_erb_l0.1_mean16.wav"
+      "mean16": "p238/es_dec_erb_l0.1_mean16.wav",
+      "x8": "p238/es_dec_erb_l0.1_x8.wav",
+      "x8_above24": 2.6e-05
      },
-     "es_dec_l0.1": {
-      "draw": "p238/es_dec_l0.1.wav",
-      "tau0": "p238/es_dec_l0.1_tau0.wav",
-      "logmean16": "p238/es_dec_l0.1_logmean16.wav",
-      "mean16": "p238/es_dec_l0.1_mean16.wav"
+     "es_dec_l0.01": {
+      "draw": "p238/es_dec_l0.01.wav",
+      "tau0": "p238/es_dec_l0.01_tau0.wav",
+      "logmean16": "p238/es_dec_l0.01_logmean16.wav",
+      "mean16": "p238/es_dec_l0.01_mean16.wav",
+      "x8": "p238/es_dec_l0.01_x8.wav",
+      "x8_above24": 1.8e-05
+     },
+     "es_erb_l0.001": {
+      "draw": "p238/es_erb_l0.001.wav",
+      "tau0": "p238/es_erb_l0.001_tau0.wav",
+      "logmean16": "p238/es_erb_l0.001_logmean16.wav",
+      "mean16": "p238/es_erb_l0.001_mean16.wav",
+      "x8": "p238/es_erb_l0.001_x8.wav",
+      "x8_above24": 6.1e-05
+     },
+     "es_erb_l0.01": {
+      "draw": "p238/es_erb_l0.01.wav",
+      "tau0": "p238/es_erb_l0.01_tau0.wav",
+      "logmean16": "p238/es_erb_l0.01_logmean16.wav",
+      "mean16": "p238/es_erb_l0.01_mean16.wav",
+      "x8": "p238/es_erb_l0.01_x8.wav",
+      "x8_above24": 2.3e-05
      },
      "es_erb_l0.1": {
       "draw": "p238/es_erb_l0.1.wav",
       "tau0": "p238/es_erb_l0.1_tau0.wav",
       "logmean16": "p238/es_erb_l0.1_logmean16.wav",
-      "mean16": "p238/es_erb_l0.1_mean16.wav"
+      "mean16": "p238/es_erb_l0.1_mean16.wav",
+      "x8": "p238/es_erb_l0.1_x8.wav",
+      "x8_above24": 1.8e-05
      },
      "es_marg": {
       "draw": "p238/es_marg.wav",
       "tau0": "p238/es_marg_tau0.wav",
       "logmean16": "p238/es_marg_logmean16.wav",
-      "mean16": "p238/es_marg_mean16.wav"
-     },
-     "es_marg_l0.1": {
-      "draw": "p238/es_marg_l0.1.wav",
-      "tau0": "p238/es_marg_l0.1_tau0.wav",
-      "logmean16": "p238/es_marg_l0.1_logmean16.wav",
-      "mean16": "p238/es_marg_l0.1_mean16.wav"
-     },
-     "es_split_l0.1": {
-      "draw": "p238/es_split_l0.1.wav",
-      "tau0": "p238/es_split_l0.1_tau0.wav",
-      "logmean16": "p238/es_split_l0.1_logmean16.wav",
-      "mean16": "p238/es_split_l0.1_mean16.wav"
+      "mean16": "p238/es_marg_mean16.wav",
+      "x8": "p238/es_marg_x8.wav",
+      "x8_above24": 2e-05
      }
     }
    }
@@ -193,43 +253,63 @@
     "arms": {
      "det": {
       "draw": "p360/det.wav",
-      "tau0": "p360/det.wav"
+      "tau0": "p360/det.wav",
+      "x8": "p360/det_x8.wav",
+      "x8_above24": 2e-05
+     },
+     "det_paper": {
+      "draw": "p360/det_paper.wav",
+      "tau0": "p360/det_paper.wav",
+      "x8": "p360/det_paper_x8.wav",
+      "x8_above24": 3e-06
      },
      "es_dec_erb_l0.1": {
       "draw": "p360/es_dec_erb_l0.1.wav",
       "tau0": "p360/es_dec_erb_l0.1_tau0.wav",
       "logmean16": "p360/es_dec_erb_l0.1_logmean16.wav",
-      "mean16": "p360/es_dec_erb_l0.1_mean16.wav"
+      "mean16": "p360/es_dec_erb_l0.1_mean16.wav",
+      "x8": "p360/es_dec_erb_l0.1_x8.wav",
+      "x8_above24": 4.2e-05
      },
-     "es_dec_l0.1": {
-      "draw": "p360/es_dec_l0.1.wav",
-      "tau0": "p360/es_dec_l0.1_tau0.wav",
-      "logmean16": "p360/es_dec_l0.1_logmean16.wav",
-      "mean16": "p360/es_dec_l0.1_mean16.wav"
+     "es_dec_l0.01": {
+      "draw": "p360/es_dec_l0.01.wav",
+      "tau0": "p360/es_dec_l0.01_tau0.wav",
+      "logmean16": "p360/es_dec_l0.01_logmean16.wav",
+      "mean16": "p360/es_dec_l0.01_mean16.wav",
+      "x8": "p360/es_dec_l0.01_x8.wav",
+      "x8_above24": 2.7e-05
+     },
+     "es_erb_l0.001": {
+      "draw": "p360/es_erb_l0.001.wav",
+      "tau0": "p360/es_erb_l0.001_tau0.wav",
+      "logmean16": "p360/es_erb_l0.001_logmean16.wav",
+      "mean16": "p360/es_erb_l0.001_mean16.wav",
+      "x8": "p360/es_erb_l0.001_x8.wav",
+      "x8_above24": 0.000174
+     },
+     "es_erb_l0.01": {
+      "draw": "p360/es_erb_l0.01.wav",
+      "tau0": "p360/es_erb_l0.01_tau0.wav",
+      "logmean16": "p360/es_erb_l0.01_logmean16.wav",
+      "mean16": "p360/es_erb_l0.01_mean16.wav",
+      "x8": "p360/es_erb_l0.01_x8.wav",
+      "x8_above24": 4.7e-05
      },
      "es_erb_l0.1": {
       "draw": "p360/es_erb_l0.1.wav",
       "tau0": "p360/es_erb_l0.1_tau0.wav",
       "logmean16": "p360/es_erb_l0.1_logmean16.wav",
-      "mean16": "p360/es_erb_l0.1_mean16.wav"
+      "mean16": "p360/es_erb_l0.1_mean16.wav",
+      "x8": "p360/es_erb_l0.1_x8.wav",
+      "x8_above24": 3.6e-05
      },
      "es_marg": {
       "draw": "p360/es_marg.wav",
       "tau0": "p360/es_marg_tau0.wav",
       "logmean16": "p360/es_marg_logmean16.wav",
-      "mean16": "p360/es_marg_mean16.wav"
-     },
-     "es_marg_l0.1": {
-      "draw": "p360/es_marg_l0.1.wav",
-      "tau0": "p360/es_marg_l0.1_tau0.wav",
-      "logmean16": "p360/es_marg_l0.1_logmean16.wav",
-      "mean16": "p360/es_marg_l0.1_mean16.wav"
-     },
-     "es_split_l0.1": {
-      "draw": "p360/es_split_l0.1.wav",
-      "tau0": "p360/es_split_l0.1_tau0.wav",
-      "logmean16": "p360/es_split_l0.1_logmean16.wav",
-      "mean16": "p360/es_split_l0.1_mean16.wav"
+      "mean16": "p360/es_marg_mean16.wav",
+      "x8": "p360/es_marg_x8.wav",
+      "x8_above24": 3.6e-05
      }
     }
    }
@@ -250,43 +330,63 @@
     "arms": {
      "det": {
       "draw": "p361/det.wav",
-      "tau0": "p361/det.wav"
+      "tau0": "p361/det.wav",
+      "x8": "p361/det_x8.wav",
+      "x8_above24": 2.4e-05
+     },
+     "det_paper": {
+      "draw": "p361/det_paper.wav",
+      "tau0": "p361/det_paper.wav",
+      "x8": "p361/det_paper_x8.wav",
+      "x8_above24": 4e-06
      },
      "es_dec_erb_l0.1": {
       "draw": "p361/es_dec_erb_l0.1.wav",
       "tau0": "p361/es_dec_erb_l0.1_tau0.wav",
       "logmean16": "p361/es_dec_erb_l0.1_logmean16.wav",
-      "mean16": "p361/es_dec_erb_l0.1_mean16.wav"
+      "mean16": "p361/es_dec_erb_l0.1_mean16.wav",
+      "x8": "p361/es_dec_erb_l0.1_x8.wav",
+      "x8_above24": 5.2e-05
      },
-     "es_dec_l0.1": {
-      "draw": "p361/es_dec_l0.1.wav",
-      "tau0": "p361/es_dec_l0.1_tau0.wav",
-      "logmean16": "p361/es_dec_l0.1_logmean16.wav",
-      "mean16": "p361/es_dec_l0.1_mean16.wav"
+     "es_dec_l0.01": {
+      "draw": "p361/es_dec_l0.01.wav",
+      "tau0": "p361/es_dec_l0.01_tau0.wav",
+      "logmean16": "p361/es_dec_l0.01_logmean16.wav",
+      "mean16": "p361/es_dec_l0.01_mean16.wav",
+      "x8": "p361/es_dec_l0.01_x8.wav",
+      "x8_above24": 3.4e-05
+     },
+     "es_erb_l0.001": {
+      "draw": "p361/es_erb_l0.001.wav",
+      "tau0": "p361/es_erb_l0.001_tau0.wav",
+      "logmean16": "p361/es_erb_l0.001_logmean16.wav",
+      "mean16": "p361/es_erb_l0.001_mean16.wav",
+      "x8": "p361/es_erb_l0.001_x8.wav",
+      "x8_above24": 0.000288
+     },
+     "es_erb_l0.01": {
+      "draw": "p361/es_erb_l0.01.wav",
+      "tau0": "p361/es_erb_l0.01_tau0.wav",
+      "logmean16": "p361/es_erb_l0.01_logmean16.wav",
+      "mean16": "p361/es_erb_l0.01_mean16.wav",
+      "x8": "p361/es_erb_l0.01_x8.wav",
+      "x8_above24": 5.4e-05
      },
      "es_erb_l0.1": {
       "draw": "p361/es_erb_l0.1.wav",
       "tau0": "p361/es_erb_l0.1_tau0.wav",
       "logmean16": "p361/es_erb_l0.1_logmean16.wav",
-      "mean16": "p361/es_erb_l0.1_mean16.wav"
+      "mean16": "p361/es_erb_l0.1_mean16.wav",
+      "x8": "p361/es_erb_l0.1_x8.wav",
+      "x8_above24": 4e-05
      },
      "es_marg": {
       "draw": "p361/es_marg.wav",
       "tau0": "p361/es_marg_tau0.wav",
       "logmean16": "p361/es_marg_logmean16.wav",
-      "mean16": "p361/es_marg_mean16.wav"
-     },
-     "es_marg_l0.1": {
-      "draw": "p361/es_marg_l0.1.wav",
-      "tau0": "p361/es_marg_l0.1_tau0.wav",
-      "logmean16": "p361/es_marg_l0.1_logmean16.wav",
-      "mean16": "p361/es_marg_l0.1_mean16.wav"
-     },
-     "es_split_l0.1": {
-      "draw": "p361/es_split_l0.1.wav",
-      "tau0": "p361/es_split_l0.1_tau0.wav",
-      "logmean16": "p361/es_split_l0.1_logmean16.wav",
-      "mean16": "p361/es_split_l0.1_mean16.wav"
+      "mean16": "p361/es_marg_mean16.wav",
+      "x8": "p361/es_marg_x8.wav",
+      "x8_above24": 4e-05
      }
     }
    }
@@ -307,43 +407,63 @@
     "arms": {
      "det": {
       "draw": "p374/det.wav",
-      "tau0": "p374/det.wav"
+      "tau0": "p374/det.wav",
+      "x8": "p374/det_x8.wav",
+      "x8_above24": 1.6e-05
+     },
+     "det_paper": {
+      "draw": "p374/det_paper.wav",
+      "tau0": "p374/det_paper.wav",
+      "x8": "p374/det_paper_x8.wav",
+      "x8_above24": 3e-06
      },
      "es_dec_erb_l0.1": {
       "draw": "p374/es_dec_erb_l0.1.wav",
       "tau0": "p374/es_dec_erb_l0.1_tau0.wav",
       "logmean16": "p374/es_dec_erb_l0.1_logmean16.wav",
-      "mean16": "p374/es_dec_erb_l0.1_mean16.wav"
+      "mean16": "p374/es_dec_erb_l0.1_mean16.wav",
+      "x8": "p374/es_dec_erb_l0.1_x8.wav",
+      "x8_above24": 3.8e-05
      },
-     "es_dec_l0.1": {
-      "draw": "p374/es_dec_l0.1.wav",
-      "tau0": "p374/es_dec_l0.1_tau0.wav",
-      "logmean16": "p374/es_dec_l0.1_logmean16.wav",
-      "mean16": "p374/es_dec_l0.1_mean16.wav"
+     "es_dec_l0.01": {
+      "draw": "p374/es_dec_l0.01.wav",
+      "tau0": "p374/es_dec_l0.01_tau0.wav",
+      "logmean16": "p374/es_dec_l0.01_logmean16.wav",
+      "mean16": "p374/es_dec_l0.01_mean16.wav",
+      "x8": "p374/es_dec_l0.01_x8.wav",
+      "x8_above24": 2.3e-05
+     },
+     "es_erb_l0.001": {
+      "draw": "p374/es_erb_l0.001.wav",
+      "tau0": "p374/es_erb_l0.001_tau0.wav",
+      "logmean16": "p374/es_erb_l0.001_logmean16.wav",
+      "mean16": "p374/es_erb_l0.001_mean16.wav",
+      "x8": "p374/es_erb_l0.001_x8.wav",
+      "x8_above24": 0.000149
+     },
+     "es_erb_l0.01": {
+      "draw": "p374/es_erb_l0.01.wav",
+      "tau0": "p374/es_erb_l0.01_tau0.wav",
+      "logmean16": "p374/es_erb_l0.01_logmean16.wav",
+      "mean16": "p374/es_erb_l0.01_mean16.wav",
+      "x8": "p374/es_erb_l0.01_x8.wav",
+      "x8_above24": 2.5e-05
      },
      "es_erb_l0.1": {
       "draw": "p374/es_erb_l0.1.wav",
       "tau0": "p374/es_erb_l0.1_tau0.wav",
       "logmean16": "p374/es_erb_l0.1_logmean16.wav",
-      "mean16": "p374/es_erb_l0.1_mean16.wav"
+      "mean16": "p374/es_erb_l0.1_mean16.wav",
+      "x8": "p374/es_erb_l0.1_x8.wav",
+      "x8_above24": 3e-05
      },
      "es_marg": {
       "draw": "p374/es_marg.wav",
       "tau0": "p374/es_marg_tau0.wav",
       "logmean16": "p374/es_marg_logmean16.wav",
-      "mean16": "p374/es_marg_mean16.wav"
-     },
-     "es_marg_l0.1": {
-      "draw": "p374/es_marg_l0.1.wav",
-      "tau0": "p374/es_marg_l0.1_tau0.wav",
-      "logmean16": "p374/es_marg_l0.1_logmean16.wav",
-      "mean16": "p374/es_marg_l0.1_mean16.wav"
-     },
-     "es_split_l0.1": {
-      "draw": "p374/es_split_l0.1.wav",
-      "tau0": "p374/es_split_l0.1_tau0.wav",
-      "logmean16": "p374/es_split_l0.1_logmean16.wav",
-      "mean16": "p374/es_split_l0.1_mean16.wav"
+      "mean16": "p374/es_marg_mean16.wav",
+      "x8": "p374/es_marg_x8.wav",
+      "x8_above24": 2.1e-05
      }
     }
    }
@@ -352,7 +472,7 @@
  "arms": {
   "det": {
    "file": "det.pt",
-   "step": 16000,
+   "step": 104950,
    "cls": "LISAS",
    "objective": "det",
    "lambda": 0.01,
@@ -364,7 +484,7 @@
   },
   "es_dec_erb_l0.1": {
    "file": "es_dec_erb_l0.1.pt",
-   "step": 16000,
+   "step": 104950,
    "cls": "LISASD",
    "objective": "es_marg_erb",
    "lambda": 0.1,
@@ -374,21 +494,9 @@
    "seed": 0,
    "params": 88353
   },
-  "es_dec_l0.1": {
-   "file": "es_dec_l0.1.pt",
-   "step": 16000,
-   "cls": "LISASD",
-   "objective": "es_marg",
-   "lambda": 0.1,
-   "n_noise": 8,
-   "n_dec": 4,
-   "deterministic": false,
-   "seed": 0,
-   "params": 88353
-  },
   "es_erb_l0.1": {
    "file": "es_erb_l0.1.pt",
-   "step": 16000,
+   "step": 104950,
    "cls": "LISAS",
    "objective": "es_marg_erb",
    "lambda": 0.1,
@@ -400,7 +508,7 @@
   },
   "es_marg": {
    "file": "es_marg.pt",
-   "step": 16000,
+   "step": 104950,
    "cls": "LISAS",
    "objective": "es_marg",
    "lambda": 0.01,
@@ -410,24 +518,48 @@
    "seed": 0,
    "params": 87777
   },
-  "es_marg_l0.1": {
-   "file": "es_marg_l0.1.pt",
-   "step": 16000,
+  "det_paper": {
+   "file": "det_paper.pt",
+   "step": 104950,
    "cls": "LISAS",
+   "objective": "det",
+   "lambda": 0.0,
+   "n_noise": 8,
+   "n_dec": 0,
+   "deterministic": true,
+   "seed": 0,
+   "params": 87777
+  },
+  "es_dec_l0.01": {
+   "file": "es_dec_l0.01.pt",
+   "step": 104950,
+   "cls": "LISASD",
    "objective": "es_marg",
-   "lambda": 0.1,
+   "lambda": 0.01,
+   "n_noise": 8,
+   "n_dec": 4,
+   "deterministic": false,
+   "seed": 0,
+   "params": 88353
+  },
+  "es_erb_l0.001": {
+   "file": "es_erb_l0.001.pt",
+   "step": 104950,
+   "cls": "LISAS",
+   "objective": "es_marg_erb",
+   "lambda": 0.001,
    "n_noise": 8,
    "n_dec": 0,
    "deterministic": false,
    "seed": 0,
    "params": 87777
   },
-  "es_split_l0.1": {
-   "file": "es_split_l0.1.pt",
-   "step": 16000,
+  "es_erb_l0.01": {
+   "file": "es_erb_l0.01.pt",
+   "step": 104950,
    "cls": "LISAS",
-   "objective": "es_split_marg",
-   "lambda": 0.1,
+   "objective": "es_marg_erb",
+   "lambda": 0.01,
    "n_noise": 8,
    "n_dec": 0,
    "deterministic": false,
@@ -439,5 +571,12 @@
   "M": 16,
   "logmean16": "per-bin mean of log|STFT| over M draws, phase of draw 0, resynthesised, baseband passed through",
   "mean16": "waveform mean of M draws"
+ },
+ "x8": {
+  "fs": 96000,
+  "R": 8,
+  "tau": 1.0,
+  "seed": 0,
+  "note": "same weights queried at R = 8; x8_above24 is the share of output energy above 24 kHz, which training never asked for"
  }
 }

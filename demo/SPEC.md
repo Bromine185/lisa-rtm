@@ -43,9 +43,10 @@ Clicking a model in the list swaps the centre for the 3D architecture scene (wit
 
 ## The real numbers the page must carry
 
-- Input 12 kHz. Output 48 kHz by default; the decoder is continuous in its coordinate, so ×2, ×4 and
-  ×8 are the same weights queried differently (×2 is rendered by querying ×4 and decimating — the
-  decoder has no idea what rate it is asked for, and querying below 48 kHz aliases).
+- Input 12 kHz. Output 48 kHz by default; the decoder is continuous in its coordinate, so ×4 and ×8
+  are the same weights queried differently. The demo offers ×4 and ×8 only: the model was trained and
+  evaluated at ×4, ×8 is the same weights at twice the density (the decoder has no idea what rate it is
+  asked for), and there is no ×2 — it was never trained or evaluated, and querying below 48 kHz aliases.
 - Encoder: four conv1d layers, kernels 7 / 3 / 3 / 1, channels 16 / 32 / 64 / 32, ReLU between,
   `same` padding. Receptive field 11 input samples = 0.9 ms. Latent dim 32.
 - Decoder: input `[c, z_{i−1}, z_i, z_{i+1}]` (97 wide; 101 for LISASD with 4 noise channels per
@@ -54,8 +55,12 @@ Clicking a model in the list swaps the centre for the 3D architecture scene (wit
 - LISAS: 8 Gaussian channels concatenated to the waveform at the encoder input (+896 weights,
   87,777 parameters). LISASD: plus 4 Gaussian channels per output sample at the decoder (88,353).
 - τ = 0 makes every arm the deterministic LISA exactly.
-- Latency measured elsewhere: 1.5 ms per second of audio on an A100, 16.5 ms on an Apple M4 CPU.
-  The browser number is whatever the engine measures live — print it honestly.
+- Latency measured by `fast/bench_latency.py` (OV50, fp32 eager, batch 1, Apple M4 CPU, 8 threads):
+  one pass over 1 s of audio is 12.7 ms for a LISAS arm and 16.0 ms for a LISASD arm (the decoder
+  noise costs 22 % of wall time for 1 % of the MACs); the shipped pipeline on a 3.5 s utterance is
+  88–100 ms for one output or draw with passthrough and 0.9–1.1 s for logmean16. Kind and lambda do
+  not move it. The page reads these from results.json (`latency`, `latency_env`); the browser number
+  is whatever the engine measures live — print it honestly.
 
 ## Modules and their contracts
 

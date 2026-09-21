@@ -43,7 +43,7 @@ def load(src, tag):
          "V": json.loads((o / f"visqol_{tag}.json").read_text())["agg"],
          "H": {a: json.loads((src / f"history_{tag}_{a}.json").read_text())[a] for a in ARMS}}
     for key, name in (("W", f"val_wave_{tag}.json"), ("D", f"val_wave_decompose_{tag}.json"),
-                      ("T", f"latency_{tag}.json")):
+                      ("T", f"latency_{tag}.json"), ("Gd", f"gated_{tag}.json")):
         p = o / name
         d[key] = json.loads(p.read_text()) if p.exists() else None
     return d
@@ -54,7 +54,7 @@ def fmt(x, n=3, sign=False):
 
 
 def build(d, tag):
-    R, V, H, W, D, T = d["R"], d["V"], d["H"], d["W"], d["D"], d["T"]
+    R, V, H, W, D, T, Gd = d["R"], d["V"], d["H"], d["W"], d["D"], d["T"], d["Gd"]
     g = lambda k: R[k]["eval12"]
     M = R["_M"]
     ideal = 1.0 / (M + 1)
@@ -373,7 +373,55 @@ def build(d, tag):
               f"large, so treat the frame ratio as an order of magnitude, not a figure.")
         A("")
 
-    A("## 9. Provenance")
+    # ---- 9. gated deficit ---------------------------------------------------------------------
+    if Gd:
+        meta = Gd.get("_meta", {})
+        gm = {k: Gd[k]["mean"] for k in ORDER if isinstance(Gd.get(k), dict) and "mean" in Gd[k]}
+        A("## 9. High band by frame loudness")
+        A("")
+        A(f"Measured by `audit/gated_arms.py` on {meta.get('n_utts', '?')} held-out utterances "
+          f"({', '.join(sorted({u.split('_')[0] for u in meta.get('utts', [])})) or 'speakers unknown'}; "
+          f"NOT EVAL12, and the only multi-speaker set in this datasheet). Frames are split by the TARGET's "
+          f"frame energy: loud = top 25%, mid = 25-75%, quiet = bottom 25%. Each cell is the mean third-octave "
+          f"high-band energy ratio over those frames, one draw (tau = 0 for a det arm), in dB, 0 = correct. "
+          f"`swing` = loud minus quiet. `gating` = the model's loud/quiet high-band contrast divided by the "
+          f"target's: 1 gates like the speech, 0 is a flat high band. This is the gated deficit the 17 Sep "
+          f"note asked for; the mean deficit in sections 1 and 3 hides it.")
+        A("")
+        A("| arm | all frames | loud | mid | quiet | swing | gating | quiet, tau = 0 |")
+        A("|---|---|---|---|---|---|---|---|")
+        for k in ORDER:
+            if k not in gm:
+                continue
+            m = gm[k]
+            A(f"| `{k}` | {fmt(m.get('deficit_draw'), 2, True)} | {fmt(m.get('loud'), 2, True)} | {fmt(m.get('mid'), 2, True)} | "
+              f"{fmt(m.get('quiet'), 2, True)} | {fmt(m.get('swing'), 2, True)} | {fmt(m.get('gating_fraction'), 2)} | "
+              f"{fmt(m.get('quiet_tau0'), 2, True)} |")
+        A("")
+        samp = [k for k in gm if not k.startswith("det")]
+        if samp:
+            ok = [k for k in samp if gm[k].get("gating_fraction", 0) >= 0.9] or samp
+            rng = lambda key, ks: (min(gm[k][key] for k in ks), max(gm[k][key] for k in ks))
+            ql, qh = rng("quiet", ok); ll, lh = rng("loud", ok); ml, mh = rng("mid", ok)
+            odd = [k for k in samp if k not in ok]
+            A(f"- **Where the energy goes.** For the {len(ok)} samplers that gate at 0.9 or better, quiet frames are "
+              f"{ql:+.2f} to {qh:+.2f} dB from the truth: there is no hiss in the gaps. The shortfall is on the loud "
+              f"frames, {ll:+.2f} to {lh:+.2f} dB, and mid frames run {ml:+.2f} to {mh:+.2f} dB over. "
+              f"That is the opposite distribution to the 17 Sep probe of the 7.6-epoch run (-11.7 dB loud, +1.0 dB "
+              f"quiet), and it means the level error sections 1-4 report is a loud-frame error, not a floor of noise."
+              + (f" {', '.join('`%s`' % k for k in odd)} gates like the det arms and is the exception." if odd else ""))
+            gf = [gm[k]["gating_fraction"] for k in samp]
+            A(f"- **Gating.** Sampler gating fraction {min(gf):.2f} to {max(gf):.2f} against 0.81 for `det`: the high band "
+              f"rises and falls with the speech. A per-band gain fitted on all frames would lift the quiet frames past "
+              f"the truth while closing the loud ones; the correction that section 4's PIT asks for is frame-conditional.")
+            dall = {k: gm[k]["deficit_draw"] for k in samp}
+            A(f"- **Not EVAL12.** On these twelve utterances across six speakers the all-frames deficit is "
+              f"{min(dall.values()):+.2f} to {max(dall.values()):+.2f} dB for the samplers, against -6 to -8 dB on EVAL12 "
+              f"in section 3. Same models, same metric, different utterances: EVAL12 is one speaker, and that speaker "
+              f"draws a deeper deficit than the six-speaker mean. Every EVAL12 level in this datasheet is a p236 number.")
+        A("")
+
+    A("## 10. Provenance")
     A("")
     A(f"- `fast/convert_ckpt.py` -- train_arm checkpoints to the blob `load_arm` reads; 4 checks x 8 arms")
     A(f"- `fast/vctk_local.py` -- EVAL12 by partial read (~230 MB, not 11.7 GB)")
@@ -382,6 +430,7 @@ def build(d, tag):
     A(f"- `fast/val_wave_check.py` -> `val_wave_{tag}.json`")
     A(f"- `fast/val_wave_decompose.py` -> `val_wave_decompose_{tag}.json`")
     A(f"- `fast/bench_latency.py` -> `latency_{tag}.json` (this machine, fp32 eager)")
+    A(f"- `audit/gated_arms.py --tag {tag}` -> `gated_{tag}.json` (12 utterances, six speakers, frame-gated deficit)")
     A(f"- `fast/plot_histories.py`, `fast/compare.py`, `fast/publish_results.py`")
     A("")
     A("Full definitions, traps and provenance for every metric: `notes/metrics-reference.md`. "

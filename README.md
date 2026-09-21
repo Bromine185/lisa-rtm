@@ -115,8 +115,9 @@ dashboard flags this as *"Configuration Settings in the current Production deplo
 your current Project Settings."* Push a commit to get a fresh build rather than redeploying the old
 one, which can carry its own Production Overrides forward.
 
-`web/public/assets` is committed on purpose — 168 WAVs, seven weight files, and the evaluation JSON,
-about 60 MB. The build needs no Python and no GPU; `npm ci && next build` from a clean clone is the
+`web/public/assets` is committed on purpose — 222 WAVs (six speakers × eight OV50 arms, each as one
+draw, τ = 0, mean16, logmean16 and a ×8 render at 96 kHz), eight weight files, and the evaluation JSON,
+about 100 MB. The build needs no Python and no GPU; `npm ci && next build` from a clean clone is the
 whole of it.
 
 ## Local development
