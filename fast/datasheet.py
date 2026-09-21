@@ -42,7 +42,8 @@ def load(src, tag):
     d = {"R": json.loads((o / f"results_{tag}.json").read_text()),
          "V": json.loads((o / f"visqol_{tag}.json").read_text())["agg"],
          "H": {a: json.loads((src / f"history_{tag}_{a}.json").read_text())[a] for a in ARMS}}
-    for key, name in (("W", f"val_wave_{tag}.json"), ("D", f"val_wave_decompose_{tag}.json")):
+    for key, name in (("W", f"val_wave_{tag}.json"), ("D", f"val_wave_decompose_{tag}.json"),
+                      ("T", f"latency_{tag}.json")):
         p = o / name
         d[key] = json.loads(p.read_text()) if p.exists() else None
     return d
@@ -53,7 +54,7 @@ def fmt(x, n=3, sign=False):
 
 
 def build(d, tag):
-    R, V, H, W, D = d["R"], d["V"], d["H"], d["W"], d["D"]
+    R, V, H, W, D, T = d["R"], d["V"], d["H"], d["W"], d["D"], d["T"]
     g = lambda k: R[k]["eval12"]
     M = R["_M"]
     ideal = 1.0 / (M + 1)
@@ -312,7 +313,67 @@ def build(d, tag):
           "stand-in for A100 bf16, not the checkpoints.")
         A("")
 
-    A("## 8. Provenance")
+    # ---- 8. latency ---------------------------------------------------------------------------
+    if T:
+        lat, inf, mc = T["latency"], T["info"], T["macs"]
+        uk, udur = T["utt"]["key"], T["utt"]["seconds"]
+        ms = lambda k, key: lat[k][key]["median_ms"] if key in lat[k] else None
+        A("## 8. Latency")
+        A("")
+        A(f"Measured by `fast/bench_latency.py` on {T['machine'].get('cpu', T['machine']['machine'])}, "
+          f"{T['threads']} threads, torch {T['torch']}, fp32 eager, batch 1; median of repeated runs. "
+          f"One pass = 12 kHz input on the device to 48 kHz output on the host, `reconstruct()`'s path. "
+          f"Shipped = the eval's own pipeline on `{T['utt']['name']}` ({udur:.2f} s) with baseband passthrough. "
+          f"RTF = compute time / audio time.")
+        A("")
+        A(f"| arm | class | params | 20 ms frame | 1 s | {udur:.2f} s utterance | RTF | shipped one output or draw + pt | shipped logmean16 + pt | RTF |")
+        A("|---|---|---|---|---|---|---|---|---|---|")
+        for k in ORDER:
+            if k not in lat:
+                continue
+            one, lm = ms(k, "cpu/shipped_one_pt"), ms(k, "cpu/shipped_logmean16_pt")
+            lm_ms = "--" if lm is None else "%.0f ms" % lm
+            lm_rtf = "--" if lm is None else "%.2f" % lat[k]["cpu/shipped_logmean16_pt"]["rtf"]
+            A(f"| `{k}` | {inf[k]['cls']} | {inf[k]['params']:,} | {ms(k, 'cpu/20ms'):.2f} ms | "
+              f"{ms(k, 'cpu/1s'):.1f} ms | {ms(k, f'cpu/{uk}'):.1f} ms | {lat[k][f'cpu/{uk}']['rtf']:.3f} | "
+              f"{one:.0f} ms | {lm_ms} | {lm_rtf} |")
+        A("")
+        base = mc["enc"] + mc["dec1"] + mc["dec_rest"]
+        sd = [k for k in ORDER if k in lat and inf[k]["cls"] == "LISASD"]
+        s1 = [k for k in ORDER if k in lat and inf[k]["cls"] == "LISAS"]
+        over = 100 * (np.mean([ms(k, "cpu/1s") for k in sd]) / np.mean([ms(k, "cpu/1s") for k in s1]) - 1) if sd and s1 else None
+        pt_share = 100 * T["passthrough_ms"] / np.mean([ms(k, "cpu/shipped_one_pt") for k in ORDER if k in lat])
+        A(f"- **Kind and lambda do not touch inference cost.** The architecture is {base / 1e9:.2f} GMAC per audio second, "
+          f"{100 * mc['dec_rest'] / base:.0f}% of it decoder layers 2-5 at 48 kHz, and every arm runs one pass at "
+          f"about {100 * np.median([lat[k][f'cpu/{uk}']['rtf'] for k in lat]):.1f}% of real time.")
+        if over is not None:
+            A(f"- **Decoder noise costs {over:.0f}% of wall time for {100 * mc['dec_noise'] / base:.0f}% of the MACs.** LISASD draws "
+              f"{T['fs_lo'] * 4 * 4 // 1000}k Gaussians per audio second at the output rate and multiplies them in at the decoder's first layer.")
+        ro = [lat[k]["cpu/shipped_logmean16_pt"]["rtf"] for k in sd + s1 if "cpu/shipped_logmean16_pt" in lat[k]]
+        if ro:
+            A(f"- **The 16-draw readouts are 16 passes plus an STFT**, {min(ro):.2f}-{max(ro):.2f} RTF, "
+              f"and whole-utterance as implemented.")
+        A(f"- **Passthrough is {pt_share:.0f}% of the shipped one-pass time** ({T['passthrough_ms']:.0f} ms: scipy resample_poly plus two "
+          f"whole-utterance FFT brick-wall splits), not the model. A deployed pipeline would use a short filter.")
+        A(f"- **Algorithmic lookahead is {1e3 * T['lookahead_samples_12k'] / T['fs_lo']:.1f} ms**: {T['lookahead_samples_12k']} input samples "
+          f"(encoder receptive field plus the decoder's right-hand neighbour). One-draw output can stream; passthrough and logmean16 cannot as written.")
+        if "mps" in T["devices"]:
+            fu = [ms(k, f"mps/{uk}") for k in lat]
+            fr = [ms(k, "mps/20ms") for k in lat]
+            cu = [ms(k, f"cpu/{uk}") for k in lat]
+            cr = [ms(k, "cpu/20ms") for k in lat]
+            # Both ratios are measured, not assumed: the crossover moves with thermal state and torch version.
+            long_x, short_x = np.median(fu) / np.median(cu), np.median(fr) / np.median(cr)
+            verdict = ("MPS wins only at length" if long_x < 0.95 < short_x else
+                       "MPS loses at both lengths" if long_x > 1.05 else
+                       "MPS wins at both lengths" if short_x < 0.95 else "MPS and CPU are within noise")
+            A(f"- **{verdict}.** Whole utterance {min(fu):.0f}-{max(fu):.0f} ms against {min(cu):.0f}-{max(cu):.0f} ms "
+              f"on CPU ({long_x:.2f}x); 20 ms frame {min(fr):.2f}-{max(fr):.2f} ms against {min(cr):.2f}-{max(cr):.2f} ms "
+              f"({short_x:.2f}x), where the small kernels are dispatch-bound. Run-to-run scatter on the short frame is "
+              f"large, so treat the frame ratio as an order of magnitude, not a figure.")
+        A("")
+
+    A("## 9. Provenance")
     A("")
     A(f"- `fast/convert_ckpt.py` -- train_arm checkpoints to the blob `load_arm` reads; 4 checks x 8 arms")
     A(f"- `fast/vctk_local.py` -- EVAL12 by partial read (~230 MB, not 11.7 GB)")
@@ -320,6 +381,7 @@ def build(d, tag):
     A(f"- `fast/run_e5_visqol.py` -> `visqol_{tag}.json` ({len(V)} conditions, lattice mapping)")
     A(f"- `fast/val_wave_check.py` -> `val_wave_{tag}.json`")
     A(f"- `fast/val_wave_decompose.py` -> `val_wave_decompose_{tag}.json`")
+    A(f"- `fast/bench_latency.py` -> `latency_{tag}.json` (this machine, fp32 eager)")
     A(f"- `fast/plot_histories.py`, `fast/compare.py`, `fast/publish_results.py`")
     A("")
     A("Full definitions, traps and provenance for every metric: `notes/metrics-reference.md`. "

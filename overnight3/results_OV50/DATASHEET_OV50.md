@@ -193,7 +193,29 @@ Lead with **audio48k**: 32 ERB bands to 24 kHz, so it sees the whole invented ba
 
 Identity passes by 13-1800 bands: every arm's own recorded curve is its nearest match among the arms it could be confused with. Reproduced = mean(fp32 over 4 eps seeds) + (bf16 - fp32). All eight `val_wave` residuals are negative (sign test p = 0.0078) at 0.1-0.3%: the CPU-bf16 stand-in for A100 bf16, not the checkpoints.
 
-## 8. Provenance
+## 8. Latency
+
+Measured by `fast/bench_latency.py` on Apple M4, 8 threads, torch 2.13.0, fp32 eager, batch 1; median of repeated runs. One pass = 12 kHz input on the device to 48 kHz output on the host, `reconstruct()`'s path. Shipped = the eval's own pipeline on `p236_002_mic1.flac` (3.46 s) with baseband passthrough. RTF = compute time / audio time.
+
+| arm | class | params | 20 ms frame | 1 s | 3.46 s utterance | RTF | shipped one output or draw + pt | shipped logmean16 + pt | RTF |
+|---|---|---|---|---|---|---|---|---|---|
+| `det_paper` | LISAS | 87,777 | 0.47 ms | 12.7 ms | 47.1 ms | 0.014 | 89 ms | -- | -- |
+| `det` | LISAS | 87,777 | 0.58 ms | 12.7 ms | 46.9 ms | 0.014 | 88 ms | -- | -- |
+| `es_marg` | LISAS | 87,777 | 0.62 ms | 13.2 ms | 49.1 ms | 0.014 | 91 ms | 920 ms | 0.27 |
+| `es_dec_l0.01` | LISASD | 88,353 | 0.66 ms | 16.0 ms | 58.6 ms | 0.017 | 100 ms | 1065 ms | 0.31 |
+| `es_erb_l0.001` | LISAS | 87,777 | 0.61 ms | 13.3 ms | 48.8 ms | 0.014 | 90 ms | 919 ms | 0.27 |
+| `es_erb_l0.01` | LISAS | 87,777 | 0.61 ms | 13.2 ms | 48.9 ms | 0.014 | 88 ms | 908 ms | 0.26 |
+| `es_erb_l0.1` | LISAS | 87,777 | 0.59 ms | 13.2 ms | 49.1 ms | 0.014 | 89 ms | 1024 ms | 0.30 |
+| `es_dec_erb_l0.1` | LISASD | 88,353 | 0.67 ms | 15.9 ms | 58.2 ms | 0.017 | 99 ms | 1068 ms | 0.31 |
+
+- **Kind and lambda do not touch inference cost.** The architecture is 3.29 GMAC per audio second, 91% of it decoder layers 2-5 at 48 kHz, and every arm runs one pass at about 1.4% of real time.
+- **Decoder noise costs 22% of wall time for 1% of the MACs.** LISASD draws 192k Gaussians per audio second at the output rate and multiplies them in at the decoder's first layer.
+- **The 16-draw readouts are 16 passes plus an STFT**, 0.26-0.31 RTF, and whole-utterance as implemented.
+- **Passthrough is 42% of the shipped one-pass time** (39 ms: scipy resample_poly plus two whole-utterance FFT brick-wall splits), not the model. A deployed pipeline would use a short filter.
+- **Algorithmic lookahead is 0.5 ms**: 6 input samples (encoder receptive field plus the decoder's right-hand neighbour). One-draw output can stream; passthrough and logmean16 cannot as written.
+- **MPS wins only at length.** Whole utterance 41-45 ms against 47-59 ms on CPU (0.84x); 20 ms frame 0.72-1.98 ms against 0.47-0.67 ms (1.37x), where the small kernels are dispatch-bound. Run-to-run scatter on the short frame is large, so treat the frame ratio as an order of magnitude, not a figure.
+
+## 9. Provenance
 
 - `fast/convert_ckpt.py` -- train_arm checkpoints to the blob `load_arm` reads; 4 checks x 8 arms
 - `fast/vctk_local.py` -- EVAL12 by partial read (~230 MB, not 11.7 GB)
@@ -201,6 +223,7 @@ Identity passes by 13-1800 bands: every arm's own recorded curve is its nearest 
 - `fast/run_e5_visqol.py` -> `visqol_OV50.json` (43 conditions, lattice mapping)
 - `fast/val_wave_check.py` -> `val_wave_OV50.json`
 - `fast/val_wave_decompose.py` -> `val_wave_decompose_OV50.json`
+- `fast/bench_latency.py` -> `latency_OV50.json` (this machine, fp32 eager)
 - `fast/plot_histories.py`, `fast/compare.py`, `fast/publish_results.py`
 
 Full definitions, traps and provenance for every metric: `notes/metrics-reference.md`. Findings and interpretation: `notes/2026-09-21-eval-results.md`.
