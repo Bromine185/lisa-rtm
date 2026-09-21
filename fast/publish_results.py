@@ -59,7 +59,7 @@ def plan(tag):
               (f"ov3/val_wave_decompose_{tag}.json", "val_wave split into single-draw L1 and spread, per seed"),
               (f"ov3/visqol_{tag}.json", "ViSQOL / PESQ per condition"),
               (f"ov3/visqol_table_{tag}.md", "ViSQOL table"),
-              (f"ov3/metrics_{tag}.md", "every metric, all eight arms, one document"),
+              (f"ov3/DATASHEET_{tag}.md", "MASTER: every comparative metric, one row per arm"),
               (f"figs/ov3_spectrum_{tag}.png", "energy ratio per band"),
               (f"figs/ov3_calibration_{tag}.png", "PIT histograms and spread-skill"),
               (f"figs/train_val_{tag}.png", "per-arm training and validation curves"),
