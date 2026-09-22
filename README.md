@@ -98,6 +98,8 @@ web/                 "The Missing Band": the Next.js demo. Pick a speaker, watch
 demo/                the demo's sources: SPEC.md, the plain-JS engine and 3D scene that web/public
                      serves, and the Python tools that render its audio, weights and numbers
                      (the page itself, in English and Japanese, lives in web/components and web/lib)
+demo/handout/        the one-page handout (the-missing-band.docx, English with a Japanese abstract):
+                     every number from results.json, rebuilt by build.js from handout.json
 notes/               the research notes, in date order
 ```
 

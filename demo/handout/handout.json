@@ -1,0 +1,87 @@
+{
+ "title": "The Missing Band",
+ "subtitle": "Regression to the mean in LISA, and the sampler that ends it — the numbers behind the demo (run OV50)",
+ "abstract_ja": "LISA（ICASSP 2022）は 12 kHz の音声を 48 kHz に超解像する小さなネットワークですが、決定論的な損失で学習すると条件付き平均に収束し、6 kHz より上の帯域はこもります。解決策はアーキテクチャではなく目的関数です。入力に 8 本のガウス雑音チャネルを連結し、同じネットワークをエネルギースコアで学習すると、順伝播 1 回が p(y|x) からの 1 サンプルになります（τ = 0 は LISA そのもの）。ホールドアウト発話 12 件（話者 1 名、各 16 サンプル）で高域欠損は −12.61 dB から −6.85 dB へ、CRPS は 0.960 から 0.570 へ改善しましたが、PIT 端ビンは理想 0.118 に対して 0.182 で、まだ較正された条件付き分布とは言えません。",
+ "sections": [
+  {
+   "heading": "The problem",
+   "paragraphs": [
+    "LISA (ICASSP 2022) is a small audio super-resolution network: 12 kHz in, 48 kHz out, 86,881 parameters as reimplemented here. It is trained with a deterministic loss on a one-to-many problem, so its minimiser is the conditional mean — and the mean of a random-phase high band has no energy. The output is muffled. That is not a bug in the model; it is what the objective asks for. LISA's own configuration (`det_paper`) leaves the band above 6 kHz **27.6 dB** too quiet on the held-out set."
+   ],
+   "bullets": []
+  },
+  {
+   "heading": "The fix is an objective, not an architecture",
+   "paragraphs": [
+    "Concatenate eight Gaussian channels to the waveform at the encoder input (+896 weights, 87,777 parameters) and train the same network under the **energy score**, two draws per step, on a distance that combines waveform L1 with a spectral term. The score is strictly proper, so the minimiser is p(y|x) rather than its mean. One forward pass is one sample; sixteen give the spread; with the noise at zero the network is LISA exactly. No discriminator, no diffusion, no second network. The recipe follows DISCO Nets (2016) and Gritsenko et al. (2020); new here are the target, the stochastic local implicit decoder and the diagnostics."
+   ],
+   "bullets": []
+  },
+  {
+   "heading": "What the numbers say",
+   "paragraphs": [
+    "Every figure is from the run's own evaluation, the JSON the demo reads: twelve held-out utterances of one speaker (p236), never trained on, 16 draws each. `det` is the deterministic reference with the same spectral term; `es_dec_erb_l0.1` is the arm the demo opens on."
+   ],
+   "bullets": [],
+   "table_after": true
+  },
+  {
+   "heading": "What the demo lets you do",
+   "paragraphs": [
+    "Pick a speaker, a rate (×4 or ×8: the same weights queried at twice the density) and a model; the network runs in the browser. **1 / 2 / 3** switch input, output and truth on one clock, so only the band above 6 kHz changes. Change the **readout**: one draw is what would ship; the mean of 16 is SNR-optimal and muffled — regression to the mean, made audible. **V** records your voice, band-limits it to 6 kHz and runs it through the network: training was English only, so Japanese is out of distribution — that is the experiment. **B** is a blind A/B test against the deterministic model; the tally is votes in a room, not an evaluation."
+   ],
+   "bullets": []
+  }
+ ],
+ "table": {
+  "caption": "Run OV50, EVAL12: 12 held-out utterances of p236, 16 draws, 104,950 steps. LSD in the repo's convention (decades of power, not dB) at the passthrough readout each arm wins ViSQOL on. Cost: one pass over 1 s of audio on an Apple M4 CPU, 8 threads, fp32.",
+  "columns": [
+   "",
+   "det (deterministic, τ = 0)",
+   "es_dec_erb_l0.1 (sampler)"
+  ],
+  "rows": [
+   [
+    "High-band deficit, one draw",
+    "−12.61 dB",
+    "−6.85 dB"
+   ],
+   [
+    "CRPS, high-band log|STFT|",
+    "0.960",
+    "0.570  (−41 %)"
+   ],
+   [
+    "LSD, best readout + passthrough",
+    "0.910  (one output)",
+    "0.835  (log-mean of 16)"
+   ],
+   [
+    "ViSQOL audio, best readout",
+    "3.00",
+    "3.02  (0.6 % of range)"
+   ],
+   [
+    "PIT end-bin mass (ideal 0.118)",
+    "—",
+    "0.182  (1.55× ideal)"
+   ],
+   [
+    "Parameters · cost per second of audio",
+    "87,777 · 12.7 ms (78×)",
+    "88,353 · 15.9 ms (63×)"
+   ]
+  ]
+ },
+ "caveats_heading": "What this is not",
+ "caveats": [
+  "**Not calibrated.** PIT end bins are 1.55× ideal, almost all of it in the top bin: the truth sits above all sixteen draws more often than chance — a level bias, not a narrow ensemble. These are conditional predictors with usable spread, not calibrated conditional distributions.",
+  "**Not a large evaluation.** Twelve utterances of one speaker; no FAD; no listening test. Part of the CRPS gain is definitional: a point forecast's CRPS is its MAE.",
+  "**Not comparable on LSD or SNR.** LSD is computed differently in every paper and cannot be set against LISA's published 0.81. SNR is inert here: an empty high band scores 18.99 dB, above seven of the eight arms (the true band: 41.60 dB) — never rank on it."
+ ],
+ "references": [
+  "Kim, Lee, Hong, Ok. Learning Continuous Representation of Audio for Arbitrary Scale Super Resolution (LISA). ICASSP 2022, arXiv:2111.00195.  ·  DISCO Nets (2016).  ·  Gritsenko et al. (2020), the spectral energy distance."
+ ],
+ "footer_left": "https://github.com/Bromine185/lisa-rtm  ·  code, notes, the run's datasheet (overnight3/results_OV50) and the demo",
+ "footer_right": "September 2026"
+}
