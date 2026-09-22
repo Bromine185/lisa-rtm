@@ -39,6 +39,18 @@ Technical tokens are never translated — arm names, CRPS, LSD, ViSQOL, PESQ, τ
 only the prose around them. Nothing numeric passes through the dictionary. The 3D scene's own labels
 are formulae and stay as they are.
 
+## Three steps
+
+The site opens on the numbers, not the controls. `/` (`web/components/Landing.tsx`): four stat tiles
+from results.json for the arm the instrument opens on — high-band deficit, CRPS, LSD at its best
+readout, cost per second of audio — each with its delta against `det`; the input and that arm's
+log-mean-of-16 output as spectrograms side by side; their long-term average spectra (mean power per
+bin, in dB) on one axis with the truth behind and the region between input and output above 6 kHz
+filled, which is what the sampler adds; then one large button. `/listen` (`Listen.tsx`): one speaker,
+that arm, truth / input / output on one clock with the spectrogram following the source, three large
+source buttons, one large button on. `/instrument`: the page below, unchanged. `⏎` and `→` step
+forward, `←` back; the numbers rail on the instrument opens with the same three tiles.
+
 ## Layout
 
 Desktop: three columns. Left rail 260 px — speaker, your voice, rate, model list, readout, draw.

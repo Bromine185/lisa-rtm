@@ -221,6 +221,38 @@ const DICT = {
   "k.l": ["language", "言語"],
   "k.q": ["tour", "ガイド"],
 
+  // stat tiles (landing, numbers rail)
+  "t.deficit": ["High-band deficit · one draw", "高域欠損 · 1サンプル"],
+  "t.crps": ["CRPS · high-band log|STFT|", "CRPS · 高域 log|STFT|"],
+  "t.lsd": ["LSD · {ro}, with passthrough", "LSD · {ro}、パススルー込み"],
+  "t.cost": ["Cost · one pass per second of audio", "計算コスト · 音声1秒あたり1パス"],
+  "t.vs": ["vs {ref} ({v})", "{ref}（{v}）比"],
+  "t.rt": ["{x}× realtime · {cpu} CPU", "実時間の {x} 倍 · {cpu} CPU"],
+  "t.ro.draw_pt": ["one draw", "1サンプル"],
+  "t.ro.mean16_pt": ["mean of 16", "16個の平均"],
+  "t.ro.logmean16_pt": ["log-mean of 16", "16個の対数平均"],
+
+  // landing
+  "l.kicker": ["run {tag} · {n} held-out utterances of one speaker · {M} draws · {arm} against {ref}, the deterministic model with the same spectral term",
+               "実行 {tag} · 話者1名のホールドアウト発話 {n} 件 · {M} サンプル · {arm} 対 {ref}（同じスペクトル項をもつ決定論的モデル）"],
+  "l.spec.h": ["The band the input lacks, and what the sampler puts back", "入力に無い帯域と、サンプラーが戻すもの"],
+  "l.spec.in": ["input · 12 kHz on the 48 kHz grid", "入力 · 12 kHz を 48 kHz グリッドで"],
+  "l.spec.out": ["output · {arm} · log-mean of 16 draws", "出力 · {arm} · 16個の対数平均"],
+  "l.ltas": ["long-term average spectrum · {spk}", "長時間平均スペクトル · {spk}"],
+  "l.ltas.diff": ["what the sampler adds above 6 kHz", "6 kHz より上でサンプラーが加えるもの"],
+  "l.next": ["Hear it", "聴いてみる"],
+  "l.next.sub": ["truth · input · output — one speaker, one model", "原音 · 入力 · 出力 — 話者1名、モデル1つ"],
+
+  // listen
+  "s.h": ["One speaker, one model, three sounds", "話者1名、モデル1つ、3つの音"],
+  "s.p": ["Press play, then switch. The three are phase-locked: only the band above the dashed line changes.", "再生を押して切り替えてください。3つは位相が揃っています：変わるのは破線より上の帯域だけです。"],
+  "s.which": ["{spk} · {arm} · {ro} · precomputed, 50-epoch checkpoint", "{spk} · {arm} · {ro} · 事前計算、50エポックのチェックポイント"],
+  "s.next": ["Open the full instrument", "計測画面をすべて開く"],
+  "s.next.sub": ["six speakers · eight models · your voice · a blind test", "話者6名 · モデル8つ · あなたの声 · ブラインド試聴"],
+  "s.back": ["← the numbers", "← 数値へ"],
+  "s.loading": ["loading {spk}", "{spk} を読み込み中"],
+  "s.home": ["← start", "← 最初へ"],
+
   // architecture page
   "a.back": ["← instrument", "← 計測画面"],
   "a.stage.0": ["48 kHz → 12 kHz", "48 kHz → 12 kHz"],
