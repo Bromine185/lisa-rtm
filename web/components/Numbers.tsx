@@ -2,6 +2,8 @@
 import s from "@/app/page.module.css";
 import { ARM_META, REF_ARM, type ArmName } from "@/lib/arms";
 import { useT, type Key } from "@/lib/i18n";
+import { heroTiles } from "@/lib/tiles";
+import { Tiles } from "./Tiles";
 import type { GatedDeficit, Results } from "@/lib/types";
 
 const fmt = (v: number | null | undefined, d = 2) => (v == null || !isFinite(v) ? "—" : v.toFixed(d));
@@ -61,6 +63,7 @@ export function Numbers({ arm, results, onOpen }: { arm: ArmName; results: Resul
           </>
         ) : (
           <>
+            <Tiles tiles={heroTiles(results, arm, t)} />
             <div className={s.kv}>
               <Head t={t("h.disease")} />
               {(() => { const [d, c] = delta(a.deficit_draw, det?.deficit_tau0, false); return <Row k={t("r.deficit.draw")} v={fmt(a.deficit_draw) + " dB"} d={d && d + vs} cls={c} />; })()}

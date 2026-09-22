@@ -98,6 +98,8 @@ web/                 "The Missing Band": the Next.js demo. Pick a speaker, watch
 demo/                the demo's sources: SPEC.md, the plain-JS engine and 3D scene that web/public
                      serves, and the Python tools that render its audio, weights and numbers
                      (the page itself, in English and Japanese, lives in web/components and web/lib)
+demo/handout/        the one-page handout (the-missing-band.docx, English with a Japanese abstract):
+                     every number from results.json, rebuilt by build.js from handout.json
 notes/               the research notes, in date order
 ```
 
@@ -116,7 +118,11 @@ dashboard flags this as *"Configuration Settings in the current Production deplo
 your current Project Settings."* Push a commit to get a fresh build rather than redeploying the old
 one, which can carry its own Production Overrides forward.
 
-**Showing it.** `?` opens a five-card tour (the problem, the fix, listen, the three readouts, your voice
+**Showing it.** The site opens in three steps: `/` leads with the numbers — four stat tiles from
+results.json, the input and the best arm's output as spectrograms side by side, and their long-term
+average spectra with the band the sampler adds filled in — and one button; `/listen` is one speaker,
+one model, truth / input / output on one clock, and one button; `/instrument` is the full page below.
+`⏎` or `→` steps forward on the first two. On the instrument, `?` opens a five-card tour (the problem, the fix, listen, the three readouts, your voice
 and the blind test); `L` switches the whole page between English and Japanese; the key map sits under
 the instrument. `V` records from the laptop microphone (or drop any audio file on the left rail): the
 clip is band-limited with the fixture pipeline's own filter and becomes a speaker, and every one of the

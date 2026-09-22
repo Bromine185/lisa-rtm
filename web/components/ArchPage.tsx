@@ -52,7 +52,7 @@ export function ArchPage({ arm }: { arm: ArmName }) {
   return (
     <div className={a.page}>
       <header className={a.bar}>
-        <Link href="/" className={a.back}>{t("a.back")}</Link>
+        <Link href="/instrument" className={a.back}>{t("a.back")}</Link>
         <span className={a.title}>{arm}<small>{meta.cls} · {kind ? t(kind) : meta.kind} · λ {meta.lam} · {t(`arm.${arm}` as Key)}</small></span>
         <span className={s.grow} />
         <nav className={a.arms} aria-label={t("a.other")}>
