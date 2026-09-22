@@ -4,7 +4,7 @@
 const fs = require('fs');
 const {
   AlignmentType, BorderStyle, Document, HeadingLevel, LevelFormat, Packer, PageNumber, Paragraph, ShadingType,
-  Table, TableCell, TableRow, TextRun, WidthType, VerticalAlign, TabStopType, Footer,
+  Table, TableCell, TableRow, TextRun, WidthType, VerticalAlign, TabStopType, Footer, LineRuleType,
 } = require('docx');
 
 const [,, inPath, outPath, scaleArg] = process.argv;
@@ -28,7 +28,7 @@ function rich(text, o = {}) {
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(run(text.slice(last, m.index), o));
     const tok = m[0];
-    if (tok.startsWith('**')) out.push(run(tok.slice(2, -2), { ...o, bold: true }));
+    if (tok.startsWith('**')) out.push(run(tok.slice(2, -2), { ...o, bold: true, color: o.mono ? INK : (o.color ?? INK) }));
     else out.push(run(tok.slice(1, -1), { ...o, mono: true, size: (o.size ?? 9.5) - 0.5 }));
     last = m.index + tok.length;
   }
@@ -40,6 +40,7 @@ const para = (children, o = {}) => new Paragraph({ children, spacing: { before: 
 
 const head = (text) => para([run(text.toUpperCase(), { size: 8.5, bold: true, color: WARM })], { before: 110, after: 36, keepNext: true, line: 240 });
 
+const spacer = (h) => new Paragraph({ children: [], spacing: { before: 0, after: 0, line: h, lineRule: LineRuleType.EXACT } });
 const rule = () => new Paragraph({ children: [], spacing: { before: 0, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: LINE, space: 1 } } });
 
 const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
@@ -54,10 +55,36 @@ function abstractBox(text) {
       margins: { top: 90, bottom: 90, left: 160, right: 160 },
       children: [
         para([run('要旨', { size: 8.5, bold: true, color: DIM })], { after: 30, line: 240 }),
-        para([run(text, { size: 9 })], { after: 0, line: 300 }),
+        para([run(text, { size: 8.7 })], { after: 0, line: 290 }),
       ],
     })] })],
   });
+}
+
+
+const GOOD = '1E7A46';
+function tiles(TS) {
+  const n = TS.length, total = 9860, gap = 120;
+  const w = Math.floor((total - gap * (n - 1)) / n);
+  const widths = []; for (let i = 0; i < n; i++) { widths.push(w); if (i < n - 1) widths.push(gap); }
+  const sum = widths.reduce((a, b) => a + b, 0); widths[widths.length - 1] += total - sum;
+  const cells = [];
+  TS.forEach((tile, i) => {
+    cells.push(new TableCell({
+      width: { size: widths[2 * i], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, fill: PANEL, color: 'auto' },
+      borders: { top: { style: BorderStyle.SINGLE, size: 18, color: WARM }, bottom: noBorder, left: noBorder, right: noBorder },
+      margins: { top: 70, bottom: 80, left: 140, right: 100 },
+      children: [
+        para([run(tile.label, { size: 7.5, color: DIM })], { after: 0, line: 220 }),
+        para([run(tile.value, { size: 21, bold: true })], { before: 40, after: 20, line: 300 }),
+        para([run(tile.delta, { size: 8, bold: tile.good != null, color: tile.good === true ? GOOD : tile.good === false ? 'B3261E' : DIM })], { after: 0, line: 220 }),
+      ],
+    }));
+    if (i < n - 1) cells.push(new TableCell({ width: { size: gap, type: WidthType.DXA }, borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder }, children: [para([], { after: 0 })] }));
+  });
+  return new Table({ width: { size: total, type: WidthType.DXA }, columnWidths: widths,
+    borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
+    rows: [new TableRow({ children: cells })] });
 }
 
 function table(T) {
@@ -67,9 +94,9 @@ function table(T) {
   const sum = widths.reduce((a, b) => a + b, 0); widths[widths.length - 1] += total - sum;
   const cell = (text, i, hdr) => new TableCell({
     width: { size: widths[i], type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER,
-    shading: hdr ? { type: ShadingType.CLEAR, fill: PANEL, color: 'auto' } : undefined,
+    shading: hdr ? { type: ShadingType.CLEAR, fill: PANEL, color: 'auto' } : (i === 2 ? { type: ShadingType.CLEAR, fill: 'FFF7EA', color: 'auto' } : undefined),
     margins: { top: 40, bottom: 40, left: 90, right: 90 },
-    children: [para(rich(text, { size: 8.5, bold: hdr, color: hdr ? DIM : INK, mono: !hdr && i > 0 && /^[−+\-–]?\d/.test(text) }), { after: 0, line: 230, align: i > 0 ? AlignmentType.RIGHT : AlignmentType.LEFT })],
+    children: [para(rich(text, { size: !hdr && i === 2 ? 9.5 : 8.5, bold: hdr, color: hdr ? DIM : INK, mono: !hdr && i > 0 }), { after: 0, line: 230, align: i > 0 ? AlignmentType.RIGHT : AlignmentType.LEFT })],
   });
   return new Table({
     width: { size: total, type: WidthType.DXA }, columnWidths: widths,
@@ -85,8 +112,9 @@ const children = [];
 children.push(para([run(D.title, { size: 17, bold: true })], { after: 20, line: 240 }));
 children.push(para([run(D.subtitle, { size: 9.5, color: DIM })], { after: 90, line: 240 }));
 children.push(rule());
+if (D.tiles?.length) { children.push(tiles(D.tiles)); children.push(spacer(140)); }
 children.push(abstractBox(D.abstract_ja));
-children.push(para([], { after: 20 }));
+children.push(spacer(80));
 
 for (const sec of D.sections) {
   children.push(head(sec.heading));
@@ -95,7 +123,7 @@ for (const sec of D.sections) {
   if (sec.table_after && D.table) {
     children.push(para([run(D.table.caption, { size: 8, color: DIM, italics: true })], { before: 60, after: 40, line: 240, keepNext: true }));
     children.push(table(D.table));
-    children.push(para([], { after: 20 }));
+    children.push(spacer(100));
     D.table = null;
   }
 }
@@ -108,8 +136,7 @@ if (D.caveats?.length) {
   for (const b of D.caveats) children.push(para(rich(b, { size: 9 }), { numbering: { reference: 'bul', level: 0 }, after: 30, line: 240 }));
 }
 if (D.references?.length) {
-  children.push(head('References'));
-  for (const r of D.references) children.push(para(rich(r, { size: 8, color: DIM }), { after: 20, line: 230 }));
+  children.push(para([run('References  ', { size: 7.5, bold: true, color: WARM }), ...rich(D.references.join('  ·  '), { size: 7.5, color: DIM })], { before: 90, after: 0, line: 220 }));
 }
 
 const doc = new Document({
