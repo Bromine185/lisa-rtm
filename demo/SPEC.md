@@ -28,11 +28,21 @@ baseband is **cold**, the generated band is **warm**, the truth is **white**.
 Single committed dark theme (an instrument panel). Paint every background and colour explicitly.
 
 Type: `JetBrains Mono` for every number, label, axis and control; `IBM Plex Sans` for the few lines
-of prose. Both from Google Fonts with real fallback stacks. Tabular numerals everywhere digits align.
+of prose; `Noto Sans JP` behind both for the kana and kanji they lack. All from Google Fonts with real
+fallback stacks (Hiragino, Yu Gothic, Meiryo for Japanese). Tabular numerals everywhere digits align.
+
+## Languages
+
+The page reads in English or Japanese; `L` or the header toggle switches, the choice is remembered in
+localStorage and mirrored onto `<html lang>`. One dictionary, `web/lib/i18n.tsx`, every string keyed.
+Technical tokens are never translated — arm names, CRPS, LSD, ViSQOL, PESQ, τ, λ, kHz, `logmean16` —
+only the prose around them. Nothing numeric passes through the dictionary. The 3D scene's own labels
+are formulae and stay as they are.
 
 ## Layout
 
-Desktop: three columns. Left rail 260 px — speaker, rate, model list. Centre — the instrument: a
+Desktop: three columns. Left rail 260 px — speaker, your voice, rate, model list, readout, draw.
+Centre — the instrument: a
 spectrogram canvas (0–24 kHz, a hairline at 6 kHz) on which inference visibly sweeps left to right,
 the warm band appearing above the cold one; under it the transport (input / output / truth, A/B
 crossfade, a realtime-factor readout). Right rail 300 px — the selected model's numbers from the
@@ -40,6 +50,37 @@ evaluation JSON: deficit, CRPS, LSD, ViSQOL, SNR beside naive, the gated deficit
 frames). Phone: the rails stack above and below the instrument.
 
 Clicking a model in the list swaps the centre for the 3D architecture scene (with a way back).
+
+Header: the legend, then blind test (`B`), tour (`?`) and the language toggle (`L`). The tour is five
+short cards — the problem, the fix, listen, the three readouts, your voice and the blind test — opened
+on demand, never on load; `Esc` closes. Under the prose sits the key map, so a presenter never has to
+remember it: `space` play, `1 2 3` sources, `R` run, `N` new draw, `↑ ↓` model, `← →` speaker, `V`
+record, `B` blind test, `L` language, `?` tour.
+
+## Your voice
+
+`V`, or the record button, opens the laptop microphone (no AGC, no noise suppression, no echo
+cancellation — the clip must be what the room sounds like) and collects at 48 kHz for up to 12 s;
+a dropped file (anything the browser decodes) takes the same path. The clip becomes a speaker in the
+list, marked `live`, and is treated exactly like a corpus fixture: mono, peak 0.95, then
+`input` = resample_poly(y, 1, 4) and `naive` = resample_poly(input, 4, 1) — the filter is a port of
+scipy's (81-tap windowed sinc, Kaiser β = 5, cutoff at 6 kHz, unity DC gain, zero phase;
+`web/lib/resample.ts`), so the band limit is the corpus's band limit, not an approximation of it.
+There are no precomputed outputs for it: every output is the engine, every number in the status line
+is measured on this browser, and the readout is one draw (the statistics need sixteen). Nothing in
+results.json refers to it and the page says so. Training was English only (VCTK); a Japanese sentence
+through the network is an out-of-distribution test the room can hear for itself — which is the point.
+
+## Blind test
+
+`B` turns the page into a listening test on the one laptop. A trial: a speaker drawn at random from
+the list (recorded clips included), the current sampler arm at the readout it wins on when that file
+exists, else one draw, against `det` at τ = 0 — the deterministic model with the same spectral term.
+A and B are shuffled; the transport plays A / B / input on the one clock; the spectrogram is forced to
+the input view and dimmed, because the two differ only above 6 kHz and the eye must not vote. Vote
+`A`, `B` or `T` (can't tell); the reveal names both arms; the tally (sampler / deterministic / tie)
+persists in localStorage until reset; `⏎` draws the next trial, `Esc` leaves. The tally is a count of
+votes in a room, not an evaluation, and the page presents it as nothing more.
 
 ## The real numbers the page must carry
 
@@ -79,8 +120,16 @@ R = 8 must invent no energy above 24 kHz (a measured property of the trained dec
 mount(el, {arm, cls /* 'LISAS' | 'LISASD' */, tokens}) -> handle
 handle.setArm(arm, cls); handle.play(); handle.pause(); handle.seek(t01);
 handle.setInference(p01);  // optional: light the output as the engine progresses
+handle.focus(stage | null); handle.reset(); handle.panBy(dx, dy); handle.zoomBy(f)   // the camera, eased
 handle.dispose()
 ```
+Camera: two orbits, the goal and the eased actual, so every move settles instead of snapping. Drag
+orbits about a fixed target — the framing is solved on a fit (mount, resize, reset, a stage focus),
+never on a drag. A two-finger swipe pans (horizontal travels along the flow), as do shift-drag, a
+middle or right button, or two fingers together; pinch or ctrl/⌘-wheel zooms; double-click resets.
+`focus(i)` frames one of the five stages; the page binds it to the stage strip and to `1`–`5`, `0`
+fits the whole. The architecture page is laid out to fit the viewport — header, scene, timeline, stage
+strip, facts — so the wheel belongs to the scene and never to the page.
 Timeline: 48 kHz waveform → decimation to 12 kHz (samples collapse, the warm band fades out) →
 samples enter the conv stack (four slabs sized by channel count and kernel width) → latents as a
 ribbon → the coordinate and the three neighbouring latents feed the decoder columns (five layers,

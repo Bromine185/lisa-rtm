@@ -29,6 +29,9 @@ export interface Speaker {
   seconds?: number;
   text?: string;
   files: SpeakerFiles;
+  // A clip captured in the page (microphone or a dropped file): its signals live in memory, it has no
+  // precomputed outputs, and nothing about it is in results.json. Every number shown for it is measured live.
+  live?: "mic" | "file";
 }
 
 export interface AudioManifest {

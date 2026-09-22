@@ -2,7 +2,8 @@
 // only moves three gains, so the listener hears exactly one thing change — the band above 6 kHz.
 import type { Signal } from "./types";
 
-export type SourceName = "input" | "output" | "truth";
+// "a" and "b" are the blind test's two hidden conditions; they ride the same clock as the rest.
+export type SourceName = "input" | "output" | "truth" | "a" | "b";
 
 interface Node { src: AudioBufferSourceNode; g: GainNode }
 

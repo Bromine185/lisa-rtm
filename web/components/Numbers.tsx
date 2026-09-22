@@ -1,6 +1,7 @@
 "use client";
 import s from "@/app/page.module.css";
 import { ARM_META, REF_ARM, type ArmName } from "@/lib/arms";
+import { useT, type Key } from "@/lib/i18n";
 import type { GatedDeficit, Results } from "@/lib/types";
 
 const fmt = (v: number | null | undefined, d = 2) => (v == null || !isFinite(v) ? "—" : v.toFixed(d));
@@ -27,8 +28,10 @@ function Row({ k, v, d, cls }: { k: string; v: string; d?: string; cls?: string 
 const Head = ({ t }: { t: string }) => <span className={s.hh}>{t}</span>;
 
 const RO_LABEL: Record<string, string> = { draw_pt: "1 draw", mean16_pt: "mean16", logmean16_pt: "logmean16" };
+const KIND_KEY: Record<string, Key> = { "plain L1 (the paper)": "kind.plain", "L1 + λ·STFT": "kind.l1stft", "energy score, log-mag": "kind.es.logmag", "energy score, +ERB": "kind.es.erb" };
 
 export function Numbers({ arm, results, onOpen }: { arm: ArmName; results: Results | null; onOpen: () => void }) {
+  const { t } = useT();
   const meta = ARM_META[arm];
   const a = results?.arms?.[arm];
   // every delta is against det (L1 + λ·STFT, τ = 0), not det_paper: det shares the samplers' spectral term
@@ -43,81 +46,84 @@ export function Numbers({ arm, results, onOpen }: { arm: ArmName; results: Resul
   const ro = a?.readouts?.[roKey];
   const roName = RO_LABEL[roKey] ?? roKey;
   const share = a?.visqol_audio_best_share ?? null;
+  const kind = (k: string | undefined) => (k && KIND_KEY[k] ? t(KIND_KEY[k]) : k ?? "");
+  const utts = t("n.utts", { n: results?.n_utts ?? 12 }) + (speakers ? " " + (speakers.length === 1 ? t("n.of.one", { spk: speakers[0] }) : t("n.of.many", { k: speakers.length, spk: speakers.join(", ") })) : "");
+  const draws = t("n.draws", { M: results?.M ?? 16 });
+  const ep = epochs ? " · " + t("n.epochs", { e: epochs }) : "";
   return (
     <>
       <div className={s.card}>
-        <h2><span>{arm}</span><small>{meta.cls} · λ {meta.lam} · {meta.kind}</small></h2>
+        <h2><span>{arm}</span><small>{meta.cls} · λ {meta.lam} · {kind(meta.kind)}</small></h2>
         {!a ? (
           <>
-            <div className={s.kv}><Row k="evaluation" v="pending" /></div>
-            <div className={s.note}>The evaluation cells have not written results.json yet. The audio and the live inference still work.</div>
+            <div className={s.kv}><Row k={t("n.pending")} v={t("n.pending.v")} /></div>
+            <div className={s.note}>{t("n.pending.note")}</div>
           </>
         ) : (
           <>
             <div className={s.kv}>
-              <Head t="the disease and the cure" />
-              {(() => { const [d, c] = delta(a.deficit_draw, det?.deficit_tau0, false); return <Row k="deficit · 1 draw" v={fmt(a.deficit_draw) + " dB"} d={d && d + vs} cls={c} />; })()}
-              <Row k="deficit · τ = 0" v={fmt(a.deficit_tau0) + " dB"} />
+              <Head t={t("h.disease")} />
+              {(() => { const [d, c] = delta(a.deficit_draw, det?.deficit_tau0, false); return <Row k={t("r.deficit.draw")} v={fmt(a.deficit_draw) + " dB"} d={d && d + vs} cls={c} />; })()}
+              <Row k={t("r.deficit.tau0")} v={fmt(a.deficit_tau0) + " dB"} />
               {(() => { const [d, c] = delta(a.crps, det?.crps, true); return <Row k="CRPS" v={fmt(a.crps, 3)} d={d && d + vs} cls={c} />; })()}
-              {a.coherent != null && <Row k="coherent fraction" v={fmt(100 * a.coherent, 1) + " %"} />}
-              {a.kappa != null && <Row k="κ · hallucinated?" v={fmt(a.kappa, 3)} />}
-              {a.pit_end != null && <Row k="PIT end bins" v={fmt(a.pit_end, 3)} d="ideal .118" />}
-              <Head t="the judges · with passthrough" />
+              {a.coherent != null && <Row k={t("r.coherent")} v={fmt(100 * a.coherent, 1) + " %"} />}
+              {a.kappa != null && <Row k={t("r.kappa")} v={fmt(a.kappa, 3)} />}
+              {a.pit_end != null && <Row k={t("r.pit")} v={fmt(a.pit_end, 3)} d={t("r.pit.ideal")} />}
+              <Head t={t("h.judges")} />
               {(() => { const [d, c] = delta(ro?.lsd, det?.readouts?.draw_pt?.lsd, true); return <Row k={`LSD · ${roName}`} v={fmt(ro?.lsd, 3)} d={d && d + vs} cls={c} />; })()}
-              {a.readouts?.draw_pt && roKey !== "draw_pt" && <Row k="LSD · 1 draw" v={fmt(a.readouts.draw_pt.lsd, 3)} />}
-              {(() => { const [d, c] = delta(ro?.visqol_audio, det?.readouts?.draw_pt?.visqol_audio, false); return <Row k={`ViSQOL audio · ${roName}`} v={fmt(ro?.visqol_audio)} d={d && d + vs} cls={c} />; })()}
-              {share != null && <Row k="share of the band" v={fmt(100 * share, 1) + " %"} d="floor→ceiling" />}
-              {ro?.visqol_speech != null && <Row k="ViSQOL speech" v={fmt(ro.visqol_speech)} />}
-              {ro?.pesq != null && <Row k="PESQ wb" v={fmt(ro.pesq)} />}
+              {a.readouts?.draw_pt && roKey !== "draw_pt" && <Row k={t("r.lsd.draw")} v={fmt(a.readouts.draw_pt.lsd, 3)} />}
+              {(() => { const [d, c] = delta(ro?.visqol_audio, det?.readouts?.draw_pt?.visqol_audio, false); return <Row k={`${t("r.visqol.audio")} · ${roName}`} v={fmt(ro?.visqol_audio)} d={d && d + vs} cls={c} />; })()}
+              {share != null && <Row k={t("r.share")} v={fmt(100 * share, 1) + " %"} d={t("r.share.d")} />}
+              {ro?.visqol_speech != null && <Row k={t("r.visqol.speech")} v={fmt(ro.visqol_speech)} />}
+              {ro?.pesq != null && <Row k={t("r.pesq")} v={fmt(ro.pesq)} />}
               {lat && (
                 <>
-                  <Head t="cost · measured, one thread pool" />
-                  <Row k="parameters" v={fmtInt(lat.params)} />
-                  <Row k="one pass · per s of audio" v={ms(lat.one_pass_ms_per_s)} d={lat.rtf_one_pass ? `${(1 / lat.rtf_one_pass).toFixed(0)}× realtime` : undefined} />
-                  <Row k="one 20 ms frame" v={ms(lat.frame_20ms_ms)} />
-                  <Row k="shipped · 1 output + pt" v={ms(lat.shipped_one_ms)} d={env?.utt_seconds != null ? `${env.utt_seconds.toFixed(2)} s utt` : undefined} />
-                  {!a.det && <Row k="shipped · logmean16 + pt" v={ms(lat.shipped_logmean16_ms)} d={lat.rtf_logmean16 != null ? `RTF ${fmt(lat.rtf_logmean16)}` : undefined} />}
-                  {env?.lookahead_ms != null && <Row k="algorithmic lookahead" v={ms(env.lookahead_ms)} />}
+                  <Head t={t("h.cost")} />
+                  <Row k={t("r.params")} v={fmtInt(lat.params)} />
+                  <Row k={t("r.onepass")} v={ms(lat.one_pass_ms_per_s)} d={lat.rtf_one_pass ? `${(1 / lat.rtf_one_pass).toFixed(0)}× ${t("realtime")}` : undefined} />
+                  <Row k={t("r.frame")} v={ms(lat.frame_20ms_ms)} />
+                  <Row k={t("r.shipped1")} v={ms(lat.shipped_one_ms)} d={env?.utt_seconds != null ? t("r.utt", { s: env.utt_seconds.toFixed(2) }) : undefined} />
+                  {!a.det && <Row k={t("r.shipped16")} v={ms(lat.shipped_logmean16_ms)} d={lat.rtf_logmean16 != null ? `RTF ${fmt(lat.rtf_logmean16)}` : undefined} />}
+                  {env?.lookahead_ms != null && <Row k={t("r.lookahead")} v={ms(env.lookahead_ms)} />}
                 </>
               )}
-              <Head t="SNR · maximised by doing nothing" />
-              {(() => { const [d, c] = delta(ro?.snr, nv?.snr, false); return <Row k={roName} v={fmt(ro?.snr) + " dB"} d={d && d + " naive"} cls={c} />; })()}
-              {nv && <Row k="naive sinc upsample" v={fmt(nv.snr) + " dB"} />}
-              {results?.floor && <Row k="floor · empty high band" v={fmt(results.floor.snr) + " dB"} />}
-              {results?.ceiling && <Row k="ceiling · true high band" v={fmt(results.ceiling.snr) + " dB"} />}
+              <Head t={t("h.snr")} />
+              {(() => { const [d, c] = delta(ro?.snr, nv?.snr, false); return <Row k={roName} v={fmt(ro?.snr) + " dB"} d={d && d + " " + t("r.naive.d")} cls={c} />; })()}
+              {nv && <Row k={t("r.naive")} v={fmt(nv.snr) + " dB"} />}
+              {results?.floor && <Row k={t("r.floor")} v={fmt(results.floor.snr) + " dB"} />}
+              {results?.ceiling && <Row k={t("r.ceiling")} v={fmt(results.ceiling.snr) + " dB"} />}
             </div>
             <div className={s.note}>
-              {results?.n_utts ?? 12} held-out utterances{speakers ? ` of ${speakers.length === 1 ? "one speaker" : `${speakers.length} speakers`} (${speakers.join(", ")})` : ""} · {results?.M ?? 16} draws · {results?.tag ?? ""}{epochs ? ` · ${epochs} epochs` : ""}
-              {" · "}Δ {vs.trim()} ({det?.kind ?? "L1 + λ·STFT"}, τ = 0); det_paper is the paper’s model
-              {env && <>{" · "}cost on {env.cpu ?? "the bench CPU"}, {env.threads ?? "—"} threads, {env.precision ?? "fp32 eager"}, torch {env.torch ?? "—"}, median of repeats; passthrough alone {ms(env.passthrough_ms)}</>}
+              {utts} · {draws} · {results?.tag ?? ""}{ep}
+              {" · "}{t("n.delta", { ref: REF_ARM, kind: kind(det?.kind) || "L1 + λ·STFT" })}
+              {env && <>{" · "}{t("n.cost", { cpu: env.cpu ?? t("n.bench.cpu"), threads: env.threads ?? "—", precision: env.precision ?? t("n.fp32"), torch: env.torch ?? "—", ms: ms(env.passthrough_ms) })}</>}
             </div>
           </>
         )}
       </div>
       <div className={s.card}>
-        <h2><span>High band by frame loudness</span><small>energy ratio, dB</small></h2>
+        <h2><span>{t("gate.title")}</span><small>{t("gate.sub")}</small></h2>
         <Gate g={a?.gated ?? null} />
-        <div className={s.note}>A correct sampler shows the same ratio in every row. A ratio that rises as frames get quieter is energy where the truth has none — that is what a listener hears as hiss.</div>
+        <div className={s.note}>{t("gate.note")}</div>
       </div>
-      <button type="button" className={s.open3d} onClick={onOpen}><span>open the architecture</span><span>↗</span></button>
-      <div className={s.note}>
-        Numbers are from the evaluation the run wrote, on {results?.n_utts ?? 12} held-out utterances{speakers ? ` of ${speakers.length === 1 ? "one speaker" : `${speakers.length} speakers`} (${speakers.join(", ")})` : ""}, {results?.M ?? 16} draws{epochs ? `, ${epochs} epochs` : ""}. Nothing on this page is typed in.
-      </div>
+      <button type="button" className={s.open3d} onClick={onOpen}><span>{t("arch.open")}</span><span>↗</span></button>
+      <div className={s.note}>{t("n.foot", { utts, draws, epochs: ep.replace(" · ", ", ") })}</div>
     </>
   );
 }
 
 function Gate({ g }: { g: GatedDeficit | null }) {
+  const { t } = useT();
   const lo = -24, hi = 6, z = (0 - lo) / (hi - lo);
-  const rows: [keyof GatedDeficit, string][] = [["loud", "top 25 %"], ["mid", "25–75 %"], ["quiet", "bottom 25 %"]];
+  const rows: (keyof GatedDeficit)[] = ["loud", "mid", "quiet"];
   return (
     <div className={s.gate}>
-      {rows.map(([k]) => {
+      {rows.map((k) => {
         const v = g?.[k] ?? null;
         const p = v == null ? z : Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
         return (
           <div key={k} style={{ display: "contents" }}>
-            <span>{k}</span>
+            <span>{t(`gate.${k}`)}</span>
             <div className={s.bar}><i style={{ left: `${Math.min(p, z) * 100}%`, width: `${Math.abs(p - z) * 100}%` }} /><span className={s.z} style={{ left: `${z * 100}%` }} /></div>
             <span className="num">{v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2)}</span>
           </div>

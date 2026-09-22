@@ -22,7 +22,8 @@ body {
   margin: 0;
   background: var(--ground);
   color: var(--ink);
-  font-family: var(--font-sans), -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* the Latin faces carry no kana or kanji; Noto Sans JP, then the platform's own Japanese face, catch those glyphs */
+  font-family: var(--font-sans), var(--font-jp), -apple-system, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, Helvetica, Arial, sans-serif;
   font-size: 13px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
@@ -35,12 +36,16 @@ button:focus-visible, input:focus-visible, a:focus-visible, [tabindex]:focus-vis
   outline: 1px solid var(--warm);
   outline-offset: 2px;
 }
-.mono, .num { font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.mono, .num { font-family: var(--font-mono), var(--font-jp), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
 .lbl {
-  font-family: var(--font-mono), ui-monospace, monospace;
+  font-family: var(--font-mono), var(--font-jp), ui-monospace, monospace;
   font-size: 10px;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--dim);
 }
+/* kana and kanji have no case and want less tracking than a Latin small-cap label */
+html[data-lang="ja"] .lbl { letter-spacing: .06em; font-size: 10.5px; }
+html[data-lang="ja"] body { line-height: 1.55; }
+kbd { font-family: var(--font-mono), ui-monospace, monospace; font-size: 10px; color: var(--dim-2); border: 1px solid var(--line-2); border-radius: 2px; padding: 0 4px; line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
