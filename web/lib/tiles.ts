@@ -31,3 +31,7 @@ export function heroTiles(r: Results | null, arm: ArmName, t: T, withCost = fals
   }
   return tiles;
 }
+
+// Parameter counts as the list and the strip print them: "672.0 M", "1.7 M", "88 k", "896".
+export const fmtParams = (n: number | null | undefined): string =>
+  n == null || !isFinite(n) ? "—" : n >= 1e6 ? (n / 1e6).toFixed(1) + " M" : n >= 1e3 ? (n / 1e3).toFixed(0) + " k" : String(n);

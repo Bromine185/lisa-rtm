@@ -1,6 +1,7 @@
 "use client";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { ArmClass } from "@/lib/arms";
+import type { SotaBlock } from "@/lib/types";
 
 // public/arch3d.js is an imperative Three.js module that expects window.THREE and defines window.Arch3D.
 // We hand it the bundled three (one copy in the app), then mount it on a div. Client only.
@@ -13,10 +14,25 @@ interface Arch3DHandle {
   setInference(p: number): void;
   focus(stage: number | null): void;
   reset(): void;
+  panBy(dx: number, dy: number): void;
+  zoomBy(f: number): void;
   dispose(): void;
+  stages?: number[][];   // [start, end] per stage of the mounted scene
+}
+interface Arch3DMountOpts {
+  arm: string;
+  cls: ArmClass;
+  tokens: Record<string, string>;
+  onTime?: (t: number) => void;
+  // block-flow scene for a released model; absent → the LISA scene
+  blocks?: SotaBlock[];
+  name?: string;
+  det?: boolean;
+  steps?: number;
+  params?: number;   // the measured total, for the caption
 }
 interface Arch3DModule {
-  mount(el: HTMLElement, opts: { arm: string; cls: ArmClass; tokens: Record<string, string>; onTime?: (t: number) => void }): Arch3DHandle;
+  mount(el: HTMLElement, opts: Arch3DMountOpts): Arch3DHandle;
 }
 declare global {
   interface Window { Arch3D?: Arch3DModule; THREE?: unknown }
@@ -47,9 +63,15 @@ function getArch(): Promise<Arch3DModule | null> {
   return loading;
 }
 
-export const ArchView = forwardRef<ArchViewHandle, {
-  arm: string; cls: ArmClass; playing: boolean; seek: number | null; inference?: number; onTime?: (t: number) => void; onMissing?: () => void;
-}>(function ArchView({ arm, cls, playing, seek, inference, onTime, onMissing }, ref) {
+export type ArchViewProps = {
+  arm: string; cls: ArmClass; playing: boolean; seek: number | null; inference?: number;
+  onTime?: (t: number) => void; onMissing?: () => void;
+  // a released model's block list turns the scene into a block flow; the page keys the element by
+  // model id, so a new list is a new mount
+  blocks?: SotaBlock[]; name?: string; det?: boolean; steps?: number; params?: number;
+};
+
+export const ArchView = forwardRef<ArchViewHandle, ArchViewProps>(function ArchView({ arm, cls, playing, seek, inference, onTime, onMissing, blocks, name, det, steps, params }, ref) {
   const el = useRef<HTMLDivElement>(null);
   const handle = useRef<Arch3DHandle | null>(null);
   // arch3d calls back on its own animation clock, so it gets a ref to the latest onTime, kept current
@@ -66,7 +88,7 @@ export const ArchView = forwardRef<ArchViewHandle, {
       const cs = getComputedStyle(document.documentElement);
       const tokens: Record<string, string> = {};
       for (const k of ["ground", "panel", "line", "ink", "dim", "cold", "warm", "truth", "good", "bad"]) tokens[k] = cs.getPropertyValue("--" + k).trim();
-      handle.current = mod.mount(el.current, { arm, cls, tokens, onTime: (t) => onTimeRef.current?.(t) });
+      handle.current = mod.mount(el.current, { arm, cls, tokens, onTime: (t) => onTimeRef.current?.(t), blocks, name, det, steps, params });
       if (!playing) handle.current.pause();
     })();
     return () => { dead = true; handle.current?.dispose(); handle.current = null; };
@@ -83,5 +105,5 @@ export const ArchView = forwardRef<ArchViewHandle, {
     reset: () => handle.current?.reset(),
   }), []);
 
-  return <div ref={el} style={{ position: "absolute", inset: 0 }} aria-label={`${arm} architecture, animated`} role="application" />;
+  return <div ref={el} style={{ position: "absolute", inset: 0 }} aria-label={`${name ?? arm} architecture, animated`} role="application" />;
 });

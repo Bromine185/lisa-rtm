@@ -10,6 +10,7 @@ import { parseWav, specFill, specOf, type Spectrogram } from "@/lib/dsp";
 import { useT, type Lang } from "@/lib/i18n";
 import { heroTiles } from "@/lib/tiles";
 import type { AudioManifest, Results, Signal, Speaker } from "@/lib/types";
+import { CompareStrip } from "./Compare";
 import { Instrument, type InstrumentHandle } from "./Instrument";
 import { Tiles } from "./Tiles";
 
@@ -129,6 +130,8 @@ export function Landing() {
       <main className={s.landBody}>
         <div className={`lbl ${s.landKicker}`}>{t("l.kicker", { tag: results?.tag ?? "OV50", n: results?.n_utts ?? 12, M: results?.M ?? 16, arm: DEFAULT_ARM, ref: REF_ARM })}{epochs ? ` · ${t("n.epochs", { e: epochs })}` : ""}</div>
         <Tiles tiles={tiles} big />
+        <h2 className={s.landH}>{t("cmp.h")}</h2>
+        <CompareStrip sota={results?.sota ?? null} results={results} />
         <h2 className={s.landH}>{t("l.spec.h")}</h2>
         <div className={s.landGrid}>
           <div className={s.landSpec}>

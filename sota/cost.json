@@ -1,0 +1,13 @@
+{
+ "_meta": {
+  "params": "floating-point tensors in the released checkpoint (ours: fast/bench_latency.py). FLowHigh includes its 13.97 M BigVGAN; AudioSR counts the 258.2 M diffusion U-Net and the 413.8 M first-stage autoencoder/vocoder used at inference, not the EMA copy or CLAP.",
+  "rtf": "wall seconds per second of audio on the Apple M4 of this repo, one process, batch 1. Ours: overnight3/results_OV50/latency_OV50.json (cpu/utt_3.46s; logmean16 readout: cpu/shipped_logmean16_pt). SOTA: sota/run_models.py _run.json of the first, uncontended core run (whole-file inference incl. Python I/O). AudioSR on MPS, the rest on CPU. Not a clean latency benchmark."
+ },
+ "flowhigh":             {"params": 49403249, "rtf": 1.534, "device": "cpu"},
+ "nuwave2":              {"params": 1727041,  "rtf": 7.071, "device": "cpu"},
+ "audiosr":              {"params": 672020000, "rtf": 5.942, "device": "mps"},
+ "apbwe":                {"params": 29760515, "rtf": 0.080, "device": "cpu"},
+ "ours_es_dec_erb_l0.1": {"params": 88353,    "rtf": 0.0168, "device": "cpu"},
+ "ours_es_dec_erb_l0.1 logmean16 | pt": {"params": 88353, "rtf": 0.3088, "device": "cpu"},
+ "ours_det":             {"params": 87777,    "rtf": 0.0136, "device": "cpu"}
+}

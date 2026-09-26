@@ -1,8 +1,9 @@
 "use client";
 import s from "@/app/page.module.css";
-import { ARM_META, ARM_ORDER, FS_LO, RATES, type ArmName, type Rate } from "@/lib/arms";
+import { ARM_META, ARM_ORDER, FS_LO, RATES, RELEASED_META, RELEASED_ORDER, REL_RATE, type ModelId, type Rate } from "@/lib/arms";
 import { useT, type Key } from "@/lib/i18n";
-import type { ArmResult, Speaker } from "@/lib/types";
+import { fmtParams } from "@/lib/tiles";
+import type { ArmResult, ReleasedManifest, SotaResults, Speaker } from "@/lib/types";
 
 const fmt = (v: number | null | undefined, d = 2) => (v == null || !isFinite(v) ? "—" : v.toFixed(d));
 
@@ -30,19 +31,21 @@ export function SpeakerList({ speakers, current, onPick }: { speakers: Speaker[]
   );
 }
 
-export function RateSeg({ rate, onPick }: { rate: Rate; onPick: (r: Rate) => void }) {
+// lock8: a released slot is precomputed at ×4 only, so ×8 is off and says why
+export function RateSeg({ rate, onPick, lock8 }: { rate: Rate; onPick: (r: Rate) => void; lock8?: boolean }) {
   const { t } = useT();
   return (
     <div className={s.seg} role="radiogroup" aria-label={t("rate")}>
       {RATES.map((r) => (
-        <button key={r} type="button" aria-pressed={rate === r} onClick={() => onPick(r)}>×{r} · {((FS_LO * r) / 1000).toFixed(0)} kHz</button>
+        <button key={r} type="button" aria-pressed={rate === r} onClick={() => onPick(r)}
+                disabled={r === 8 && !!lock8} title={r === 8 && lock8 ? t("rel.no8", { r: REL_RATE }) : undefined}>×{r} · {((FS_LO * r) / 1000).toFixed(0)} kHz</button>
       ))}
     </div>
   );
 }
 
-export function ReadoutSeg({ readout, available, best, live, onPick }: {
-  readout: string; available: string[]; best: string | null; live: boolean; onPick: (r: string) => void;
+export function ReadoutSeg({ readout, available, best, live, note, onPick }: {
+  readout: string; available: string[]; best: string | null; live: boolean; note?: string; onPick: (r: string) => void;
 }) {
   const { t } = useT();
   const label = (r: string) => t(`ro.${r}` as Key), hint = (r: string) => t(`ro.${r}.hint` as Key);
@@ -55,7 +58,7 @@ export function ReadoutSeg({ readout, available, best, live, onPick }: {
           </button>
         ))}
       </div>
-      <div className={s.note}>{live ? t("ro.live") : hint(readout)}</div>
+      <div className={s.note}>{note ?? (live ? t("ro.live") : hint(readout))}</div>
     </>
   );
 }
@@ -71,31 +74,71 @@ export function ViewSeg({ view, onPick }: { view: "output" | "truth" | "input"; 
   );
 }
 
-export function ModelList({ current, results, onPick, onOpen }: {
-  current: ArmName; results: Record<string, ArmResult> | null; onPick: (a: ArmName) => void; onOpen: (a: ArmName) => void;
+// The eight arms, then the four released models. A released row is precomputed: its numbers come from
+// results.sota (the paper split, named in the group head) and its badge says whether the current speaker
+// was in its training set, only when the manifest says so, and as an assumption when the list is one.
+export function ModelList({ current, results, sota, released, speakerId, live, onPick, onOpen }: {
+  current: ModelId; results: Record<string, ArmResult> | null; sota: SotaResults | null; released: ReleasedManifest | null;
+  speakerId: string | null; live: boolean; onPick: (m: ModelId) => void; onOpen: (m: ModelId) => void;
 }) {
   const { t } = useT();
+  const cube = (m: ModelId, name: string) => (
+    <button type="button" className={s.cube} aria-label={t("arch.open.one", { arm: name })} title={t("arch.open")}
+            onClick={(e) => { e.stopPropagation(); onOpen(m); }}>
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.1" aria-hidden="true">
+        <path d="M6 1l4.5 2.5v5L6 11 1.5 8.5v-5z" /><path d="M6 6l4.5-2.5M6 6v5M6 6L1.5 3.5" />
+      </svg>
+    </button>
+  );
+  const dash = <span style={{ color: "var(--dim-2)" }}>—</span>;
   return (
     <div className={s.list} role="listbox" aria-label={t("model")}>
       {ARM_ORDER.map((arm) => {
         const m = ARM_META[arm];
         const r = results?.[arm];
         return (
-          <div key={arm} className={`${s.row} ${s.model}`} aria-pressed={arm === current} role="option" aria-selected={arm === current}
+          <div key={arm} className={`${s.row} ${s.model}`} role="option" aria-selected={arm === current}
                tabIndex={0} onClick={() => onPick(arm)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPick(arm); } }}>
             <div>
               <div className={s.name}>{arm}</div>
               <div className={s.meta}>{m.cls} · {t(`arm.${arm}` as Key)}</div>
             </div>
             <div className={s.stat}>
-              {r ? (<><b>{fmt(r.deficit_draw, 1)}</b> dB<br />{fmt(r.crps, 3)}</>) : <span style={{ color: "var(--dim-2)" }}>—</span>}
+              {r ? (<><b>{fmt(r.deficit_draw, 1)}</b> dB<br />{fmt(r.crps, 3)}</>) : dash}
             </div>
-            <button type="button" className={s.cube} aria-label={t("arch.open.one", { arm })} title={t("arch.open")}
-                    onClick={(e) => { e.stopPropagation(); onOpen(arm); }}>
-              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.1" aria-hidden="true">
-                <path d="M6 1l4.5 2.5v5L6 11 1.5 8.5v-5z" /><path d="M6 6l4.5-2.5M6 6v5M6 6L1.5 3.5" />
-              </svg>
-            </button>
+            {cube(arm, arm)}
+          </div>
+        );
+      })}
+      <div className={`lbl ${s.listHead}`}><span>{t("rel.head")}</span><span className={s.hint}>{t("rel.hint")}</span></div>
+      {RELEASED_ORDER.map((id) => {
+        const mm = released?.models?.[id];
+        const name = mm?.name ?? RELEASED_META[id].name;
+        const det = mm?.det ?? RELEASED_META[id].det;
+        // no manifest entry (not loaded yet, or an older manifest): no badge rather than a claim
+        const seen = mm && !live && speakerId != null ? mm.seen.includes(speakerId) : null;
+        const assumed = mm?.seen_basis === "assumed";
+        const sets = sota?.models?.[id]?.sets;
+        const wide = sets?.wide, core = sets?.core;
+        return (
+          <div key={id} className={`${s.row} ${s.model} ${live ? s.rowOff : ""}`} role="option" aria-selected={id === current}
+               tabIndex={0} onClick={() => onPick(id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPick(id); } }}>
+            <div>
+              <div className={s.name}>{name}</div>
+              <div className={s.meta}>
+                {t(det ? "rel.det" : "rel.sampler")} · {fmtParams(mm?.params)} · {mm?.steps ?? "—"}
+                {live
+                  ? <span className={s.badge}>{t("rel.nolive.short")}</span>
+                  : seen != null && (
+                    <span className={`${s.badge} ${seen ? s.badgeSeen : ""}`} title={mm?.seen_note}>
+                      {t(seen ? (assumed ? "rel.seen.assumed" : "rel.seen") : "rel.unseen")}
+                    </span>)}
+              </div>
+            </div>
+            <div className={s.stat}>
+              {sets ? (<><b>{fmt(wide?.deficit, 1)}</b> dB<br />{fmt(core?.crps_fair, 3)}</>) : dash}
+            </div>
+            {cube(id, name)}
           </div>
         );
       })}
@@ -103,20 +146,23 @@ export function ModelList({ current, results, onPick, onOpen }: {
   );
 }
 
-export function DrawKnobs({ tau, seed, det, onTau, onTauCommit, onSeed, onNewDraw }: {
-  tau: number; seed: number; det: boolean; onTau: (t: number) => void; onTauCommit: () => void; onSeed: (n: number) => void; onNewDraw: () => void;
+// disabled/why: a released slot has no knobs at all (precomputed draws, no seed, no τ)
+export function DrawKnobs({ tau, seed, det, disabled, why, onTau, onTauCommit, onSeed, onNewDraw }: {
+  tau: number; seed: number; det: boolean; disabled?: boolean; why?: string;
+  onTau: (t: number) => void; onTauCommit: () => void; onSeed: (n: number) => void; onNewDraw: () => void;
 }) {
   const { t } = useT();
+  const off = det || !!disabled;
   return (
-    <div className={s.knobs}>
+    <div className={s.knobs} title={why} data-off={disabled || undefined}>
       <label className={s.k} htmlFor="tau">{t("tau")}</label><span />
-      <input id="tau" type="range" min={0} max={1.5} step={0.05} value={det ? 0 : tau} disabled={det}
+      <input id="tau" type="range" min={0} max={1.5} step={0.05} value={det ? 0 : tau} disabled={off}
              onChange={(e) => onTau(+e.target.value)} onMouseUp={onTauCommit} onTouchEnd={onTauCommit} onKeyUp={onTauCommit} />
-      <span className={s.v}>{(det ? 0 : tau).toFixed(2)}</span>
+      <span className={s.v}>{disabled ? "—" : (det ? 0 : tau).toFixed(2)}</span>
       <div className={s.seedrow}>
         <label className={s.k} htmlFor="seed">{t("seed")}</label>
-        <input id="seed" type="number" min={0} step={1} value={seed} disabled={det} onChange={(e) => onSeed(Math.max(0, Number(e.target.value) | 0))} />
-        <button type="button" className={s.mini} disabled={det} onClick={onNewDraw}>{t("newdraw")} <kbd>N</kbd></button>
+        <input id="seed" type="number" min={0} step={1} value={seed} disabled={off} onChange={(e) => onSeed(Math.max(0, Number(e.target.value) | 0))} />
+        <button type="button" className={s.mini} disabled={off} onClick={onNewDraw}>{t("newdraw")} <kbd>N</kbd></button>
       </div>
     </div>
   );

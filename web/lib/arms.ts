@@ -56,3 +56,40 @@ export const FMAX_HZ = 24000;
 // never asked for. There is no ×2: it was never trained, never evaluated, and only ever ×4 decimated.
 export const RATES = [4, 8] as const;
 export type Rate = (typeof RATES)[number];
+
+// The four released models the demo carries beside the OV50 arms. They cannot run in the browser
+// (1.7 M to 672 M parameters, and NU-Wave 2's eight diffusion steps have no browser port); their slots are precomputed at ×4 by sota/run_models.py and folded in by
+// demo/tools/add_sota.py. Order here is the order in the list, the strip and the ↑/↓ cycle.
+export const RELEASED_ORDER = ["flowhigh", "apbwe", "nuwave2", "audiosr"] as const;
+export type ReleasedId = (typeof RELEASED_ORDER)[number];
+
+export interface ReleasedMeta {
+  name: string;   // the display name, until the manifest's own arrives
+  det: boolean;   // one output (true) or two precomputed draws (false)
+}
+
+export const RELEASED_META: Record<ReleasedId, ReleasedMeta> = {
+  flowhigh: { name: "FLowHigh",         det: true },
+  apbwe:    { name: "AP-BWE",           det: true },
+  nuwave2:  { name: "NU-Wave 2",        det: false },
+  audiosr:  { name: "AudioSR (speech)", det: false },
+};
+
+export function isReleased(s: string): s is ReleasedId {
+  return (RELEASED_ORDER as readonly string[]).includes(s);
+}
+
+// Everything the model list, the ↑/↓ cycle and /architecture/<id> accept: the eight arms, then the four.
+export const MODEL_ORDER = [...ARM_ORDER, ...RELEASED_ORDER] as const;
+export type ModelId = ArmName | ReleasedId;
+
+export function isModel(s: string): s is ModelId {
+  return isArm(s) || isReleased(s);
+}
+
+// A released slot is precomputed at ×4 only; ×8 does not exist for it.
+export const REL_RATE: Rate = 4;
+
+// The readouts a released slot offers: one draw, and for the two samplers a second one.
+export const RELEASED_DRAWS = ["draw", "draw2"] as const;
+export type ReleasedDraw = (typeof RELEASED_DRAWS)[number];

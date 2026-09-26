@@ -1,0 +1,54 @@
+{
+ "flowhigh": {
+  "total": 49403249,
+  "blocks": {
+   "mel": 0,
+   "flow": 35447240,
+   "vocoder": 13956009,
+   "post": 0
+  },
+  "checkpoint": "FLowHigh_indep_adaptive_400k.pt",
+  "state_dict": "the whole `model` dict: run_models.py load_state_dict()s it, BigVGAN included",
+  "excluded": 0,
+  "whole": true
+ },
+ "apbwe": {
+  "total": 29760515,
+  "blocks": {
+   "stft": 0,
+   "amp": 14748673,
+   "phase": 15011842,
+   "istft": 0
+  },
+  "checkpoint": "g_12kto48k",
+  "state_dict": "the generator; the discriminators are training-time",
+  "excluded": 0,
+  "whole": true
+ },
+ "nuwave2": {
+  "total": 1727041,
+  "blocks": {
+   "noise": 0,
+   "embed": 333121,
+   "res": 1393920,
+   "ddim": 0
+  },
+  "checkpoint": "nuwave2_ckpt.ckpt",
+  "state_dict": "`state_dict` under model.*: what run_models.py loads",
+  "excluded": 0,
+  "whole": true
+ },
+ "audiosr": {
+  "total": 672012546,
+  "blocks": {
+   "mel": 90011328,
+   "unet": 258195088,
+   "dec": 323806130,
+   "post": 0
+  },
+  "checkpoint": "pytorch_model.bin",
+  "state_dict": "the U-Net, the conditioning VAE's encoder, and the first-stage VAE decoder + vocoder; not the EMA copy, the CLAP model, the first-stage encoder (training-time; the conditioning branch holds an identical copy) or the schedule buffers",
+  "excluded": 872050149,
+  "whole": false
+ }
+}
