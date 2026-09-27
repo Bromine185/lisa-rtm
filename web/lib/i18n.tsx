@@ -292,7 +292,7 @@ const DICT = {
   "rel.nolive": ["no precomputed output for a recorded speaker — the released models cannot run in this browser", "録音した話者には事前計算の出力がありません — 公開モデルはこのブラウザでは動きません"],
   "rel.nolive.short": ["not for live clips", "ライブ音声は不可"],
   "rel.nofile": ["no precomputed file for this speaker and model", "この話者とモデルの事前計算ファイルはありません"],
-  "rel.norun": ["released models are too large to run in the browser; this slot is precomputed", "公開モデルはブラウザで実行するには大きすぎます。このスロットは事前計算です"],
+  "rel.norun": ["released models run in PyTorch, with no browser port; this slot is precomputed", "公開モデルは PyTorch で動作し、ブラウザ版はありません。このスロットは事前計算です"],
   "rel.no8": ["not available for released models — precomputed at ×{r} only", "公開モデルでは利用不可 — ×{r} のみ事前計算"],
   "rel.knobs": ["no knobs for a released model: precomputed draws, no seed, no τ", "公開モデルには調整項目なし：事前計算のサンプル、シードも τ もなし"],
   "rel.ro.det": ["one output: a deterministic model", "出力は1つ：決定論的モデル"],
@@ -319,7 +319,7 @@ const DICT = {
   "ps.vsceil": ["SNR − ceiling", "SNR − 上限"],
   "ps.crpsfair": ["CRPS fair", "CRPS fair"],
   "ps.spread": ["HB spread · of calibrated", "高域の広がり · 較正比"],
-  "ps.gap": ["gap", "ギャップ"],
+  "ps.gap": ["SNR gap (calibrated: 10 log₁₀ 2/(1+1/M))", "SNR ギャップ（較正時：10 log₁₀ 2/(1+1/M)）"],
   "ps.slope": ["slope · deficit vs HB share · {set}", "傾き · 欠損 対 高域比 · {set}"],
   "ps.slope.note": ["dB of deficit per dB of the utterance's high-band share; 0 = tracks the utterance", "発話の高域比 1 dB あたりの欠損 dB；0 = 発話に追従"],
   "ps.slope.r": ["r {r} · n {n}", "r {r} · n {n}"],
@@ -332,7 +332,7 @@ const DICT = {
   "r.rtf": ["RTF · {cpu}", "RTF · {cpu}"],
   "r.steps": ["steps", "ステップ数"],
   "r.params.note": ["counted", "内訳"],
-  "n.foot.rel": ["Numbers are from sota/score.py on the paper split, written by make_results_sota.py; parameter counts are from the checkpoints (sota/count_params.py), RTF from sota/run_models.py. Nothing on this page is typed in.", "数値は論文分割での sota/score.py の結果を make_results_sota.py が書き出したもの、パラメータ数はチェックポイントから（sota/count_params.py）、RTF は sota/run_models.py から。手入力の数値はありません。"],
+  "n.foot.rel": ["Numbers are from sota/score.py on the paper split, written by make_results_sota.py; parameter counts are from the checkpoints (sota/count_params.py), RTF from sota/bench_rtf.py (idle machine, warm, median of three). Nothing on this page is typed in.", "数値は論文分割での sota/score.py の結果を make_results_sota.py が書き出したもの、パラメータ数はチェックポイントから（sota/count_params.py）、RTF は sota/bench_rtf.py（アイドル状態、ウォームアップ後、3回の中央値）。このページに手入力の数値はありません。"],
 
   // comparison strip
   "cmp.h": ["Against the released models", "公開モデルとの比較"],
@@ -341,8 +341,9 @@ const DICT = {
   "cmp.params": ["params", "パラメータ"],
   "cmp.deficit": ["deficit · wide", "高域欠損 · wide"],
   "cmp.deficit.sub": ["per band / pooled, dB", "帯域ごと / 全帯域, dB"],
-  "cmp.visqol": ["ViSQOL audio · core", "ViSQOL audio · core"],
-  "cmp.crps": ["CRPS fair · core", "CRPS fair · core"],
+  "cmp.visqol": ["ViSQOL audio · wide", "ViSQOL audio · wide"],
+  "cmp.crps": ["CRPS · core", "CRPS · core"],
+  "cmp.mae": ["MAE, one output", "MAE・単一出力"],
   "cmp.spread": ["HB spread · core", "高域の広がり · core"],
   "cmp.vsceil": ["SNR − ceiling · wide", "SNR − 上限 · wide"],
   "cmp.vsceil.sub": ["dB", "dB"],
@@ -351,7 +352,7 @@ const DICT = {
   "cmp.ceil.a": ["SNR ceiling on wide:", "wide での SNR 上限："],
   "cmp.ceil.b": ["(a perfect low band, an empty high band)", "（完全な低域、空の高域）"],
   "cmp.ceil.under": ["; every model in this table is under it", "；この表のすべてのモデルがこれを下回る"],
-  "cmp.rtf.note": ["RTF: released models from sota/run_models.py, whole-file inference in the scored core run on {cpu} (device shown); ours from fast/bench_latency.py, one pass on {ourcpu}. Spread is defined for samplers only.", "RTF：公開モデルは sota/run_models.py の採点用 core 実行でのファイル全体の推論（{cpu}、デバイス表示）；本研究は fast/bench_latency.py の1パス（{ourcpu}）。広がりはサンプラーのみ。"],
+  "cmp.rtf.note": ["RTF: released models from sota/bench_rtf.py, each alone on an idle {cpu}, warm, median of three repeats (device shown); ours from fast/bench_latency.py, one pass on {ourcpu}. Spread is defined for samplers only.", "RTF：公開モデルは sota/bench_rtf.py（アイドル状態の {cpu} で1モデルずつ、ウォームアップ後、3回の中央値、デバイス表示）；本研究は fast/bench_latency.py（{ourcpu} で1パス）。スプレッドはサンプラーのみ定義。"],
   "cmp.pending": ["results.sota not written yet", "results.sota は未出力"],
 
   // architecture page, released

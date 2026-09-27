@@ -9,8 +9,10 @@ Metric definitions come from the notebook via audit.boot (stft, logmag, lsd_db, 
 crps_ensemble, pit_ranks, spread_skill, stream, logmag_ensemble_readout), so every column here is the column
 of the same name in the OV50 datasheet.
 
-INPUT. Every model got the FLowHigh / NU-Wave 2 test input: cheby1(8, 0.05 dB) by sosfiltfilt, resample_poly
-to 12 kHz. Truth is peak 0.95.
+INPUT. Whatever the set's lo12k/ files hold (sota/make_inputs.py): the FLowHigh / NU-Wave 2 test input,
+cheby1(8, 0.05 dB) by sosfiltfilt then resample_poly to 12 kHz, on every set except ourtest_poly and demo
+(plain resample_poly). The naive baseline and the passthrough low band are built from that same file.
+Truth is peak 0.95.
 
 GAIN. Each draw is rescaled so its energy below 5.5 kHz matches the truth's (the band every model is handed).
 A model that copies the low band exactly gets gain 1; the high band is then judged at the level the model put
@@ -57,7 +59,7 @@ import numpy as np
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
-from fast.paper_split_eval import lsd as lsd_paper, down_cheby, up_naive          # noqa: E402
+from fast.paper_split_eval import lsd as lsd_paper, up_naive                      # noqa: E402
 
 WORK = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work")
 FS, CUT, ALIGN = 48000, 6000.0, 5500.0
@@ -191,7 +193,10 @@ def score_utt(args):
     Sy = G["stft"](y, CFG.eval_n_fft, CFG.eval_hop)[0]
     fe = 20 * np.log10(np.abs(Sy).sum(1) + 1e-12); p25, p75 = np.percentile(fe, [25, 75])
     masks = {"loud": fe >= p75, "mid": (fe >= p25) & (fe < p75), "quiet": fe < p25}
-    x_lo = down_cheby(y, 4, FS); nv = up_naive(x_lo, 4, n); nv_lo = fft_split(nv, True)
+    # the naive baseline and every `| pt` low band are built from the input THIS set gave the models
+    # (lo12k/<utt>.wav: Chebyshev on the paper-split sets, resample_poly on ourtest_poly), never recomputed
+    import soundfile as sf
+    x_lo, _ = sf.read(str(ws / "lo12k" / f"{utt}.wav"), dtype="float64"); nv = up_naive(x_lo, 4, n); nv_lo = fft_split(nv, True)
     pt = lambda w: nv_lo + fft_split(w, False)
     truth_lm = lm_hb(y)
     conds = {"naive": (np.stack([nv]), 1.0), "ceiling": (np.stack([fft_split(y, True)]), 1.0)}
@@ -295,7 +300,7 @@ def main():
     meta = {"set": a.set, "n_utts": len(utts), "speakers": sorted({u["utt"].split("_")[0] for u in utts}),
             "seconds": float(sum(u["seconds"] for u in utts)), "band_centres_hz": HB_CENTRES,
             "gain": f"each draw scaled so its energy below {ALIGN:.0f} Hz matches the truth's",
-            "input": "cheby1(8, 0.05 dB) sosfiltfilt + resample_poly to 12 kHz (FLowHigh / NU-Wave 2 test protocol)",
+            "input": json.load(open(ws / "utts.json")).get("input", "cheby1(8, 0.05 dB) sosfiltfilt + resample_poly to 12 kHz"),
             "lsd_2048": "2048/512, log10|X|^2, RMS over frequency, mean over frames; HF/LF at 6 kHz (NU-Wave 2 for_test.py)",
             "lsd_1024": "notebook lsd_db, 1024/256, HB from eval_k_cut", "M_cap": a.M,
             "perceptual": a.perc, "visqol_speech_mapping": sp_map if a.perc else None,

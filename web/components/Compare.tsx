@@ -69,8 +69,9 @@ export function CompareStrip({ sota, results, compact }: { sota: SotaResults | n
               <td>{fmtParams(r.params)}</td>
               <td>{fmt(r.wide?.deficit, 1)} / {fmt(r.wide?.deficit_bb, 1)} dB</td>
               <td>{fmt(r.wide?.vs_ceiling, 1)}</td>
-              <td>{fmt(r.core?.visqol_audio)}</td>
-              <td>{fmt(r.core?.crps_fair, 3)}</td>
+              <td>{fmt(r.wide?.visqol_audio ?? null)}</td>
+              {/* a point model has no pairs, so no fair CRPS: its CRPS is its MAE, and it is labelled as that */}
+              <td>{r.core?.crps_fair != null ? fmt(r.core.crps_fair, 3) : r.core?.crps != null ? <>{fmt(r.core.crps, 3)}<small>{t("cmp.mae")}</small></> : "—"}</td>
               <td title={r.det ? t("rel.det") : undefined}>{r.det ? "—" : fmt(r.core?.spread_hb, 3)}</td>
               <td>{fmt(r.rtf, 3)}{r.device && <small>{r.device}</small>}</td>
             </tr>

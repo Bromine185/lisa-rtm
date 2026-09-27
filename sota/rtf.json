@@ -1,0 +1,70 @@
+{
+ "flowhigh": {
+  "rtf": 1.2369,
+  "rtf_all": [
+   1.2146,
+   1.2369,
+   1.2397
+  ],
+  "device": "cpu",
+  "n_utts": 4,
+  "audio_s": 10.4,
+  "repeats": 3,
+  "torch": "2.2.1",
+  "machine": "Apple M4",
+  "threads": 10,
+  "set": "core",
+  "method": "median over repeats of (sum of run() wall time) / (audio seconds); one warm-up; idle machine"
+ },
+ "apbwe": {
+  "rtf": 0.0715,
+  "rtf_all": [
+   0.0696,
+   0.0722,
+   0.0715
+  ],
+  "device": "cpu",
+  "n_utts": 4,
+  "audio_s": 10.4,
+  "repeats": 3,
+  "torch": "2.2.1",
+  "machine": "Apple M4",
+  "threads": 10,
+  "set": "core",
+  "method": "median over repeats of (sum of run() wall time) / (audio seconds); one warm-up; idle machine"
+ },
+ "nuwave2": {
+  "rtf": 4.9851,
+  "rtf_all": [
+   4.9056,
+   4.9851,
+   5.0288
+  ],
+  "device": "cpu",
+  "n_utts": 4,
+  "audio_s": 10.4,
+  "repeats": 3,
+  "torch": "2.2.1",
+  "machine": "Apple M4",
+  "threads": 10,
+  "set": "core",
+  "method": "median over repeats of (sum of run() wall time) / (audio seconds); one warm-up; idle machine"
+ },
+ "audiosr": {
+  "rtf": 4.6113,
+  "rtf_all": [
+   4.5126,
+   5.0579,
+   4.6113
+  ],
+  "device": "mps",
+  "n_utts": 4,
+  "audio_s": 10.4,
+  "repeats": 3,
+  "torch": "2.2.1",
+  "machine": "Apple M4",
+  "threads": 10,
+  "set": "core",
+  "method": "median over repeats of (sum of run() wall time) / (audio seconds); one warm-up; idle machine"
+ }
+}

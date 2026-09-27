@@ -715,7 +715,7 @@
     "seen_basis": "stated",
     "seen_note": "p236\u2013p238 are in its training set; p360, p361, p374 are not",
     "steps": "1 Euler step (their setting)",
-    "rtf_m4": 1.5341,
+    "rtf_m4": 1.2369,
     "rtf_device": "cpu",
     "machine": "Apple M4",
     "arch": {
@@ -780,7 +780,7 @@
     "seen_basis": "stated",
     "seen_note": "p236\u2013p238 are in its training set; p360, p361, p374 are not",
     "steps": "1 pass",
-    "rtf_m4": 0.5462,
+    "rtf_m4": 0.0715,
     "rtf_device": "cpu",
     "machine": "Apple M4",
     "arch": {
@@ -845,7 +845,7 @@
     "seen_basis": "stated",
     "seen_note": "p236\u2013p238 are in its training set; p360, p361, p374 are not",
     "steps": "8 DDIM steps",
-    "rtf_m4": 7.0714,
+    "rtf_m4": 4.9851,
     "rtf_device": "cpu",
     "machine": "Apple M4",
     "arch": {
@@ -913,7 +913,7 @@
     "seen_basis": "assumed",
     "seen_note": "VCTK is in its training data and the paper does not state a speaker split; assume every VCTK speaker was seen",
     "steps": "50 DDIM steps",
-    "rtf_m4": 5.9424,
+    "rtf_m4": 4.6113,
     "rtf_device": "mps",
     "machine": "Apple M4",
     "arch": {

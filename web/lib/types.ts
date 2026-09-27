@@ -43,7 +43,7 @@ export interface ReleasedModelManifest {
   seen_basis?: SeenBasis;  // absent in an older manifest: read as "stated"
   seen_note: string;
   steps: string;           // e.g. "8 DDIM steps"
-  rtf_m4: number | null;   // wall seconds per second of audio, the scored core run (sota/run_models.py _run.json)
+  rtf_m4: number | null;   // compute seconds per second of audio: sota/rtf.json (bench_rtf.py, idle, warm) else the batch run's _run.json
   rtf_device: string | null;
   machine?: string | null; // the CPU that run was on
   arch?: SotaArch;         // the architecture facts, blocks with measured counts (demo/tools/add_sota.py)

@@ -7,7 +7,8 @@ The batch runs' _run.json wall clocks are not a latency benchmark: they include 
 ran beside the scorer. This loads each model once, warms it up on one utterance, then times `run()` (the
 same function sota/run_models.py calls, so the same inference path) over the first n utterances of the
 set, `repeats` times, and reports the median of the per-repeat RTF = compute seconds / audio seconds.
-One process, one model at a time, nothing else running (the script refuses to start if another
+One process PER MODEL (the repos collide on module names such as utils.py, so run it once with
+--models <m> for each model; results accumulate in rtf.json), nothing else running (the script refuses to start if another
 run_models.py or score.py is alive). Devices as in the batch runs: AudioSR on MPS, the rest on CPU.
 
 Writes sota/rtf.json: {model: {rtf, rtf_all, device, n_utts, audio_s, repeats, torch, machine, threads}}.

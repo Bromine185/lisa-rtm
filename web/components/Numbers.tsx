@@ -165,7 +165,7 @@ function PaperSplit({ entry, sets, refs, det }: { entry: SotaEntry | null | unde
   const ds = (set: "wide" | "core", key: MetricKey, better: (v: number, r: number) => boolean, dp = 2) =>
     refs.map((r) => deltaVs(entry.sets?.[set]?.[key], r.entry?.sets?.[set]?.[key], better, r.name, t, dp));
   // a gated ratio has no single good direction (it should be the same in every row), so its delta is uncoloured
-  const flat = (set: "wide", key: MetricKey) => ds(set, key, HIGHER).map((x) => x && { ...x, cls: "" });
+  const flat = (set: "wide" | "core", key: MetricKey) => ds(set, key, HIGHER).map((x) => x && { ...x, cls: "" });
   const sw = sets?.wide, sc = sets?.core;
   const kw = sw ? (Array.isArray(sw.speakers) ? sw.speakers.length : sw.speakers) : "—";
   const db = (v: number | null | undefined) => fmt(v) + " dB";
@@ -189,11 +189,11 @@ function PaperSplit({ entry, sets, refs, det }: { entry: SotaEntry | null | unde
       <Row k={t("gate.quiet")} v={db(wide?.quiet)} ds={flat("wide", "quiet")} />
       <Row k={t("ps.lsd")} v={fmt(wide?.lsd, 3)} ds={ds("wide", "lsd", LOWER, 3)} />
       <Row k={t("ps.vsceil")} v={db(wide?.vs_ceiling)} ds={ds("wide", "vs_ceiling", HIGHER)} />
+      <Row k={t("ps.visqol")} v={fmt(wide?.visqol_audio)} ds={ds("wide", "visqol_audio", HIGHER)} />
       <Head t={coreHead} />
-      <Row k={t("ps.visqol")} v={fmt(core?.visqol_audio)} ds={ds("core", "visqol_audio", HIGHER)} />
       <Row k={t("ps.crpsfair")} v={fmt(core?.crps_fair, 3)} ds={ds("core", "crps_fair", LOWER, 3)} />
       {!det && core?.spread_hb != null && <Row k={t("ps.spread")} v={fmt(core.spread_hb, 3)} ds={ds("core", "spread_hb", NEAR1, 3)} />}
-      <Row k={t("ps.gap")} v={fmt(core?.gap, 3)} ds={ds("core", "gap", LOWER, 3)} />
+      <Row k={t("ps.gap")} v={fmt(core?.gap, 3)} ds={flat("core", "gap")} />
       <Head t={t("ps.slope", { set: sl?.set ?? "—" })} />
       <Row k={sl ? t("ps.slope.r", { r: fmt(sl.r), n: sl.n }) : "—"} v={fmt(sl?.slope, 3)} ds={slopeDs} />
       <span className={s.note} style={{ gridColumn: "1 / -1" }}>{t("ps.slope.note")}</span>
