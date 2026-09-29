@@ -1,6 +1,6 @@
 # Supplementary material
 
-**The Missing Band Is a Distribution: Bandwidth Extension as a Sampling Problem** (anonymous submission)
+**The Missing Band Is a Distribution: Do Generative Bandwidth-Extension Models Sample It?** (anonymous submission)
 
 Start with `technical_appendix.pdf` (16 pages). The appendix sets out:
 - the protocol, the model and the training;
