@@ -44,6 +44,10 @@ COLUMNS AND IDEALS.
     spread-skill         8 bins of ensemble spread vs RMSE of the ensemble mean; the table shows the
                          RMSE/spread ratio in the lowest and highest spread bin      ideal ~sqrt((M+1)/M)
     gap, gap HB          10 log10(mean_i |y - x_i|^2 / |y - xbar|^2)                   10 log10(2/(1+1/M))
+    gap indep, HB        the gap of draws independent of each other and of the truth, at the utterance's own
+                         energies: 10 log10((E + P)/(E + P/M)), E truth, P mean draw  gap = this: as diverse
+                                                                                      as the level allows
+    spread indep HB      pooled spread of such draws: sum P (1 + 1/M) / sum (E + P/M)
     spread HB            pooled s^2 (1 + 1/M) / |y - xbar|^2 over utterances           ideal 1
     corr_err             || corrcoef(truth groups) - corrcoef(pred groups) ||_F, 16 HB groups, pooled over
                          utterances; from draw 0 and from the ensemble-mean waveform   ideal 0
@@ -179,6 +183,11 @@ def ensemble(y, D, truth_lm):
         ed = np.mean([np.sum((T - x) ** 2) for x in X]); em = np.sum((T - XB) ** 2); s2 = np.sum((X - XB[None]) ** 2) / (M - 1)
         out["gap" + tag] = float(10 * np.log10(ed / em)); out["spread" + tag] = float(s2 * (1 + 1 / M) / em)
         out["_s2" + tag], out["_em" + tag], out["_ed" + tag] = float(s2), float(em), float(ed)
+        # the same measures for draws independent of one another and of the truth, at THIS utterance's measured
+        # energies (truth E, mean draw P): E|y - x_i|^2 = E + P and E|y - xbar|^2 = E + P/M
+        E, P = float(np.sum(T ** 2)), float(np.mean([np.sum(x ** 2) for x in X]))
+        out["gap_indep" + tag] = float(10 * np.log10((E + P) / (E + P / M)))
+        out["_E" + tag], out["_P" + tag] = E, P
     ens = np.stack([lm_hb(d)[: truth_lm.shape[0]] for d in D])
     out["crps"] = G["crps_ensemble"](ens, truth_lm); out["crps_fair"] = crps_fair(ens, truth_lm)
     out["sliced_crps"] = G["crps_ensemble"](ens @ THETA, truth_lm @ THETA)
@@ -285,6 +294,8 @@ def main():
             for tag in ("", "_hb"):
                 S2, EM, ED = (sum(r[k + tag] for r in rs) for k in ("_s2", "_em", "_ed"))
                 g["spread_pooled" + tag] = S2 * (1 + 1 / M) / EM; g["gap_pooled" + tag] = float(10 * np.log10(ED / EM))
+                SE, SP = (sum(r[k + tag] for r in rs) for k in ("_E", "_P"))
+                g["spread_indep_pooled" + tag] = SP * (1 + 1 / M) / (SE + SP / M)
             h = np.sum([r["_pit"] for r in rs], 0).astype(float); h /= h.sum()
             g["pit_hist"] = h.tolist(); g["pit_lo"], g["pit_hi"] = float(h[0]), float(h[-1]); g["pit_end"] = float(h[0] + h[-1])
             sk = np.mean([r["_sk"] for r in rs], 0); g["spread_skill"] = sk.tolist()

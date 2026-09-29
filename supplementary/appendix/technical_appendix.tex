@@ -40,9 +40,9 @@ The scoring harness reproduces the released models' published numbers & LSD/ViSQ
 With a correct low band the squared error is $E(1+p-2c)$; an empty band maximises SNR when $c\approx0$ & Derivation; measured ceiling; NU-Wave~2's published SNR bounds its level & \S\ref{sec:ceiling}, Tab.~\ref{tab:ceiling}, Fig.~\ref{fig:ceiling} \\
 No model recovers the high-band waveform & Coherent fraction $c<0.02$ for every model, 240 utterances & Tab.~\ref{tab:snr} \\
 When $c\approx0$, the SNR gap of independent draws is a function of level & Derivation; measured gap against the independent value & \S\ref{sec:avg}, Tab.~\ref{tab:leveldisp} \\
-FLowHigh is a regressor: one Euler step returns the conditional mean & Code path, derivation, gap 0.08 against 1.61, rank tails 41\% / 46\% & \S\ref{sec:flowhigh-deriv}, \S\ref{sec:flowhigh}, Fig.~\ref{fig:pit} \\
-NU-Wave~2 samples but is too quiet & Gap 0.57 against 0.47; deficit by frame loudness & Tab.~\ref{tab:leveldisp}, Tab.~\ref{tab:levels-wide} \\
-AudioSR is dispersed but biased by band & Per-band levels; rank tails & Fig.~\ref{fig:levels}, Fig.~\ref{fig:pit} \\
+FLowHigh is a regressor: one Euler step returns the conditional mean & Code path, derivation, gap 0.08 against 1.77, rank tails 41\% / 46\% & \S\ref{sec:flowhigh-deriv}, \S\ref{sec:flowhigh}, Fig.~\ref{fig:pit} \\
+NU-Wave~2 samples but is too quiet & Gap 0.57 against 0.63; deficit by frame loudness & Tab.~\ref{tab:leveldisp}, Tab.~\ref{tab:levels-wide} \\
+AudioSR is biased by band and under-diverse for its level & Per-band levels; gap 2.62 against 3.92; rank tails & Fig.~\ref{fig:levels}, Fig.~\ref{fig:pit} \\
 Every model pulls each utterance's level toward the corpus mean & Slope of deficit against the truth's high-band share & Tab.~\ref{tab:slope} \\
 The deficit is set mostly by the loss domain, and closed by an energy score & Eight paired arms of one network & Tab.~\ref{tab:t1}, Tab.~\ref{tab:levels-wide} \\
 \bottomrule
@@ -411,11 +411,15 @@ a pure measure of diversity.
 
 \begin{table}[H]\small\centering
 \resizebox{\linewidth}{!}{\input{../results/tables/level_dispersion_core.tex}}
-\caption{Level against dispersion, \texttt{core}, $M=8$. When $c\approx0$, draws that are mutually independent
-and carry $p$ times the true HB energy give gap $10\log_{10}\frac{1+p}{1+p/M}$ and spread
-$\frac{p(1+1/M)}{1+p/M}$ (from \S\ref{sec:ceiling}), with $p$ from the measured HB level. A model whose gap
-matches the independent value is diverse at its own level, whatever its spread: NU-Wave~2 (0.57 against 0.47)
-and our arms are; FLowHigh (0.08 against 1.61 with its prior restored) is not.}\label{tab:leveldisp}
+\caption{Level against dispersion, \texttt{core}, $M=8$. When $c\approx0$, draws that are mutually independent,
+with truth HB energy $E$ and mean draw HB energy $P$, give gap $10\log_{10}\frac{E+P}{E+P/M}$ and spread
+$\frac{P(1+1/M)}{E+P/M}$ (from \S\ref{sec:ceiling}). The ``if indep.'' columns evaluate these per utterance
+from the measured $E$ and $P$, then average as the measured columns do (gap: mean of dB; spread: pooled). No
+single level $p$ is used: for a model whose bias varies by band it misstates the reference (AudioSR's mean
+per-band deficit is $-1.0$\,dB, its energy-weighted HB level $+2.2$\,dB). A model whose gap matches the
+independent value is diverse at its own level, whatever its spread: NU-Wave~2 (0.57 against 0.63) nearly is,
+and our arms fall 0.12--0.30\,dB short; AudioSR (2.62 against 3.92) and FLowHigh (0.08 against 1.77 with its
+prior restored) are not. HB level: energy-weighted deficit.}\label{tab:leveldisp}
 \end{table}
 
 \begin{table}[H]\small\centering

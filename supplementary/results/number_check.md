@@ -18,19 +18,19 @@ produces; the note column says which value to print.
 | Level: calibrated gap at M = 8 | 2.50 | 2.50 | yes | `10 log10(2/(1+1/M))` |
 | T1 FLowHigh deficit | -1.60 | -1.60 | yes | `sota.models.flowhigh.sets.wide.deficit` |
 | T1 FLowHigh gap (prior restored) | 0.08 | 0.08 | yes | `...flowhigh_std1.sets.core.gap_hb` |
-| T1 FLowHigh gap if independent | 1.61 | 1.61 | yes | `from ...flowhigh_std1.sets.core.deficit_bb` |
+| T1 FLowHigh gap if independent | 1.77 | 1.77 | yes | `...flowhigh_std1.sets.core.gap_indep_hb` |
 | T1 FLowHigh CRPS (prior restored) | 0.682 | 0.682 | yes | `...flowhigh_std1.sets.core.crps_fair` |
 | T1 AP-BWE deficit | -1.38 | -1.38 | yes | `sota.models.apbwe.sets.wide.deficit` |
 | T1 AP-BWE CRPS (= MAE) | 0.777 | 0.777 | yes | `...apbwe.sets.core.crps` |
 | T1 NU-Wave 2 deficit | -7.96 | -7.96 | yes | `sota.models.nuwave2.sets.wide.deficit` |
 | T1 NU-Wave 2 gap | 0.57 | 0.57 | yes | `...nuwave2.sets.core.gap_hb` |
-| T1 NU-Wave 2 gap if independent | 0.47 | 0.47 | yes | `from ...nuwave2.sets.core.deficit_bb` |
+| T1 NU-Wave 2 gap if independent | 0.63 | 0.63 | yes | `...nuwave2.sets.core.gap_indep_hb` |
 | T1 NU-Wave 2 CRPS | 0.583 | 0.583 | yes | `...nuwave2.sets.core.crps_fair` |
 | T1 AudioSR deficit | -0.60 | -0.60 | yes | `sota.models.audiosr.sets.wide.deficit` |
 | T1 AudioSR LSD | 1.561 | 1.561 | yes | `...wide.lsd` |
 | T1 AudioSR ViSQOL | 2.41 | 2.41 | yes | `...wide.visqol_audio` |
 | T1 AudioSR gap | 2.62 | 2.62 | yes | `...audiosr.sets.core.gap_hb` |
-| T1 AudioSR gap if independent | 3.45 | 3.45 | yes | `from ...audiosr.sets.core.deficit_bb` |
+| T1 AudioSR gap if independent | 3.92 | 3.92 | yes | `...audiosr.sets.core.gap_indep_hb` |
 | T1 AudioSR CRPS | 1.243 | 1.243 | yes | `...audiosr.sets.core.crps_fair` |
 | T1 ours point: deficit | -6.18 | -6.18 | yes | `sota.ours.det.sets.wide.deficit` |
 | T1 ours point: LSD | 0.864 | 0.864 | yes | `...wide.lsd` |
@@ -40,7 +40,7 @@ produces; the note column says which value to print.
 | T1 ours sampler: LSD | 0.895 | 0.895 | yes | `...wide.lsd` |
 | T1 ours sampler: ViSQOL | 2.83 | 2.83 | yes | `...wide.visqol_audio` |
 | T1 ours sampler: gap | 2.07 | 2.07 | yes | `...core.gap_hb` |
-| T1 ours sampler: gap if independent | 2.09 | 2.09 | yes | `from ...core.deficit_bb` |
+| T1 ours sampler: gap if independent | 2.37 | 2.37 | yes | `...core.gap_indep_hb` |
 | T1 ours sampler: CRPS | 0.514 | 0.514 | yes | `...core.crps_fair` |
 | Audit: FLowHigh truth below all draws (%) | 41 | 41 | yes | `...flowhigh_std1.sets.core.pit_lo` |
 | Audit: FLowHigh truth above all draws (%) | 46 | 46 | yes | `...flowhigh_std1.sets.core.pit_hi` |

@@ -28,7 +28,7 @@ released 12$\to$48\,kHz systems with the checks used for stochastic super-resolu
 CRPS, rank histograms, spread), after showing that when the high band is incoherent with the truth,
 waveform spread measures output level as much as diversity. FLowHigh ranks first on LSD and ViSQOL yet is a
 regressor: one Euler step returns the conditional mean for any start noise. NU-Wave~2 samples, but
-8--9\,dB too quietly; AudioSR is dispersed but biased by band; every model pulls each utterance's level
+8--9\,dB too quietly; AudioSR is biased by band and under-diverse; every model pulls each utterance's level
 toward the corpus mean. On one 88k-parameter network, the deficit is set mostly by the loss domain and is
 closed by an energy score at no inference cost.
 \end{abstract}
@@ -79,16 +79,16 @@ level}.
 \toprule
 model & deficit & LSD & ViSQOL & gap (indep.) & CRPS \\
 \midrule
-FLowHigh 49M & $-1.60$ & 0.761 & 3.61 & 0.08 (1.61)$^\dagger$ & 0.682$^\dagger$ \\
+FLowHigh 49M & $-1.60$ & 0.761 & 3.61 & 0.08 (1.77)$^\dagger$ & 0.682$^\dagger$ \\
 AP-BWE 30M & $-1.38$ & 0.780 & 3.48 & -- & 0.777$^*$ \\
-NU-Wave 2 1.7M & $-7.96$ & 0.989 & 2.57 & 0.57 (0.47) & 0.583 \\
-AudioSR 672M & $-0.60$ & 1.561 & 2.41 & 2.62 (3.45) & 1.243 \\
+NU-Wave 2 1.7M & $-7.96$ & 0.989 & 2.57 & 0.57 (0.63) & 0.583 \\
+AudioSR 672M & $-0.60$ & 1.561 & 2.41 & 2.62 (3.92) & 1.243 \\
 ours, point 88k & $-6.18$ & 0.864 & 3.13 & -- & 0.889$^*$ \\
-ours, sampler 88k & $-0.70$ & 0.895 & 2.83 & 2.07 (2.09) & 0.514 \\
+ours, sampler 88k & $-0.70$ & 0.895 & 2.83 & 2.07 (2.37) & 0.514 \\
 \bottomrule
 \end{tabular}
-\caption{One scorer. Deficit (dB), LSD, ViSQOL: 240 utterances. Gap (dB; independent-draw value at the
-model's level) and fair CRPS: 32 utterances $\times$ 8 draws. $^\dagger$Prior restored. $^*$CRPS = MAE.}
+\caption{One scorer. Deficit (dB), LSD, ViSQOL: 240 utterances. Gap (dB; independent draws at the
+model's measured energies) and fair CRPS: 32 utterances $\times$ 8 draws. $^\dagger$Prior restored. $^*$CRPS = MAE.}
 \label{tab:released}
 \end{table}
 
@@ -97,15 +97,15 @@ model's level) and fair CRPS: 32 utterances $\times$ 8 draws. $^\dagger$Prior re
 toward $(x_1-x_0)-(1-\sigma)\epsilon$, and it also receives $x_0$ as conditioning, so at $t=0$ it can recover
 $\epsilon$. The optimal field then returns $\mathrm{E}[x_1\mid x_0]+\sigma s\epsilon$ after one Euler step, for any
 start-noise scale $s$; the released script also resets $s$ to $10^{-4}$.
-With the trained prior restored, its draws remain almost identical: the gap is 0.08\,dB against 1.61 for
+With the trained prior restored, its draws remain almost identical: the gap is 0.08\,dB against 1.77 for
 independent draws at its level, and the truth lies below or above all eight draws in 41\% and 46\% of HB
 bins. LSD and ViSQOL rank it first, and nothing in them registers that it does not sample.
 
-\textbf{NU-Wave~2 samples, quietly.} Its gap (0.57\,dB) matches independent draws at its level (0.47): the
+\textbf{NU-Wave~2 samples, quietly.} Its gap (0.57\,dB) matches independent draws at its level (0.63): the
 draws are as diverse as its level allows. What fails is the level: 9.0\,dB under on loud frames and 4.7\,dB
 over on quiet ones. Its small spread (0.094) is a level problem, not a diversity problem.
 
-\textbf{AudioSR is dispersed but biased by band} ($+5$\,dB at 11\,kHz, $-11$\,dB at 21\,kHz; truth above
+\textbf{AudioSR is biased by band and under-diverse} ($+5$\,dB at 11\,kHz, $-11$\,dB at 21\,kHz; truth above
 every draw in 52\% of HB bins). AP-BWE is a point estimate by design.
 
 \textbf{Level regresses per utterance.} Regressing each utterance's deficit on the truth's HB energy share gives slopes of $-0.07$ (FLowHigh), $-0.12$ (AP-BWE), $-0.32$ (NU-Wave~2) and

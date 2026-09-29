@@ -162,19 +162,19 @@ rows = [[f"{r} kHz", f(S["ceiling"][f"snr_{r}k"], 2)] for r in (8, 12, 16, 24)]
 write("ceiling", ["input rate", "empty-band SNR ceiling (dB)"], rows)
 
 # ---- level against dispersion (core, M = 8) -----------------------------------------------------------
-# When the high band is incoherent with the truth (c ~ 0), draws that are mutually independent and carry
-# p times the true HB energy give, in expectation,
-#     gap    = 10 log10((1 + p) / (1 + p/M))          spread = p (1 + 1/M) / (1 + p/M)
-# so both waveform measures are set by the level p, not only by diversity. p is taken from the model's
-# broadband HB deficit on the same utterances (deficit_bb).
+# When the high band is incoherent with the truth (c ~ 0), draws that are mutually independent, with truth HB
+# energy E and mean draw HB energy P, give in expectation
+#     gap    = 10 log10((E + P) / (E + P/M))          spread = P (1 + 1/M) / (E + P/M)
+# so both waveform measures are set by level, not only by diversity. The reference is computed by the scorer
+# per utterance from the measured E and P (gap_indep_hb: mean of dB over utterances, as gap_hb is;
+# spread_indep_hb: pooled, as spread_hb is). No single level p stands in for a model whose bias varies by band.
 rows = []
 for k, t in ROWS:
     g = get(k, t, "core")
     if not g or g.get("gap_hb") is None:
         continue
-    p = 10 ** (g["deficit_bb"] / 10)
-    rows.append([lab(k, t), f(g["deficit_bb"], 1), f(g["gap_hb"], 2), f(10 * math.log10((1 + p) / (1 + p / M)), 2),
-                 f(g["spread_hb"], 3), f(p * (1 + 1 / M) / (1 + p / M), 3), f(g["pit_lo"], 3), f(g["pit_hi"], 3)])
+    rows.append([lab(k, t), f(g["deficit_bb"], 1), f(g["gap_hb"], 2), f(g["gap_indep_hb"], 2),
+                 f(g["spread_hb"], 3), f(g["spread_indep_hb"], 3), f(g["pit_lo"], 3), f(g["pit_hi"], 3)])
 write("level_dispersion_core", ["condition", "HB level (dB)", "gap", "gap if indep.", "spread", "spread if indep.",
                                 "PIT low", "PIT high"], rows)
 
@@ -190,9 +190,8 @@ write("fidelity", ["model", "LSD reported", "LSD ours", "ViSQOL reported", "ViSQ
 
 # ---- the paper's printed numbers, checked --------------------------------------------------------------
 wide = lambda a: arm(a, "wide"); core = lambda a: arm(a, "core")
-def indep_gap(g, M=8):
-    p = 10 ** (g["deficit_bb"] / 10)
-    return 10 * math.log10((1 + p) / (1 + p / M))
+def indep_gap(g):
+    return g["gap_indep_hb"]
 fh1 = rel("flowhigh_std1", "core"); nw = rel("nuwave2", "core"); asr = rel("audiosr", "core")
 nw_c = rel("nuwave2", "wide")["coh"]
 max_c = max(get(k, t, "wide")["coh"] for k, t in ROWS if k != "apbwe_sinc" and get(k, t, "wide"))
@@ -212,19 +211,19 @@ CHECKS = [
     ("Level: calibrated gap at M = 8", "2.50", 10 * math.log10(2 / (1 + 1 / 8)), 2, "10 log10(2/(1+1/M))"),
     ("T1 FLowHigh deficit", "-1.60", rel("flowhigh", "wide")["deficit"], 2, "sota.models.flowhigh.sets.wide.deficit"),
     ("T1 FLowHigh gap (prior restored)", "0.08", fh1["gap_hb"], 2, "...flowhigh_std1.sets.core.gap_hb"),
-    ("T1 FLowHigh gap if independent", "1.61", indep_gap(fh1), 2, "from ...flowhigh_std1.sets.core.deficit_bb"),
+    ("T1 FLowHigh gap if independent", "1.77", indep_gap(fh1), 2, "...flowhigh_std1.sets.core.gap_indep_hb"),
     ("T1 FLowHigh CRPS (prior restored)", "0.682", fh1["crps_fair"], 3, "...flowhigh_std1.sets.core.crps_fair"),
     ("T1 AP-BWE deficit", "-1.38", rel("apbwe", "wide")["deficit"], 2, "sota.models.apbwe.sets.wide.deficit"),
     ("T1 AP-BWE CRPS (= MAE)", "0.777", rel("apbwe", "core")["crps"], 3, "...apbwe.sets.core.crps"),
     ("T1 NU-Wave 2 deficit", "-7.96", rel("nuwave2", "wide")["deficit"], 2, "sota.models.nuwave2.sets.wide.deficit"),
     ("T1 NU-Wave 2 gap", "0.57", nw["gap_hb"], 2, "...nuwave2.sets.core.gap_hb"),
-    ("T1 NU-Wave 2 gap if independent", "0.47", indep_gap(nw), 2, "from ...nuwave2.sets.core.deficit_bb"),
+    ("T1 NU-Wave 2 gap if independent", "0.63", indep_gap(nw), 2, "...nuwave2.sets.core.gap_indep_hb"),
     ("T1 NU-Wave 2 CRPS", "0.583", nw["crps_fair"], 3, "...nuwave2.sets.core.crps_fair"),
     ("T1 AudioSR deficit", "-0.60", rel("audiosr", "wide")["deficit"], 2, "sota.models.audiosr.sets.wide.deficit"),
     ("T1 AudioSR LSD", "1.561", rel("audiosr", "wide")["lsd"], 3, "...wide.lsd"),
     ("T1 AudioSR ViSQOL", "2.41", rel("audiosr", "wide")["visqol_audio"], 2, "...wide.visqol_audio"),
     ("T1 AudioSR gap", "2.62", asr["gap_hb"], 2, "...audiosr.sets.core.gap_hb"),
-    ("T1 AudioSR gap if independent", "3.45", indep_gap(asr), 2, "from ...audiosr.sets.core.deficit_bb"),
+    ("T1 AudioSR gap if independent", "3.92", indep_gap(asr), 2, "...audiosr.sets.core.gap_indep_hb"),
     ("T1 AudioSR CRPS", "1.243", asr["crps_fair"], 3, "...audiosr.sets.core.crps_fair"),
     ("T1 ours point: deficit", "-6.18", wide("det")["deficit"], 2, "sota.ours.det.sets.wide.deficit"),
     ("T1 ours point: LSD", "0.864", wide("det")["lsd"], 3, "...wide.lsd"),
@@ -234,7 +233,7 @@ CHECKS = [
     ("T1 ours sampler: LSD", "0.895", wide("es_dec_erb_l0.1")["lsd"], 3, "...wide.lsd"),
     ("T1 ours sampler: ViSQOL", "2.83", wide("es_dec_erb_l0.1")["visqol_audio"], 2, "...wide.visqol_audio"),
     ("T1 ours sampler: gap", "2.07", core("es_dec_erb_l0.1")["gap_hb"], 2, "...core.gap_hb"),
-    ("T1 ours sampler: gap if independent", "2.09", indep_gap(core("es_dec_erb_l0.1")), 2, "from ...core.deficit_bb"),
+    ("T1 ours sampler: gap if independent", "2.37", indep_gap(core("es_dec_erb_l0.1")), 2, "...core.gap_indep_hb"),
     ("T1 ours sampler: CRPS", "0.514", core("es_dec_erb_l0.1")["crps_fair"], 3, "...core.crps_fair"),
     ("Audit: FLowHigh truth below all draws (%)", "41", 100 * fh1["pit_lo"], 0, "...flowhigh_std1.sets.core.pit_lo"),
     ("Audit: FLowHigh truth above all draws (%)", "46", 100 * fh1["pit_hi"], 0, "...flowhigh_std1.sets.core.pit_hi"),

@@ -20,8 +20,10 @@ Shape (read by web/lib/types.ts `SotaResults`):
     sota.ours[arm] = the same `sets` and `slope` for every OV50 arm on the SAME utterances
     sota.avg       = null (the mean-of-M table has no score file of its own yet; nothing is typed in here)
 Per-set metric keys: lsd, lsd_hf, lsd_lf, deficit, deficit_bb, loud, mid, quiet, snr, vs_ceiling, coh, kappa,
-visqol_audio, nsim_audio, visqol_speech, pesq, crps, crps_fair, sliced_crps, corr_err, gap, gap_hb, spread,
-spread_hb, pit_lo, pit_hi, M. Missing -> null, and the page shows a dash.
+visqol_audio, nsim_audio, visqol_speech, pesq, crps, crps_fair, sliced_crps, corr_err, gap, gap_hb, gap_indep_hb,
+spread, spread_hb, spread_indep_hb, pit_lo, pit_hi, M. Missing -> null, and the page shows a dash.
+gap_indep_hb / spread_indep_hb: independent draws at the model's own measured energies (sota/score.py, or
+sota/gap_indep.py for a run scored before those fields existed).
 """
 import os
 import argparse, json, pathlib, platform, subprocess
@@ -41,8 +43,8 @@ SLOPE_SET = "wide"   # every model has all of `wide`, so every slope shares one 
 OURS = ["det_paper", "det", "es_marg", "es_dec_l0.01", "es_erb_l0.001", "es_erb_l0.01", "es_erb_l0.1", "es_dec_erb_l0.1"]
 KEYS = ["lsd", "lsd_hf", "lsd_lf", "deficit", "deficit_bb", "loud", "mid", "quiet", "snr", "vs_ceiling", "coh", "kappa",
         "visqol_audio", "nsim_audio", "visqol_speech", "pesq_wb", "crps", "crps_fair", "sliced_crps", "corr_err_d0",
-        "gap", "gap_hb", "spread", "spread_pooled_hb", "pit_lo", "pit_hi", "M"]
-RENAME = {"pesq_wb": "pesq", "corr_err_d0": "corr_err", "spread_pooled_hb": "spread_hb"}
+        "gap", "gap_hb", "gap_indep_hb", "spread", "spread_pooled_hb", "spread_indep_pooled_hb", "pit_lo", "pit_hi", "M"]
+RENAME = {"pesq_wb": "pesq", "corr_err_d0": "corr_err", "spread_pooled_hb": "spread_hb", "spread_indep_pooled_hb": "spread_indep_hb"}
 
 
 def num(v):
