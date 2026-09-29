@@ -1,0 +1,5 @@
+condition (one output),CRPS = MAE,sliced,corr err
+AP-BWE,0.777,0.807,0.230
+"AP-BWE, own sinc input",0.775,0.807,0.230
+det_paper,2.853,2.334,1.355
+det,0.889,0.894,0.507

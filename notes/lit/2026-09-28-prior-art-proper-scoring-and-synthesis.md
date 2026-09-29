@@ -402,13 +402,19 @@ And the classical systems chose quiet deliberately, for perceptual reasons.
      - At M = 8 the penalty grows with spread, so it favours collapsed models such as FlowHigh when
        generative models are compared with each other.
      - Switch to the fair form: multiply the pair term by M/(M−1).
+     - **Correction, 2026-09-29.** This applies to the older EVAL12 code on `main`, not to the paper.
+       The paper's CRPS values come from `sota/score.py` (branch `claude/sota-model-diagnosis-822734`),
+       which reports both estimators. Tables 1–2 print its `crps_fair` (FlowHigh 0.682, NU-Wave 2
+       0.583, the ERB arms 0.512–0.515), so the published ranking does not carry this bias. See
+       `supplementary/results/number_check.md`.
    - **Sample size.** 32 utterances × 8 draws is small, and bins are correlated.
      - Use an utterance-level block bootstrap or paired tests, not bin counts (Hamill 2001; Bröcker
        2018; CorrDiff used paired Wilcoxon tests).
      - Baattrup et al. found CRPS stabilised only by about M = 100 in their setting.
    - **Rank tails.** P(truth above all 8 draws) = 1/9 ≈ 11.1% for one tail; both tails together give
-     2/9 ≈ 22.2%. The manuscript's "21 to 24% ... against 11%" reads as one tail, which fits the repo's
-     EVAL12 split (all excess in the top bin). The paper should still say "one tail" and report
+     2/9 ≈ 22.2%. The manuscript's "21 to 24% ... against 11%" is one tail: it is `pit_hi` on `core`
+     (0.211–0.241 for the λ ≥ 0.01 arms; `pit_lo` 0.098–0.111), confirmed 2026-09-29 against the SOTA
+     branch's results. The paper should still say "one tail" and report
      both. A top-only excess is a level bias, a different defect from a narrow ensemble (Hamill
      2001; Heinrich 2021). Uniform ranks are "necessary but not sufficient" for calibration
      (Gneiting et al. 2007 [P]).

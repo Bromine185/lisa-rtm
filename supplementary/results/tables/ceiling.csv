@@ -1,0 +1,5 @@
+input rate,empty-band SNR ceiling (dB)
+8 kHz,19.00
+12 kHz,22.02
+16 kHz,24.67
+24 kHz,30.00

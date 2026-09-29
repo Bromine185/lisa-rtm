@@ -1,0 +1,581 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{times}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,graphicx,xcolor,caption,enumitem,float}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\captionsetup{font=small,labelfont=bf}
+\setlist{itemsep=1pt,topsep=3pt}
+\newcommand{\file}[1]{\path{#1}}
+\newcommand{\E}{\mathbb{E}}
+\graphicspath{{../figures/}}
+
+\title{Technical Appendix\\[2pt]\large The Missing Band Is a Distribution: Bandwidth Extension as a Sampling Problem}
+\author{Anonymous submission}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent This appendix accompanies the two-page abstract. It gives the protocol, the model and training,
+exact metric definitions, the derivations behind the argument, the audit of the released models, every metric
+for every model on every test set, and the limitations. All numbers are generated from
+\file{results/results.json} by \file{results/make_tables.py}; none are typed by hand. The code that produced
+them is in \file{code/}, and listening examples are in \file{audio/}.
+
+\tableofcontents
+
+%------------------------------------------------------------------------------------------------------------
+\section{What each claim rests on}
+
+\begin{table}[H]
+\small\centering
+\begin{tabular}{p{0.34\linewidth}p{0.33\linewidth}p{0.25\linewidth}}
+\toprule
+Claim in the abstract & Evidence & Where \\
+\midrule
+The high band is nearly incoherent with the input & Coherent fraction $c<0.02$ for every model on the Chebyshev input, 240 utterances & Tab.~\ref{tab:snr}, \S\ref{sec:metrics} \\
+An empty high band is the SNR optimum when $c\approx 0$ & $E(1+p-2c)$ decomposition; measured ceiling & \S\ref{sec:ceiling}, Tab.~\ref{tab:ceiling}, Fig.~\ref{fig:ceiling} \\
+Point training leaves the band quiet; one change of objective closes it & Deficit $-21.8$\,dB (L1) to $-0.6$\,dB (energy score, ERB term) & Tab.~\ref{tab:t1}, Tab.~\ref{tab:levels-wide} \\
+Averaging draws rebuilds the deficit & Expected $-10\log_{10}M$ for incoherent draws & \S\ref{sec:avg}; \file{code/sota/mean_of_M.py} \\
+FLowHigh as released is deterministic; restoring its prior does not help & Code path, derivation, spread $2\times10^{-9}$ and $0.023$ & \S\ref{sec:flowhigh}, Fig.~\ref{fig:pit} \\
+Under a proper score the ranking changes & Fair CRPS on high-band log-magnitude, 32 utterances $\times$ 8 draws & Tab.~\ref{tab:t2}, Tab.~\ref{tab:calib} \\
+No model is calibrated & PIT tails, spread ratio, SNR gap & Tab.~\ref{tab:calib}, Fig.~\ref{fig:pit}, Fig.~\ref{fig:spread} \\
+The level regresses toward the corpus mean per utterance & Slope of deficit against the truth's high-band share & Tab.~\ref{tab:slope} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%------------------------------------------------------------------------------------------------------------
+\section{Data and protocol}\label{sec:data}
+
+\paragraph{Corpus.} CSTR VCTK 0.92, microphone 1, resampled to 48\,kHz with \texttt{scipy.signal.resample\_poly},
+peak-normalised to 0.95. Our training set contains every \texttt{p}-speaker with id $<350$ except p236--p238:
+39{,}639 utterances, 37.3\,h. The low-rate input for training is \texttt{resample\_poly} decimation by 4
+(48$\to$12\,kHz). Speakers with id $\ge 350$ (LISA's validation split) and \texttt{s5} are excluded from our
+training, so every speaker of the released models' test split is unseen by our arms.
+
+\paragraph{Test sets.} All three use the evaluation input of FLowHigh and NU-Wave~2: an order-8 Chebyshev~I
+low-pass (0.05\,dB ripple, cut-off 6\,kHz) applied forward-backward (\texttt{sosfiltfilt}), then
+\texttt{resample\_poly} to 12\,kHz. The input is written as 32-bit float, so no model sees quantisation the
+others do not. Truth is trimmed to a multiple of 3840 samples, so every model's hop divides it.
+
+\begin{table}[H]\small\centering
+\begin{tabular}{lllrrl}
+\toprule
+set & speakers & selection & utterances & seconds & draws per utterance \\
+\midrule
+\texttt{wide} & p360--p364, p374, p376, s5 & 30 per speaker, evenly spaced & 240 & 731 & 1 \\
+\texttt{core} & same & 4 per speaker, evenly spaced & 32 & 88 & 8 \\
+\texttt{ourtest} & p236, p237, p238 & 10--11 per speaker & 30 & 165 & 16 (ours), 1 (released) \\
+\bottomrule
+\end{tabular}
+\caption{Test sets. Levels, LSD, SNR and perceptual scores are reported on \texttt{wide}; every probabilistic
+metric on \texttt{core}.}
+\end{table}
+
+\paragraph{Gain convention.} Each output is scaled so that its energy below 5.5\,kHz matches the truth's.
+A model that copies the low band exactly gets gain 1, and its high band is then judged at the level the model
+placed it relative to its own low band.
+
+\paragraph{Who saw which speakers.} Table~\ref{tab:seen}. The \texttt{ourtest} speakers are held out from our
+training but are in the training sets of FLowHigh, NU-Wave~2 and AP-BWE, so \texttt{ourtest} comparisons with
+those models are not fair to our arms. AudioSR's training data includes VCTK with no stated speaker split, so
+it may have seen every test speaker.
+
+\begin{table}[H]\small\centering
+\begin{tabular}{lccc}
+\toprule
+model & \texttt{wide}/\texttt{core} speakers & \texttt{ourtest} speakers & source \\
+\midrule
+ours (all eight arms) & unseen & unseen & our split \\
+FLowHigh, NU-Wave 2, AP-BWE & unseen & \textbf{seen} & NU-Wave 2 split (100 training speakers) \\
+AudioSR (speech) & possibly seen & possibly seen & multi-domain data including VCTK \\
+\bottomrule
+\end{tabular}
+\caption{Training-set overlap with the test speakers.}\label{tab:seen}
+\end{table}
+
+%------------------------------------------------------------------------------------------------------------
+\section{Model and training}\label{sec:model}
+
+\paragraph{Network.} LISA: a 1-D convolutional encoder (channels 16, 32, 64, 32; kernels 7, 3, 3, 1; ReLU)
+turns the 12\,kHz waveform into one latent per input sample. A 5-layer ReLU MLP of width 144 then decodes the
+amplitude at a continuous time coordinate from $[t,z_{i-1},z_i,z_{i+1}]$.
+\begin{itemize}
+\item \textbf{\texttt{LISAS}} concatenates 8 i.i.d.\ $\mathcal N(0,1)$ channels to the encoder input, at the
+input rate: 87{,}777 parameters.
+\item \textbf{\texttt{LISASD}} also appends 4 $\mathcal N(0,1)$ channels per 48\,kHz output sample to the decoder
+input: 88{,}353 parameters. This follows DISCO Nets and EnScale in putting noise deeper in the network.
+\end{itemize}
+A draw is one forward pass with fresh noise; at noise temperature $\tau=0$ the network is deterministic. The
+deterministic arms use the same class and are trained with the noise held at zero.
+
+\paragraph{Objective.} With $y$ the target and $y_1,y_2$ two draws for the same input, every stochastic arm
+minimises the two-draw energy score
+\begin{equation}
+\mathcal L = \tfrac12\big[d(y,y_1)+d(y,y_2)\big]-\tfrac12\, d(y_1,y_2),\qquad
+d = d_{\mathrm{wave}} + \lambda\, d_{\mathrm{spec}} .
+\end{equation}
+\begin{itemize}
+\item $d_{\mathrm{wave}}(a,b)$ is the mean absolute difference of the waveforms.
+\item $d_{\mathrm{spec}}$ averages over three Hann STFTs, $(n_{\mathrm{fft}},\mathrm{hop})\in\{(2048,512),
+(1024,256),(512,128)\}$.
+\item On each STFT it takes the mean of $|\log(|A|+10^{-7})-\log(|B|+10^{-7})|$ (\texttt{es\_marg},
+\texttt{es\_dec}).
+\item In the ERB arms (\texttt{es\_erb}, \texttt{es\_dec\_erb}), it takes half of that plus half the same L1
+on 32 ERB-band log energies, $\tfrac12\log(W|S|^2+10^{-8})$, where $W$ is a 32-band ERB filterbank from 50\,Hz.
+\end{itemize}
+The deterministic arms minimise $d(y,\hat y)$; \texttt{det\_paper} is LISA's released configuration (L1,
+$\lambda=0$). The estimator is unbiased (\S\ref{sec:es}).
+
+\paragraph{Arms.} Table~\ref{tab:t1}. All eight share one batch stream: the sampler is seeded by a fixed label,
+so every arm sees identical segments in identical order, and differences between arms are paired.
+
+\paragraph{Optimisation.}
+\begin{itemize}
+\item Adam, learning rate $10^{-3}$, halved at 20, 40, 50, 60, 70 and 80\% of training (LISA's schedule scaled
+to our step count), so the final rate is $\mathrm{lr}_0/64$.
+\item Gradient-norm clipping at $10^{-3}$, per arm.
+\item Batch 64 one-second segments; 104{,}950 steps, which is 50 epochs of the 37.3\,h corpus.
+\item bf16 autocast on the network, all distances and STFTs in fp32, TF32, fused Adam. The decoder's anchor
+jitter is kept from LISA.
+\item One arm per NVIDIA RTX PRO 6000 (Blackwell) GPU: 105\,ms per step, about 3.1\,h per arm.
+\item One training seed per arm.
+\end{itemize}
+Training curves are in Fig.~\ref{fig:train}; full histories and logs are in \file{results/training/}.
+
+%------------------------------------------------------------------------------------------------------------
+\section{Metric definitions}\label{sec:metrics}
+
+All metrics come from one scorer, \file{code/sota/score.py}, applied to every model's saved outputs. The high
+band (HB) is 6--24\,kHz. Per-draw quantities are averaged over draws, then over utterances.
+\begin{description}[leftmargin=1.2em,style=nextline]
+\item[Deficit] The evaluation STFT is Hann, 1024/256. Take third-octave bands from 6\,kHz to 24\,kHz
+(centres 6.7, 8.5, 10.7, 13.4, 16.9 and 21.3\,kHz). In each band compute $10\log_{10}(E_{\mathrm{out}}/E_{\mathrm{true}})$
+over all frames, then average over bands. 0 is right; negative is too quiet.
+\begin{itemize}
+\item \emph{deficit bb} is the energy-weighted ratio over the whole band.
+\item \emph{loud / mid / quiet} restrict to the truth's frames in the top 25\%, middle 50\% and bottom 25\% of
+frame magnitude.
+\end{itemize}
+\item[LSD] Hann 2048/512, $\log_{10}|X|^2$, RMS over frequency, mean over frames. This is the basis of NU-Wave~2's
+\texttt{for\_test.py}. LSD-HF and LSD-LF split at 6\,kHz.
+\item[SNR] $10\log_{10}(\|y\|^2/\|y-\hat y\|^2)$ per whole utterance, averaged in dB over utterances.
+\begin{itemize}
+\item \emph{Ceiling}: the truth with its HB removed (a brick wall at 6\,kHz).
+\item \emph{vs ceiling}: the model's SNR minus that ceiling.
+\end{itemize}
+\item[Coherent fraction, $\kappa$] Computed per HB third-octave band on the STFT, then averaged over bands:
+$c=\mathrm{Re}\langle Y,W\rangle/\langle Y,Y\rangle$ (the predictable fraction) and
+$\kappa=\mathrm{Re}\langle Y,W\rangle/\langle W,W\rangle$ (1 = informative energy, 0 = energy unrelated to the truth).
+\item[CRPS] The features are HB log-magnitudes $\log(|X|+10^{-8})$ (natural log; one unit is 8.69\,dB) on the
+1024/256 STFT, bins $k\ge128$. For each bin, with $M$ draws $x_1,\dots,x_M$ and truth $y$:
+\[
+\mathrm{CRPS}_{\mathrm{fair}}=\frac1M\sum_j|x_j-y|-\frac{1}{2M(M-1)}\sum_{j\neq k}|x_j-x_k| .
+\]
+This is averaged over bins, frames and utterances. The tables' ``CRPS'' column for an ensemble is this fair
+estimator. The appendix also reports the all-pairs estimator, which divides by $M^2$; its expected value
+exceeds the infinite-ensemble CRPS by $\E|X-X'|/(2M)$ \cite{ferro2008}. A one-output model scores its mean
+absolute error, which is the CRPS of a point forecast.
+\item[Sliced CRPS] The all-pairs CRPS on 32 fixed random unit projections of each frame's HB log-magnitude
+vector. It is sensitive to dependence across bins.
+\item[PIT tails] The rank of the truth among the $M$ draws in each HB bin, pooled over bins and utterances.
+\emph{PIT low} and \emph{PIT high} are the shares where the truth is below all draws and above all draws. For a
+calibrated ensemble each is $1/(M+1)=0.111$ at $M=8$.
+\item[Spread] The pooled ratio $\sum_u s_u^2(1+1/M)\big/\sum_u\|y_u-\bar x_u\|^2$, computed on the HB waveform,
+where $s_u^2$ is the unbiased ensemble variance and $\bar x_u$ the ensemble mean. It is 1 for a calibrated
+ensemble and below 1 when the ensemble is under-dispersed.
+\item[Gap] $10\log_{10}\big(\mathrm{mean}_i\|y-x_i\|^2/\|y-\bar x\|^2\big)$ on the HB waveform. For a
+calibrated ensemble it is $10\log_{10}(2/(1+1/M))=2.50$\,dB at $M=8$ (\S\ref{sec:avg}).
+\item[corr err] $\|C_{\mathrm{true}}-C_{\mathrm{draw}}\|_F$, where $C$ is the correlation matrix of 16 HB
+frequency groups of log-magnitude, pooled over frames and utterances.
+\item[Slope] The least-squares slope of the per-utterance deficit (dB) against the truth's HB energy share (dB),
+on \texttt{wide} ($n=240$). A slope of 0 means the model tracks each utterance's brightness; $-1$ means it
+emits a fixed level.
+\item[Perceptual] ViSQOL v3 in audio mode at 48\,kHz (and NSIM), and in speech mode at 16\,kHz; wide-band PESQ.
+All on draw 0.
+\end{description}
+
+%------------------------------------------------------------------------------------------------------------
+\section{Derivations}\label{sec:deriv}
+
+\subsection{The high-band error and the SNR ceiling}\label{sec:ceiling}
+Let the truth's HB have energy $E$, the output's HB energy $pE$, and $c=\mathrm{Re}\langle Y_H,W_H\rangle/E$.
+With a perfect low band,
+\begin{equation}
+\|y-\hat y\|^2=\|Y_H-W_H\|^2=E+pE-2cE=E(1+p-2c).
+\end{equation}
+An empty band ($p=c=0$) costs exactly $E$, so its SNR is the ceiling $C\approx-10\log_{10}(\text{HB share})$.
+A model beats $C$ only if $c>p/2$. An incoherent band at the right level ($p=1$, $c\approx0$) costs
+$10\log_{10}2=3.0$\,dB. This matches the measured $-2.8$\,dB of FLowHigh, $-3.1$\,dB of AP-BWE and $-2.8$\,dB of
+our sampler against the ceiling on \texttt{wide} (Tab.~\ref{tab:snr}).
+
+Conversely, a reported SNR $S$ bounds the HB level: $p\le10^{(C-S)/10}-1$, since any low-band error only
+lowers $S$. Applied to NU-Wave~2's own Table~1, where the ``Input'' row is its ceiling, this gives
+$p\le0.12$ at 12\,kHz, i.e.\ at most $-9.1$\,dB. We measure a broadband deficit of $-8.9$\,dB (\S\ref{sec:pred}).
+The ceiling measured on our 240 utterances is in Table~\ref{tab:ceiling}, and reported SNRs against it in
+Fig.~\ref{fig:ceiling}.
+
+\subsection{Averaging draws, and the calibration target}\label{sec:avg}
+For draws $x_1,\dots,x_M$ with HB components that are mutually incoherent and of equal energy,
+$\E\|\bar x_H\|^2=\E\|x_H\|^2/M$: the waveform mean loses $10\log_{10}M$\,dB. A regressor trained on
+squared error estimates the $M\to\infty$ mean, which is the argument for why point training yields a quiet band.
+
+If $y$ and the $x_i$ are exchangeable given the input (a calibrated sampler),
+$\E\|y-x_i\|^2=2\sigma^2$ and $\E\|y-\bar x\|^2=\sigma^2(1+1/M)$. This gives the gap target
+$10\log_{10}(2/(1+1/M))$ and the spread normalisation above.
+
+The log-domain mean behaves differently. If a bin's power is exponentially distributed, as for a circular
+Gaussian bin, then $\E\log P=\log\E P-\gamma$. The per-bin mean of log-magnitudes therefore sits
+$10\gamma/\ln10=2.51$\,dB below the draws' energy as $M\to\infty$, where $\gamma$ is the Euler--Mascheroni
+constant.
+
+\paragraph{Scorer check on synthetic data.} Build a set whose HB draws are fresh noise of the true envelope and
+level, so the truth is exchangeable with the draws by construction.
+\begin{itemize}
+\item \file{score.py} returns gap 2.50\,dB (target 2.50), spread 0.999 (target 1), and PIT tails 0.109 and 0.125
+(target 0.111).
+\item \file{mean_of_M.py} returns waveform-mean deficits of $-3.01$, $-6.02$ and $-9.03$\,dB at $M=2,4,8$
+(predicted $-3.01$, $-6.02$, $-9.03$), and a log-mean deficit of $-2.63$\,dB at $M=8$ (limit $-2.51$).
+\end{itemize}
+The mean-of-$M$ numbers quoted in the abstract (``Averaging rebuilds the deficit'') were computed outside the
+committed pipeline. \file{code/sota/mean_of_M.py} is the committed version of that computation, and
+\file{code/sota/run_all.sh} runs it.
+
+\subsection{The two-draw energy score: unbiased and proper}\label{sec:es}
+For any $d$, $\E\big[\tfrac12(d(y,Y_1)+d(y,Y_2))-\tfrac12 d(Y_1,Y_2)\big]=\E d(y,Y)-\tfrac12\E d(Y,Y')$, the
+energy score, with no finite-ensemble bias \cite{gneiting2007,gritsenko2020}. Its propriety depends on $d$.
+
+Here $d$ is an $L_1$ sum over waveform samples and over STFT and ERB features. The energy score of a sum of
+coordinatewise absolute differences is the sum of per-coordinate CRPS terms. It is therefore proper, and
+strictly proper for the marginal distribution of each coordinate, but not for their joint distribution: the
+$L_1$ metric on $\mathbb R^n$ is of negative type but not of strong negative type.
+
+The multi-scale STFT and ERB terms add transformed coordinates, which keeps the score proper
+\cite{allen2023}, but dependence between bins is constrained only through those transforms. This is why the
+sliced CRPS and the band-correlation error are reported next to the per-bin CRPS.
+
+\subsection{CRPS of a point forecast}\label{sec:point}
+For a point forecast $m$, CRPS equals $\E|Y-m|$. For any $m$, $\tfrac12\E|Y-Y'|\le\E|Y-m|$, so a calibrated
+sampler has lower expected CRPS than every point forecast. The comparison between samplers and deterministic
+models on CRPS (Table~\ref{tab:t1}) is therefore expected by construction. The informative comparisons are
+among ensembles, and between ensembles and the calibration targets.
+
+\subsection{One Euler step of FLowHigh returns the conditional mean}\label{sec:flowhigh-deriv}
+FLowHigh's path (\texttt{independent\_cfm\_adaptive}) trains on $x_t=t\,x_1+(1-t)x_0+\sigma_t\epsilon$ with
+$\sigma_t=1-(1-\sigma_{\min})t$ and target $u=(x_1-x_0)-(1-\sigma_{\min})\epsilon$. Here $x_0$ is the input's mel
+spectrogram, $x_1$ the target's, and $\sigma_{\min}=10^{-4}$.
+
+In training, the network at $t=0$ sees $x=x_0+\epsilon$ together with $x_0$ (as conditioning), so
+$\epsilon=x-x_0$ is identified. The optimal field is therefore
+$v^*(x,0)=\E[x_1\mid x_0]-x_0-(1-\sigma_{\min})(x-x_0)$. Starting instead from $x=x_0+s\epsilon$, one Euler step
+returns
+\begin{equation}
+x+v^*(x,0)=\E[x_1\mid x_0]+\sigma_{\min}\,s\,\epsilon ,
+\end{equation}
+the conditional mean for any start-noise scale $s$, then a deterministic vocoder. This follows from the
+rectified-flow identity $v(x,t)=\E[X_1-X_0\mid X_t=x]$ \cite{liu2022}. Restoring the trained prior ($s=1$) cannot
+restore the spread at one step (\S\ref{sec:flowhigh}).
+
+%------------------------------------------------------------------------------------------------------------
+\section{The released models}\label{sec:released}
+
+Each model runs through its own inference code on the same input (\file{code/sota/run_models.py}), with the
+seed set per draw.
+
+\begin{table}[H]\small\centering
+\begin{tabular}{p{0.13\linewidth}p{0.3\linewidth}p{0.2\linewidth}p{0.27\linewidth}}
+\toprule
+model & release used & sampling & notes \\
+\midrule
+FLowHigh & official code (MIT), \texttt{FLowHigh\_indep\_adaptive\_400k} + BigVGAN 48\,kHz & 1 Euler step (their setting) & deterministic as shipped (\S\ref{sec:flowhigh}) \\
+NU-Wave 2 & official code (BSD), official checkpoint & 8 DDIM steps, their schedule & loaded without pytorch-lightning; weights unchanged \\
+AP-BWE & official code (MIT), 12$\to$48\,kHz checkpoint & one pass & not level-invariant; fed at the stored level \\
+AudioSR & official package, \texttt{speech} checkpoint & 50 DDIM steps, guidance 3.5 (CLI defaults) & its low band also varies between draws \\
+\bottomrule
+\end{tabular}
+\caption{Released models as run. AP-BWE was also scored on its own paper's sinc input (``own sinc input'' rows).}
+\end{table}
+
+\subsection{FLowHigh}\label{sec:flowhigh}
+The released \texttt{inference.py} calls \texttt{sample(..., std\_2 = 1.)} without \texttt{std\_1}. Inside
+\texttt{sample()}, \texttt{if std\_1 is None or std\_2 is None: std\_1 = 1.0; std\_2 = self.sigma}. So the start
+point is $x_0+10^{-4}\epsilon$, while training starts from $x_0+\epsilon$ ($\sigma_0=1$). The README recommends
+\texttt{--time\_step 1 --sigma 0.0001}. The explicit \texttt{std\_2 = 1.} suggests the override is unintended.
+\file{code/patches/flowhigh_inference_restore_prior.diff} is the one-line change that keeps the trained prior.
+
+Measured on \texttt{core}:
+\begin{itemize}
+\item As shipped, the HB spread ratio is $2\times10^{-9}$.
+\item With the prior restored it is $0.023$, and the truth falls below or above all eight draws in 41\% and 46\%
+of HB bins (Fig.~\ref{fig:pit}).
+\end{itemize}
+This is what \S\ref{sec:flowhigh-deriv} predicts: the override is real, but one-step sampling is what forces
+the mean. In Table~\ref{tab:t2}, FLowHigh's deficit, LSD and ViSQOL are as shipped, and its spread and CRPS are
+from the prior-restored run, the most favourable reading for it.
+
+\subsection{Cost}
+\begin{table}[H]\small\centering
+\input{../results/tables/cost.tex}
+\caption{Parameters, and real-time factor (wall seconds per second of audio) on an Apple M4, each model alone,
+warm, median of three. Our 88\,k network runs at about 0.017 on the same CPU.}
+\end{table}
+
+%------------------------------------------------------------------------------------------------------------
+\section{Results}\label{sec:results}
+
+\subsection{The two tables of the abstract}
+\begin{table}[H]\small\centering
+\input{../results/tables/table1_arms.tex}
+\caption{Eight arms of one network (Table~1 of the abstract). Deficit on \texttt{wide} (240 utterances, one
+draw); step = change of deficit against the arm in brackets. Spread and CRPS on \texttt{core} (32 utterances,
+8 draws); a deterministic arm's CRPS is its MAE.}\label{tab:t1}
+\end{table}
+
+\begin{table}[H]\small\centering
+\input{../results/tables/table2_released.tex}
+\caption{Released models against two of our arms (Table~2 of the abstract). Deficit, LSD and ViSQOL (audio
+mode) are on \texttt{wide}; spread and CRPS on \texttt{core}; slope on \texttt{wide} ($n=240$ for every
+model). FLowHigh's spread and CRPS are with its prior restored. The slope column is the committed
+240-utterance computation; the abstract's slope column came from an earlier pool of 270 utterances, and
+\texttt{results/number\_check.md} lists the differences.}\label{tab:t2}
+\end{table}
+
+\subsection{Levels}
+\begin{table}[H]\small\centering
+\resizebox{\linewidth}{!}{\input{../results/tables/levels_wide.tex}}
+\caption{\texttt{wide}: deficits (dB) and LSD for every condition. Loud, mid and quiet are the truth's frames by
+loudness. NU-Wave~2's band is $-9.0$\,dB on loud frames and $+4.7$\,dB on quiet ones: it stays on between
+words.}\label{tab:levels-wide}
+\end{table}
+
+\begin{table}[H]\small\centering
+\resizebox{\linewidth}{!}{\input{../results/tables/levels_core.tex}}
+\caption{\texttt{core}, the utterances on which calibration is measured.}
+\end{table}
+
+\begin{table}[H]\small\centering
+\resizebox{0.9\linewidth}{!}{\input{../results/tables/levels_ourtest.tex}}
+\caption{\texttt{ourtest} (p236--p238). These speakers are in the training sets of FLowHigh and AP-BWE
+(Table~\ref{tab:seen}).}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.8\linewidth]{sota_levels.png}
+\caption{High-band level per third-octave band on \texttt{wide}. AudioSR's small mean deficit hides $+5$\,dB at
+11\,kHz and $-11$\,dB at 21\,kHz.}\label{fig:levels}
+\end{figure}
+
+\subsection{SNR, the ceiling, and coherence}
+\begin{table}[H]\small\centering
+\input{../results/tables/ceiling.tex}
+\caption{Empty-band SNR ceiling on \texttt{wide} (true low band, nothing above the input's Nyquist frequency),
+per input rate.}\label{tab:ceiling}
+\end{table}
+
+\begin{table}[H]\small\centering
+\input{../results/tables/snr_wide.tex}
+\caption{\texttt{wide}. Every model sits below the ceiling. The coherent fraction is below 0.02 for every model
+on the Chebyshev input; AP-BWE on its own sinc input reaches 0.022.}\label{tab:snr}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.75\linewidth]{sota_ceiling.png}
+\caption{Reported SNRs from the literature against the ceiling measured on the same test speakers. Markers
+above the line come from protocols that differ from the ceiling's, as labelled (speakers seen in training, or
+one batch of eight clips).}\label{fig:ceiling}
+\end{figure}
+
+\subsection{Calibration and proper scores}
+\begin{table}[H]\small\centering
+\resizebox{\linewidth}{!}{\input{../results/tables/calibration_core.tex}}
+\caption{\texttt{core}, $M=8$. Ideals: gap 2.50\,dB, spread 1, PIT low = PIT high = 0.111, corr err 0.
+``CRPS'' is the all-pairs estimator; ``CRPS fair'' is the one used in the abstract.}\label{tab:calib}
+\end{table}
+
+\begin{table}[H]\small\centering
+\input{../results/tables/point_models_core.tex}
+\caption{One-output models on \texttt{core}: their CRPS is their MAE.}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{sota_pit.png}
+\caption{Rank of the truth among eight draws, HB log-magnitude bins, \texttt{core}. Dashed: flat. FLowHigh
+collapses to a point. AudioSR puts the truth above every draw in 52\% of bins, a level bias. Our sampler's
+excess is one-sided (top tail 0.21, bottom 0.11): a residual level bias rather than too narrow an ensemble.}\label{fig:pit}
+\end{figure}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.7\linewidth]{sota_calibration.png}
+\caption{HB spread ratio, \texttt{core}. 1 = calibrated.}\label{fig:spread}
+\end{figure}
+
+\subsection{Level against brightness}
+\begin{table}[H]\small\centering
+\input{../results/tables/slope_wide.tex}
+\caption{Slope of the per-utterance deficit against the truth's HB share, \texttt{wide}. The two models that read
+a whole frame or more (FLowHigh, AP-BWE) track the utterance; every objective we trained sits between $-0.20$ and
+$-0.35$, whatever its mean level.}\label{tab:slope}
+\end{table}
+
+\subsection{Perceptual scores}
+\begin{table}[H]\small\centering
+\input{../results/tables/perceptual_wide.tex}
+\caption{\texttt{wide}, draw 0. ViSQOL audio mode spans 1.57 (empty band) to 4.73 (true band) on this task.
+Speech-mode ViSQOL and PESQ stop at 8\,kHz and see only 6--8\,kHz of the missing band.}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{sota_pareto.png}
+\caption{Quality against size and speed, \texttt{core}. This figure uses the all-pairs CRPS and FLowHigh as
+shipped; Table~\ref{tab:t2} uses the fair estimator and FLowHigh with its prior restored.}
+\end{figure}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{training_curves.png}
+\caption{Training and validation curves of the eight arms (one run each, identical batches).}\label{fig:train}
+\end{figure}
+
+%------------------------------------------------------------------------------------------------------------
+\section{Predictions written before scoring}\label{sec:pred}
+Four predictions about the released models were recorded before any of their outputs was scored.
+\begin{description}[leftmargin=1.2em]
+\item[P1] NU-Wave~2 at 12\,kHz is too quiet: broadband ratio below $-6$\,dB unless $c>0.1$.
+\emph{Held}: $-8.9$\,dB, $c=0.009$.
+\item[P2] Every sampler is under-dispersed; refuted for a model whose SNR gap is within 20\% of 2.50\,dB.
+\begin{itemize}
+\item \emph{Held} for FLowHigh (0.00; 0.08 with the prior restored) and NU-Wave~2 (0.57).
+\item \emph{Refuted} for AudioSR (2.62) and, by this criterion, for our sampler (2.07, i.e.\ 17\% short).
+\end{itemize}
+Our sampler's pooled spread ratio of 0.46 says it is under-dispersed. The dB-compressed gap is the weaker
+test, and we report both.
+\item[P3] No released model's SNR exceeds the empty-band ceiling on the same utterances. \emph{Held}: from
+$-0.8$\,dB (NU-Wave~2) to $-6.6$\,dB (AudioSR).
+\item[P4] FLowHigh with its prior restored keeps an HB spread below 0.1 of calibrated. \emph{Held}: 0.023.
+\end{description}
+
+%------------------------------------------------------------------------------------------------------------
+\section{Notes on the main text}\label{sec:notes}
+Items where the abstract's wording or numbers differ from what the committed pipeline supports.
+\begin{itemize}
+\item \textbf{Corpus.} VCTK~0.92, not~0.9.
+\item \textbf{Table 1.} The \texttt{es\_dec} step is $-0.07$\,dB, which prints as $-0.1$, not 0.0.
+\item \textbf{Table 2 slope column.} The committed 240-utterance values are FLowHigh $-0.07$, AP-BWE $-0.12$,
+NU-Wave~2 $-0.32$, AudioSR $-0.34$, det $-0.22$ and es\_dec\_erb $-0.23$. The caption's ``270 utterances'' pool
+(\texttt{wide} plus \texttt{ourtest}) is not in the committed code, and \texttt{ourtest} contains speakers the
+released models were trained on.
+\item \textbf{``c $<$ 0.02''.} This holds for every model on the Chebyshev input (maximum 0.016, AP-BWE). AP-BWE
+on its own sinc input reaches 0.022.
+\item \textbf{``21 to 24\%''.} This is the one-tailed PIT high for the five arms with $\lambda\ge0.01$ (ideal
+11.1\%). The $\lambda=0.001$ arm is at 42\%.
+\item \textbf{Samplers against det on CRPS.} The CRPS comparison between samplers and det is expected by
+construction (\S\ref{sec:point}). The ranking among ensembles is the informative part.
+\item \textbf{``Strictly proper''.} The training loss is proper, and strictly proper only per coordinate
+(\S\ref{sec:es}).
+\item \textbf{``Our best sampler spread of 0.464''.} 0.464 is the arm carried into Table~2
+(\texttt{es\_dec\_erb}); the widest arm is \texttt{es\_marg} at 0.526.
+\item \textbf{``Three held-out voices''.} p236--p238 are held out from our training but seen by FLowHigh,
+NU-Wave~2 and AP-BWE.
+\item \textbf{Averaging paragraph.} Its numbers came from an ad hoc computation; \file{code/sota/mean_of_M.py} is
+the committed version (\S\ref{sec:avg}).
+\item \textbf{Blau and Michaeli's perception index.} That index concerns the marginal $p(\hat y)$. The result
+that a consistent estimator with perfect perceptual quality must be a posterior sampler is from
+\cite{ohayon2023}. BWE with low-band passthrough is consistent by construction, which is why we argue for
+committing to one draw. Deterministic estimators can reach perfect perception at lower distortion when
+consistency is not required \cite{freirich2021}.
+\end{itemize}
+
+%------------------------------------------------------------------------------------------------------------
+\section{Limitations}\label{sec:limits}
+\begin{itemize}
+\item \textbf{No listening test.} ViSQOL and LSD favour FLowHigh and AP-BWE; CRPS favours the samplers. Which
+ordering listeners share is not settled here. A proper score ranks predictive distributions, not the
+perceptual quality of one draw.
+\item \textbf{Small calibration set, one seed.} 32 utterances $\times$ 8 draws; one training seed per arm.
+Ranks and bins are correlated within an utterance, so binomial error bars would be too narrow. Utterance-level
+bootstrap intervals need the per-utterance score files, which \file{score.py} writes but which are not
+included here.
+\item \textbf{Scored features.} CRPS is scored per bin on HB log-magnitude. It is proper for each marginal,
+not for the joint (\S\ref{sec:es}), and the logarithm weights quiet bins heavily. Sliced CRPS and corr err
+cover part of the joint.
+\item \textbf{Different spaces.} Spread and gap are measured on the HB waveform; CRPS and PIT on log-magnitude.
+\item \textbf{Input-filter mismatch.} Our arms were trained on \texttt{resample\_poly} input and tested on the
+Chebyshev input. On p236--p238 this moves the deficit by 0.04--0.07\,dB.
+\item \textbf{Training-data overlap.} \texttt{ourtest} is seen by three released models, and AudioSR's data may
+include every test speaker (Table~\ref{tab:seen}).
+\item \textbf{One test corpus.} VCTK read speech only, 12$\to$48\,kHz only for the calibration results.
+\end{itemize}
+
+%------------------------------------------------------------------------------------------------------------
+\section{Related work: proper scoring and this argument}\label{sec:related}
+\begin{itemize}
+\item \textbf{BWE evaluation.} Evaluation sections of 119 BWE and audio super-resolution papers (2017 to
+September 2026) were searched. None evaluates with a strictly proper scoring rule or a calibration
+diagnostic, and none reports a held-out likelihood, including models trained by likelihood (WaveNet BWE,
+WSRGlow, UDM+, CVAE BWE).
+\begin{itemize}
+\item Diffusion restoration work suggests the spread of several draws as an uncertainty measure
+\cite{lemercier2024}.
+\item Inference-time search measures spread across AudioSR draws but treats it as noise to select over
+\cite{jin2026}.
+\item BABE and CQT-Diff add set-level Fr\'echet distances \cite{moliner2024}.
+\end{itemize}
+\item \textbf{Other fields.} The protocol used here (CRPS, rank histograms, spread-skill) is standard in
+stochastic downscaling of weather and climate fields, which is super-resolution by another name
+\cite{leinonen2021,harris2022,mardani2025}. A general inverse-problem version was proposed in 2026
+\cite{baattrup2026}.
+\item \textbf{Earlier statements of the argument.} The steps before it are established:
+\begin{itemize}
+\item BWE is ill-posed \cite{jax2002,bruna2016};
+\item regression returns a muffled mean \cite{zen2009,lemercier2023storm,fu2026};
+\item SNR rewards an empty band \cite{su2021,han2022}.
+\end{itemize}
+Speech synthesis also found that samples beat the mean only when the model is accurate \cite{henter2018}, and
+classical BWE biased the band quieter on purpose, because over-estimation is judged more harshly
+\cite{nilsson2001}.
+\end{itemize}
+Our contribution is the measurement applied to released BWE systems, and what it finds there.
+
+%------------------------------------------------------------------------------------------------------------
+\section{Reproducing}
+\begin{enumerate}
+\item \textbf{Environment.} \file{code/README.md} lists the three Python environments. It also gives two CPU
+tests (31 and 18 checks), which pass on this snapshot.
+\item \textbf{Train.} \file{code/fast/train_arm.py}, one arm per GPU, about 3\,h each.
+\item \textbf{Evaluate.} \file{code/sota/run_all.sh}: inputs, released models, our arms, the scorer, the
+mean-of-$M$ table and the figures.
+\item \textbf{Tables.} \file{results/make_tables.py} rebuilds every table in this appendix and checks each
+number printed in the abstract (\file{results/number_check.md}: 61 of 67 match; the six differences are listed
+in \S\ref{sec:notes}).
+\end{enumerate}
+
+\begin{thebibliography}{99}\small
+\bibitem{allen2023} S.~Allen, D.~Ginsbourger, J.~Ziegel. Evaluating forecasts for high-impact events using transformed kernel scores. \emph{SIAM/ASA J.\ Uncertainty Quantification} 11, 2023.
+\bibitem{baattrup2026} M.~H.~Baattrup et al. Pointwise metrics mislead: an evaluation protocol for multimodal inverse problems. arXiv:2605.22891, 2026.
+\bibitem{bruna2016} J.~Bruna, P.~Sprechmann, Y.~LeCun. Super-resolution with deep convolutional sufficient statistics. ICLR 2016.
+\bibitem{ferro2008} C.~A.~T.~Ferro, D.~S.~Richardson, A.~P.~Weigel. On the effect of ensemble size on the discrete and continuous ranked probability scores. \emph{Meteorological Applications} 15, 2008.
+\bibitem{freirich2021} D.~Freirich, T.~Michaeli, R.~Meir. A theory of the distortion-perception tradeoff in Wasserstein space. NeurIPS 2021.
+\bibitem{fu2026} S.-W.~Fu et al. Rethinking training targets, architectures and data quality for universal speech enhancement. arXiv:2603.02641, 2026.
+\bibitem{gneiting2007} T.~Gneiting, A.~E.~Raftery. Strictly proper scoring rules, prediction, and estimation. \emph{JASA} 102, 2007.
+\bibitem{gritsenko2020} A.~Gritsenko et al. A spectral energy distance for parallel speech synthesis. NeurIPS 2020.
+\bibitem{han2022} S.~Han, J.~Lee. NU-Wave 2: A general neural audio upsampling model for various sampling rates. Interspeech 2022.
+\bibitem{harris2022} L.~Harris et al. A generative deep learning approach to stochastic downscaling of precipitation forecasts. \emph{JAMES} 14, 2022.
+\bibitem{henter2018} G.~E.~Henter, S.~King, T.~Merritt, G.~Degottex. Analysing shortcomings of statistical parametric speech synthesis. arXiv:1807.10941, 2018.
+\bibitem{jax2002} P.~Jax, P.~Vary. An upper bound on the quality of artificial bandwidth extension of narrowband speech signals. ICASSP 2002.
+\bibitem{jin2026} Y.~Jin et al. Inference-time scaling for diffusion-based audio super-resolution. AAAI 2026.
+\bibitem{leinonen2021} J.~Leinonen, D.~Nerini, A.~Berne. Stochastic super-resolution for downscaling time-evolving atmospheric fields with a generative adversarial network. \emph{IEEE TGRS} 59, 2021.
+\bibitem{lemercier2023storm} J.-M.~Lemercier, J.~Richter, S.~Welker, T.~Gerkmann. StoRM: A diffusion-based stochastic regeneration model for speech enhancement and dereverberation. \emph{IEEE/ACM TASLP} 31, 2023.
+\bibitem{lemercier2024} J.-M.~Lemercier et al. Diffusion models for audio restoration: a review. \emph{IEEE Signal Processing Magazine} 41(6), 2024.
+\bibitem{liu2022} X.~Liu, C.~Gong, Q.~Liu. Flow straight and fast: learning to generate and transfer data with rectified flow. arXiv:2209.03003, 2022.
+\bibitem{mardani2025} M.~Mardani et al. Residual corrective diffusion modeling for km-scale atmospheric downscaling. \emph{Communications Earth \& Environment} 6, 2025.
+\bibitem{moliner2024} E.~Moliner, F.~Elvander, V.~V\"alim\"aki. Blind audio bandwidth extension: a diffusion-based zero-shot approach. \emph{IEEE/ACM TASLP} 32, 2024.
+\bibitem{nilsson2001} M.~Nilsson, W.~B.~Kleijn. Avoiding over-estimation in bandwidth extension of telephony speech. ICASSP 2001.
+\bibitem{ohayon2023} G.~Ohayon, T.~Adrai, M.~Elad, T.~Michaeli. Reasons for the superiority of stochastic estimators over deterministic ones: robustness, consistency and perceptual quality. ICML 2023.
+\bibitem{su2021} J.~Su, Y.~Wang, A.~Finkelstein, Z.~Jin. Bandwidth extension is all you need. ICASSP 2021.
+\bibitem{zen2009} H.~Zen, K.~Tokuda, A.~W.~Black. Statistical parametric speech synthesis. \emph{Speech Communication} 51, 2009.
+\end{thebibliography}
+
+\end{document}
