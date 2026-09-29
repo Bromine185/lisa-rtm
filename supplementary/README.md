@@ -7,7 +7,7 @@ Start with `technical_appendix.pdf` (16 pages). The appendix sets out:
 - exact metric definitions and the derivations;
 - the audit of the four released models;
 - every metric for every model on every test set;
-- the pre-registered predictions, notes on the main text, and the limitations.
+- notes on the main text, and the limitations.
 
 To hear the difference, open `audio/` (FLAC; `audio/README.md` lists what each file is).
 

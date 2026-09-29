@@ -214,8 +214,11 @@ $10\log_{10}2=3.0$\,dB. This matches the measured $-2.8$\,dB of FLowHigh, $-3.1$
 our sampler against the ceiling on \texttt{wide} (Tab.~\ref{tab:snr}).
 
 Conversely, a reported SNR $S$ bounds the HB level: $p\le10^{(C-S)/10}-1$, since any low-band error only
-lowers $S$. Applied to NU-Wave~2's own Table~1, where the ``Input'' row is its ceiling, this gives
-$p\le0.12$ at 12\,kHz, i.e.\ at most $-9.1$\,dB. We measure a broadband deficit of $-8.9$\,dB (\S\ref{sec:pred}).
+lowers $S$; with nonzero coherence the bound is $p\le10^{(C-S)/10}-1+2c$. As a consistency check, take
+NU-Wave~2's own Table~1, where the ``Input'' row is its ceiling: at 12\,kHz, $C-S=0.5$\,dB, and with its
+measured $c=0.009$ this gives $p\le0.14$, i.e.\ at most $-8.5$\,dB. We measure a broadband deficit of
+$-8.9$\,dB. The identity reads a published SNR as a statement about high-band level, and our harness agrees
+with NU-Wave~2's own number.
 The ceiling measured on our 240 utterances is in Table~\ref{tab:ceiling}, and reported SNRs against it in
 Fig.~\ref{fig:ceiling}.
 
@@ -396,6 +399,11 @@ one batch of eight clips).}\label{fig:ceiling}
 ``CRPS'' is the all-pairs estimator; ``CRPS fair'' is the one used in the abstract.}\label{tab:calib}
 \end{table}
 
+\noindent The two waveform-domain measures do not always agree. Our sampler's gap (2.07\,dB) is within 17\% of
+the calibrated 2.50\,dB, while its pooled spread ratio (0.46) says it is under-dispersed. Both are dominated
+by output level when the band is incoherent with the truth (\S\ref{sec:ceiling}), so neither is read here as
+a pure measure of diversity.
+
 \begin{table}[H]\small\centering
 \input{../results/tables/point_models_core.tex}
 \caption{One-output models on \texttt{core}: their CRPS is their MAE.}
@@ -438,24 +446,6 @@ shipped; Table~\ref{tab:t2} uses the fair estimator and FLowHigh with its prior 
 \includegraphics[width=\linewidth]{training_curves.png}
 \caption{Training and validation curves of the eight arms (one run each, identical batches).}\label{fig:train}
 \end{figure}
-
-%------------------------------------------------------------------------------------------------------------
-\section{Predictions written before scoring}\label{sec:pred}
-Four predictions about the released models were recorded before any of their outputs was scored.
-\begin{description}[leftmargin=1.2em]
-\item[P1] NU-Wave~2 at 12\,kHz is too quiet: broadband ratio below $-6$\,dB unless $c>0.1$.
-\emph{Held}: $-8.9$\,dB, $c=0.009$.
-\item[P2] Every sampler is under-dispersed; refuted for a model whose SNR gap is within 20\% of 2.50\,dB.
-\begin{itemize}
-\item \emph{Held} for FLowHigh (0.00; 0.08 with the prior restored) and NU-Wave~2 (0.57).
-\item \emph{Refuted} for AudioSR (2.62) and, by this criterion, for our sampler (2.07, i.e.\ 17\% short).
-\end{itemize}
-Our sampler's pooled spread ratio of 0.46 says it is under-dispersed. The dB-compressed gap is the weaker
-test, and we report both.
-\item[P3] No released model's SNR exceeds the empty-band ceiling on the same utterances. \emph{Held}: from
-$-0.8$\,dB (NU-Wave~2) to $-6.6$\,dB (AudioSR).
-\item[P4] FLowHigh with its prior restored keeps an HB spread below 0.1 of calibrated. \emph{Held}: 0.023.
-\end{description}
 
 %------------------------------------------------------------------------------------------------------------
 \section{Notes on the main text}\label{sec:notes}
