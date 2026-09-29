@@ -161,77 +161,112 @@ write("cost", ["model", "params", "RTF", "device", "sampling"], rows, "lrrll")
 rows = [[f"{r} kHz", f(S["ceiling"][f"snr_{r}k"], 2)] for r in (8, 12, 16, 24)]
 write("ceiling", ["input rate", "empty-band SNR ceiling (dB)"], rows)
 
+# ---- level against dispersion (core, M = 8) -----------------------------------------------------------
+# When the high band is incoherent with the truth (c ~ 0), draws that are mutually independent and carry
+# p times the true HB energy give, in expectation,
+#     gap    = 10 log10((1 + p) / (1 + p/M))          spread = p (1 + 1/M) / (1 + p/M)
+# so both waveform measures are set by the level p, not only by diversity. p is taken from the model's
+# broadband HB deficit on the same utterances (deficit_bb).
+rows = []
+for k, t in ROWS:
+    g = get(k, t, "core")
+    if not g or g.get("gap_hb") is None:
+        continue
+    p = 10 ** (g["deficit_bb"] / 10)
+    rows.append([lab(k, t), f(g["deficit_bb"], 1), f(g["gap_hb"], 2), f(10 * math.log10((1 + p) / (1 + p / M)), 2),
+                 f(g["spread_hb"], 3), f(p * (1 + 1 / M) / (1 + p / M), 3), f(g["pit_lo"], 3), f(g["pit_hi"], 3)])
+write("level_dispersion_core", ["condition", "HB level (dB)", "gap", "gap if indep.", "spread", "spread if indep.",
+                                "PIT low", "PIT high"], rows)
+
+# ---- does the harness reproduce the released models' own numbers? (wide, 240 utterances) ---------------
+# Published values are citations, typed from the papers: FLowHigh Table I and AP-BWE Table V (12 -> 48 kHz,
+# VCTK, 8 test speakers); NU-Wave 2's own Table 1 reports SNR, and its LSD/ViSQOL are as re-run in AP-BWE's
+# Table V. LSD on 2048/512 (AP-BWE's basis; FLowHigh's paper uses hop 480); ViSQOL v3 audio mode, 48 kHz.
+PUBLISHED = {"flowhigh": ("0.75", "3.61", "FLowHigh, Tab. I"), "apbwe": ("0.78", "3.46", "AP-BWE, Tab. V"),
+             "nuwave2": ("0.94", "2.75", "AP-BWE, Tab. V (re-run)")}
+rows = [[REL_LABEL[m], pub[0], f(rel(m, "wide")["lsd"], 3), pub[1], f(rel(m, "wide")["visqol_audio"], 2), pub[2]]
+        for m, pub in PUBLISHED.items()]
+write("fidelity", ["model", "LSD reported", "LSD ours", "ViSQOL reported", "ViSQOL ours", "reported in"], rows, "lrrrrl")
+
 # ---- the paper's printed numbers, checked --------------------------------------------------------------
 wide = lambda a: arm(a, "wide"); core = lambda a: arm(a, "core")
+def indep_gap(g, M=8):
+    p = 10 ** (g["deficit_bb"] / 10)
+    return 10 * math.log10((1 + p) / (1 + p / M))
+fh1 = rel("flowhigh_std1", "core"); nw = rel("nuwave2", "core"); asr = rel("audiosr", "core")
+nw_c = rel("nuwave2", "wide")["coh"]
+max_c = max(get(k, t, "wide")["coh"] for k, t in ROWS if k != "apbwe_sinc" and get(k, t, "wide"))
 CHECKS = [
     # (where, printed, value, decimals, source)
-    ("T1 det_paper deficit", "-21.78", wide("det_paper")["deficit"], 2, "sota.ours.det_paper.sets.wide.deficit"),
-    ("T1 det deficit", "-6.18", wide("det")["deficit"], 2, "sota.ours.det.sets.wide.deficit"),
-    ("T1 es_marg deficit", "-1.05", wide("es_marg")["deficit"], 2, "sota.ours.es_marg.sets.wide.deficit"),
-    ("T1 es_dec deficit", "-1.12", wide("es_dec_l0.01")["deficit"], 2, "sota.ours.es_dec_l0.01.sets.wide.deficit"),
-    ("T1 es_erb deficit", "-1.08", wide("es_erb_l0.01")["deficit"], 2, "sota.ours.es_erb_l0.01.sets.wide.deficit"),
-    ("T1 es_erb l0.1 deficit", "-0.63", wide("es_erb_l0.1")["deficit"], 2, "sota.ours.es_erb_l0.1.sets.wide.deficit"),
-    ("T1 es_erb l0.001 deficit", "-5.73", wide("es_erb_l0.001")["deficit"], 2, "sota.ours.es_erb_l0.001.sets.wide.deficit"),
-    ("T1 es_dec_erb deficit", "-0.70", wide("es_dec_erb_l0.1")["deficit"], 2, "sota.ours.es_dec_erb_l0.1.sets.wide.deficit"),
-    ("T1 step det", "15.6", wide("det")["deficit"] - wide("det_paper")["deficit"], 1, "difference of wide deficits"),
-    ("T1 step es_marg", "5.1", wide("es_marg")["deficit"] - wide("det")["deficit"], 1, "difference of wide deficits"),
-    ("T1 step es_dec", "0.0", wide("es_dec_l0.01")["deficit"] - wide("es_marg")["deficit"], 1, "difference of wide deficits"),
-    ("T1 step es_erb", "0.0", wide("es_erb_l0.01")["deficit"] - wide("es_marg")["deficit"], 1, "difference of wide deficits"),
-    ("T1 step lambda x10", "0.5", wide("es_erb_l0.1")["deficit"] - wide("es_erb_l0.01")["deficit"], 1, "difference of wide deficits"),
-    ("T1 step lambda /10", "-4.6", wide("es_erb_l0.001")["deficit"] - wide("es_erb_l0.01")["deficit"], 1, "difference of wide deficits"),
-    ("T1 es_marg spread", "0.526", core("es_marg")["spread_hb"], 3, "sota.ours.es_marg.sets.core.spread_hb"),
-    ("T1 es_dec spread", "0.499", core("es_dec_l0.01")["spread_hb"], 3, "...core.spread_hb"),
-    ("T1 es_erb spread", "0.442", core("es_erb_l0.01")["spread_hb"], 3, "...core.spread_hb"),
-    ("T1 es_erb l0.1 spread", "0.479", core("es_erb_l0.1")["spread_hb"], 3, "...core.spread_hb"),
-    ("T1 es_erb l0.001 spread", "0.225", core("es_erb_l0.001")["spread_hb"], 3, "...core.spread_hb"),
-    ("T1 es_dec_erb spread", "0.464", core("es_dec_erb_l0.1")["spread_hb"], 3, "...core.spread_hb"),
-    ("T1 det_paper CRPS (=MAE)", "2.85", core("det_paper")["crps"], 2, "sota.ours.det_paper.sets.core.crps"),
-    ("T1 det CRPS (=MAE)", "0.889", core("det")["crps"], 3, "sota.ours.det.sets.core.crps"),
-    ("T1 es_marg CRPS", "0.537", core("es_marg")["crps_fair"], 3, "...core.crps_fair"),
-    ("T1 es_dec CRPS", "0.535", core("es_dec_l0.01")["crps_fair"], 3, "...core.crps_fair"),
-    ("T1 es_erb CRPS", "0.512", core("es_erb_l0.01")["crps_fair"], 3, "...core.crps_fair"),
-    ("T1 es_erb l0.1 CRPS", "0.515", core("es_erb_l0.1")["crps_fair"], 3, "...core.crps_fair"),
-    ("T1 es_erb l0.001 CRPS", "0.683", core("es_erb_l0.001")["crps_fair"], 3, "...core.crps_fair"),
-    ("T1 es_dec_erb CRPS", "0.514", core("es_dec_erb_l0.1")["crps_fair"], 3, "...core.crps_fair"),
-    ("T2 FLowHigh deficit", "-1.60", rel("flowhigh", "wide")["deficit"], 2, "sota.models.flowhigh.sets.wide.deficit"),
-    ("T2 FLowHigh LSD", "0.761", rel("flowhigh", "wide")["lsd"], 3, "...wide.lsd"),
-    ("T2 FLowHigh ViSQOL", "3.61", rel("flowhigh", "wide")["visqol_audio"], 2, "...wide.visqol_audio"),
-    ("T2 FLowHigh spread (prior restored)", "0.023", rel("flowhigh_std1", "core")["spread_hb"], 3, "...flowhigh_std1.sets.core.spread_hb"),
-    ("T2 FLowHigh CRPS (prior restored)", "0.682", rel("flowhigh_std1", "core")["crps_fair"], 3, "...flowhigh_std1.sets.core.crps_fair"),
-    ("T2 FLowHigh slope", "-0.06", S["models"]["flowhigh"]["slope"]["slope"], 2, "sota.models.flowhigh.slope (wide, n=240)"),
-    ("T2 AP-BWE deficit", "-1.38", rel("apbwe", "wide")["deficit"], 2, "sota.models.apbwe.sets.wide.deficit"),
-    ("T2 AP-BWE LSD", "0.780", rel("apbwe", "wide")["lsd"], 3, "...wide.lsd"),
-    ("T2 AP-BWE ViSQOL", "3.48", rel("apbwe", "wide")["visqol_audio"], 2, "...wide.visqol_audio"),
-    ("T2 AP-BWE CRPS (=MAE)", "0.777", rel("apbwe", "core")["crps"], 3, "...core.crps"),
-    ("T2 AP-BWE slope", "-0.13", S["models"]["apbwe"]["slope"]["slope"], 2, "sota.models.apbwe.slope (wide, n=240)"),
-    ("T2 NU-Wave 2 deficit", "-7.96", rel("nuwave2", "wide")["deficit"], 2, "sota.models.nuwave2.sets.wide.deficit"),
-    ("T2 NU-Wave 2 LSD", "0.989", rel("nuwave2", "wide")["lsd"], 3, "...wide.lsd"),
-    ("T2 NU-Wave 2 ViSQOL", "2.57", rel("nuwave2", "wide")["visqol_audio"], 2, "...wide.visqol_audio"),
-    ("T2 NU-Wave 2 spread", "0.094", rel("nuwave2", "core")["spread_hb"], 3, "...core.spread_hb"),
-    ("T2 NU-Wave 2 CRPS", "0.583", rel("nuwave2", "core")["crps_fair"], 3, "...core.crps_fair"),
-    ("T2 NU-Wave 2 slope", "-0.31", S["models"]["nuwave2"]["slope"]["slope"], 2, "sota.models.nuwave2.slope (wide, n=240)"),
-    ("T2 AudioSR deficit", "-0.60", rel("audiosr", "wide")["deficit"], 2, "sota.models.audiosr.sets.wide.deficit"),
-    ("T2 AudioSR LSD", "1.561", rel("audiosr", "wide")["lsd"], 3, "...wide.lsd"),
-    ("T2 AudioSR ViSQOL", "2.41", rel("audiosr", "wide")["visqol_audio"], 2, "...wide.visqol_audio"),
-    ("T2 AudioSR spread", "0.765", rel("audiosr", "core")["spread_hb"], 3, "...core.spread_hb"),
-    ("T2 AudioSR CRPS", "1.243", rel("audiosr", "core")["crps_fair"], 3, "...core.crps_fair"),
-    ("T2 AudioSR slope", "-0.34", S["models"]["audiosr"]["slope"]["slope"], 2, "sota.models.audiosr.slope (wide, n=240)"),
-    ("T2 det LSD", "0.864", wide("det")["lsd"], 3, "sota.ours.det.sets.wide.lsd"),
-    ("T2 det ViSQOL", "3.13", wide("det")["visqol_audio"], 2, "...wide.visqol_audio"),
-    ("T2 det slope", "-0.28", S["ours"]["det"]["slope"]["slope"], 2, "sota.ours.det.slope (wide, n=240)"),
-    ("T2 es_dec_erb LSD", "0.895", wide("es_dec_erb_l0.1")["lsd"], 3, "...wide.lsd"),
-    ("T2 es_dec_erb ViSQOL", "2.83", wide("es_dec_erb_l0.1")["visqol_audio"], 2, "...wide.visqol_audio"),
-    ("T2 es_dec_erb slope", "-0.29", S["ours"]["es_dec_erb_l0.1"]["slope"]["slope"], 2, "sota.ours.es_dec_erb_l0.1.slope (wide, n=240)"),
-    ("Text: SNR ceiling 12 kHz", "22.02", S["ceiling"]["snr_12k"], 2, "sota.ceiling.snr_12k"),
-    ("Text: SNR ceiling 8 kHz", "19.0", S["ceiling"]["snr_8k"], 1, "sota.ceiling.snr_8k"),
-    ("Text: SNR ceiling 16 kHz", "24.7", S["ceiling"]["snr_16k"], 1, "sota.ceiling.snr_16k"),
-    ("Text: SNR ceiling 24 kHz", "30.0", S["ceiling"]["snr_24k"], 1, "sota.ceiling.snr_24k"),
-    ("Text: ERB corr_err before", "0.374", core("es_marg")["corr_err"], 3, "sota.ours.es_marg.sets.core.corr_err"),
-    ("Text: ERB corr_err after", "0.289", core("es_erb_l0.01")["corr_err"], 3, "sota.ours.es_erb_l0.01.sets.core.corr_err"),
-    ("Text: NU-Wave 2 loud frames", "-9", rel("nuwave2", "wide")["loud"], 0, "sota.models.nuwave2.sets.wide.loud"),
-    ("Text: NU-Wave 2 quiet frames", "4.7", rel("nuwave2", "wide")["quiet"], 1, "sota.models.nuwave2.sets.wide.quiet"),
-    ("Text: sampler on p236-p238", "-4.3", arm("es_dec_erb_l0.1", "ourtest")["deficit"], 1, "sota.ours.es_dec_erb_l0.1.sets.ourtest.deficit"),
-    ("Text: FLowHigh on p236-p238", "-1.0", rel("flowhigh", "ourtest")["deficit"], 1, "sota.models.flowhigh.sets.ourtest.deficit"),
+    ("Setup: FLowHigh LSD", "0.761", rel("flowhigh", "wide")["lsd"], 3, "sota.models.flowhigh.sets.wide.lsd"),
+    ("Setup: FLowHigh ViSQOL", "3.61", rel("flowhigh", "wide")["visqol_audio"], 2, "...wide.visqol_audio"),
+    ("Setup: AP-BWE LSD", "0.780", rel("apbwe", "wide")["lsd"], 3, "sota.models.apbwe.sets.wide.lsd"),
+    ("Setup: AP-BWE ViSQOL", "3.48", rel("apbwe", "wide")["visqol_audio"], 2, "...wide.visqol_audio"),
+    ("Setup: NU-Wave 2 LSD", "0.989", rel("nuwave2", "wide")["lsd"], 3, "sota.models.nuwave2.sets.wide.lsd"),
+    ("Setup: NU-Wave 2 ViSQOL", "2.57", rel("nuwave2", "wide")["visqol_audio"], 2, "...wide.visqol_audio"),
+    ("Level: SNR ceiling, 12 kHz", "22.02", S["ceiling"]["snr_12k"], 2, "sota.ceiling.snr_12k"),
+    ("Level: NU-Wave 2 bound from its own table (C-S = 0.5 dB, + 2c)", "-8.5",
+     10 * math.log10(10 ** (0.5 / 10) - 1 + 2 * nw_c), 1, "derived; c = sota.models.nuwave2.sets.wide.coh"),
+    ("Level: NU-Wave 2 broadband deficit", "-8.9", rel("nuwave2", "wide")["deficit_bb"], 1, "...nuwave2.sets.wide.deficit_bb"),
+    ("Level: largest coherent fraction, any model (< 0.02)", "0.02", math.ceil(max_c * 100) / 100, 2, "max of sets.wide.coh"),
+    ("Level: calibrated gap at M = 8", "2.50", 10 * math.log10(2 / (1 + 1 / 8)), 2, "10 log10(2/(1+1/M))"),
+    ("T1 FLowHigh deficit", "-1.60", rel("flowhigh", "wide")["deficit"], 2, "sota.models.flowhigh.sets.wide.deficit"),
+    ("T1 FLowHigh gap (prior restored)", "0.08", fh1["gap_hb"], 2, "...flowhigh_std1.sets.core.gap_hb"),
+    ("T1 FLowHigh gap if independent", "1.61", indep_gap(fh1), 2, "from ...flowhigh_std1.sets.core.deficit_bb"),
+    ("T1 FLowHigh CRPS (prior restored)", "0.682", fh1["crps_fair"], 3, "...flowhigh_std1.sets.core.crps_fair"),
+    ("T1 AP-BWE deficit", "-1.38", rel("apbwe", "wide")["deficit"], 2, "sota.models.apbwe.sets.wide.deficit"),
+    ("T1 AP-BWE CRPS (= MAE)", "0.777", rel("apbwe", "core")["crps"], 3, "...apbwe.sets.core.crps"),
+    ("T1 NU-Wave 2 deficit", "-7.96", rel("nuwave2", "wide")["deficit"], 2, "sota.models.nuwave2.sets.wide.deficit"),
+    ("T1 NU-Wave 2 gap", "0.57", nw["gap_hb"], 2, "...nuwave2.sets.core.gap_hb"),
+    ("T1 NU-Wave 2 gap if independent", "0.47", indep_gap(nw), 2, "from ...nuwave2.sets.core.deficit_bb"),
+    ("T1 NU-Wave 2 CRPS", "0.583", nw["crps_fair"], 3, "...nuwave2.sets.core.crps_fair"),
+    ("T1 AudioSR deficit", "-0.60", rel("audiosr", "wide")["deficit"], 2, "sota.models.audiosr.sets.wide.deficit"),
+    ("T1 AudioSR LSD", "1.561", rel("audiosr", "wide")["lsd"], 3, "...wide.lsd"),
+    ("T1 AudioSR ViSQOL", "2.41", rel("audiosr", "wide")["visqol_audio"], 2, "...wide.visqol_audio"),
+    ("T1 AudioSR gap", "2.62", asr["gap_hb"], 2, "...audiosr.sets.core.gap_hb"),
+    ("T1 AudioSR gap if independent", "3.45", indep_gap(asr), 2, "from ...audiosr.sets.core.deficit_bb"),
+    ("T1 AudioSR CRPS", "1.243", asr["crps_fair"], 3, "...audiosr.sets.core.crps_fair"),
+    ("T1 ours point: deficit", "-6.18", wide("det")["deficit"], 2, "sota.ours.det.sets.wide.deficit"),
+    ("T1 ours point: LSD", "0.864", wide("det")["lsd"], 3, "...wide.lsd"),
+    ("T1 ours point: ViSQOL", "3.13", wide("det")["visqol_audio"], 2, "...wide.visqol_audio"),
+    ("T1 ours point: CRPS (= MAE)", "0.889", core("det")["crps"], 3, "...core.crps"),
+    ("T1 ours sampler: deficit", "-0.70", wide("es_dec_erb_l0.1")["deficit"], 2, "sota.ours.es_dec_erb_l0.1.sets.wide.deficit"),
+    ("T1 ours sampler: LSD", "0.895", wide("es_dec_erb_l0.1")["lsd"], 3, "...wide.lsd"),
+    ("T1 ours sampler: ViSQOL", "2.83", wide("es_dec_erb_l0.1")["visqol_audio"], 2, "...wide.visqol_audio"),
+    ("T1 ours sampler: gap", "2.07", core("es_dec_erb_l0.1")["gap_hb"], 2, "...core.gap_hb"),
+    ("T1 ours sampler: gap if independent", "2.09", indep_gap(core("es_dec_erb_l0.1")), 2, "from ...core.deficit_bb"),
+    ("T1 ours sampler: CRPS", "0.514", core("es_dec_erb_l0.1")["crps_fair"], 3, "...core.crps_fair"),
+    ("Audit: FLowHigh truth below all draws (%)", "41", 100 * fh1["pit_lo"], 0, "...flowhigh_std1.sets.core.pit_lo"),
+    ("Audit: FLowHigh truth above all draws (%)", "46", 100 * fh1["pit_hi"], 0, "...flowhigh_std1.sets.core.pit_hi"),
+    ("Audit: NU-Wave 2 loud frames", "-9.0", rel("nuwave2", "wide")["loud"], 1, "...nuwave2.sets.wide.loud"),
+    ("Audit: NU-Wave 2 quiet frames", "4.7", rel("nuwave2", "wide")["quiet"], 1, "...nuwave2.sets.wide.quiet"),
+    ("Audit: NU-Wave 2 spread", "0.094", nw["spread_hb"], 3, "...nuwave2.sets.core.spread_hb"),
+    ("Audit: AudioSR truth above all draws (%)", "52", 100 * asr["pit_hi"], 0, "...audiosr.sets.core.pit_hi"),
+    ("Audit: slope FLowHigh", "-0.07", S["models"]["flowhigh"]["slope"]["slope"], 2, "sota.models.flowhigh.slope"),
+    ("Audit: slope AP-BWE", "-0.12", S["models"]["apbwe"]["slope"]["slope"], 2, "sota.models.apbwe.slope"),
+    ("Audit: slope NU-Wave 2", "-0.32", S["models"]["nuwave2"]["slope"]["slope"], 2, "sota.models.nuwave2.slope"),
+    ("Audit: slope AudioSR", "-0.34", S["models"]["audiosr"]["slope"]["slope"], 2, "sota.models.audiosr.slope"),
+    ("Audit: shallowest slope of our arms", "-0.20", max(S["ours"][a]["slope"]["slope"] for a in ARMS), 2, "sota.ours.*.slope"),
+    ("Audit: steepest slope of our arms", "-0.35", min(S["ours"][a]["slope"]["slope"] for a in ARMS), 2, "sota.ours.*.slope"),
+    ("T2 det_paper deficit", "-21.78", wide("det_paper")["deficit"], 2, "sota.ours.det_paper.sets.wide.deficit"),
+    ("T2 det_paper CRPS (= MAE)", "2.853", core("det_paper")["crps"], 3, "...core.crps"),
+    ("T2 es_marg deficit", "-1.05", wide("es_marg")["deficit"], 2, "sota.ours.es_marg.sets.wide.deficit"),
+    ("T2 es_marg gap", "2.21", core("es_marg")["gap_hb"], 2, "...core.gap_hb"),
+    ("T2 es_marg CRPS", "0.537", core("es_marg")["crps_fair"], 3, "...core.crps_fair"),
+    ("T2 es_erb deficit", "-1.08", wide("es_erb_l0.01")["deficit"], 2, "sota.ours.es_erb_l0.01.sets.wide.deficit"),
+    ("T2 es_erb gap", "2.03", core("es_erb_l0.01")["gap_hb"], 2, "...core.gap_hb"),
+    ("T2 es_erb CRPS", "0.512", core("es_erb_l0.01")["crps_fair"], 3, "...core.crps_fair"),
+    ("T2 es_erb lambda=0.001 deficit", "-5.73", wide("es_erb_l0.001")["deficit"], 2, "sota.ours.es_erb_l0.001.sets.wide.deficit"),
+    ("T2 es_erb lambda=0.001 gap", "1.16", core("es_erb_l0.001")["gap_hb"], 2, "...core.gap_hb"),
+    ("T2 es_erb lambda=0.001 CRPS", "0.683", core("es_erb_l0.001")["crps_fair"], 3, "...core.crps_fair"),
+    ("Deficit: det_paper shortfall", "21.8", -wide("det_paper")["deficit"], 1, "sota.ours.det_paper.sets.wide.deficit"),
+    ("Deficit: log-magnitude term recovers", "15.6", wide("det")["deficit"] - wide("det_paper")["deficit"], 1, "difference of wide deficits"),
+    ("Deficit: energy score recovers", "5.1", wide("es_marg")["deficit"] - wide("det")["deficit"], 1, "difference of wide deficits"),
+    ("Deficit: band-correlation error before", "0.374", core("es_marg")["corr_err"], 3, "sota.ours.es_marg.sets.core.corr_err"),
+    ("Deficit: band-correlation error after", "0.289", core("es_erb_l0.01")["corr_err"], 3, "sota.ours.es_erb_l0.01.sets.core.corr_err"),
+    ("Deficit: sampler truth above all draws (%)", "21", 100 * core("es_dec_erb_l0.1")["pit_hi"], 0, "...es_dec_erb_l0.1.sets.core.pit_hi"),
+    ("Deficit: ideal tail at M = 8 (%)", "11", 100 / 9, 0, "1/(M+1)"),
+    ("Deficit: sampler lower tail (%, at ideal)", "11", 100 * core("es_dec_erb_l0.1")["pit_lo"], 0, "...es_dec_erb_l0.1.sets.core.pit_lo"),
 ]
 lines = ["# The paper's printed numbers, checked against results.json", "",
          "Generated by `make_tables.py`. A mismatch means the printed value is not what the committed pipeline",
@@ -243,11 +278,6 @@ for where, printed, v, d, src in CHECKS:
     ok = float(got) == float(printed) or (got in ("-0.0", "0.0") and float(printed) == 0.0)
     n_ok += ok
     lines.append(f"| {where} | {printed} | {got} | {'yes' if ok else '**NO**'} | `{src}` |")
-lines += ["", f"{n_ok} of {len(CHECKS)} match.", "",
-          "Pooled calibration claim in the text (\"for our arms the truth lies above all eight draws in 21 to 24% of "
-          "high-band bins, against 11%\"): PIT high on `core`, one tail, ideal 1/9 = 0.111:", ""]
-for a in ARMS[2:]:
-    g = core(a)
-    lines.append(f"- {a}: PIT high {g['pit_hi']:.3f}, PIT low {g['pit_lo']:.3f}")
+lines += ["", f"{n_ok} of {len(CHECKS)} match."]
 (HERE / "number_check.md").write_text("\n".join(lines) + "\n")
 print(f"tables -> {OUT}\nnumber check: {n_ok}/{len(CHECKS)} match -> {HERE / 'number_check.md'}")

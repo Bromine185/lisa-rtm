@@ -5,81 +5,73 @@ produces; the note column says which value to print.
 
 | where | printed | from results.json | match | source |
 |---|---|---|---|---|
-| T1 det_paper deficit | -21.78 | -21.78 | yes | `sota.ours.det_paper.sets.wide.deficit` |
-| T1 det deficit | -6.18 | -6.18 | yes | `sota.ours.det.sets.wide.deficit` |
-| T1 es_marg deficit | -1.05 | -1.05 | yes | `sota.ours.es_marg.sets.wide.deficit` |
-| T1 es_dec deficit | -1.12 | -1.12 | yes | `sota.ours.es_dec_l0.01.sets.wide.deficit` |
-| T1 es_erb deficit | -1.08 | -1.08 | yes | `sota.ours.es_erb_l0.01.sets.wide.deficit` |
-| T1 es_erb l0.1 deficit | -0.63 | -0.63 | yes | `sota.ours.es_erb_l0.1.sets.wide.deficit` |
-| T1 es_erb l0.001 deficit | -5.73 | -5.73 | yes | `sota.ours.es_erb_l0.001.sets.wide.deficit` |
-| T1 es_dec_erb deficit | -0.70 | -0.70 | yes | `sota.ours.es_dec_erb_l0.1.sets.wide.deficit` |
-| T1 step det | 15.6 | 15.6 | yes | `difference of wide deficits` |
-| T1 step es_marg | 5.1 | 5.1 | yes | `difference of wide deficits` |
-| T1 step es_dec | 0.0 | -0.1 | **NO** | `difference of wide deficits` |
-| T1 step es_erb | 0.0 | -0.0 | yes | `difference of wide deficits` |
-| T1 step lambda x10 | 0.5 | 0.5 | yes | `difference of wide deficits` |
-| T1 step lambda /10 | -4.6 | -4.6 | yes | `difference of wide deficits` |
-| T1 es_marg spread | 0.526 | 0.526 | yes | `sota.ours.es_marg.sets.core.spread_hb` |
-| T1 es_dec spread | 0.499 | 0.499 | yes | `...core.spread_hb` |
-| T1 es_erb spread | 0.442 | 0.442 | yes | `...core.spread_hb` |
-| T1 es_erb l0.1 spread | 0.479 | 0.479 | yes | `...core.spread_hb` |
-| T1 es_erb l0.001 spread | 0.225 | 0.225 | yes | `...core.spread_hb` |
-| T1 es_dec_erb spread | 0.464 | 0.464 | yes | `...core.spread_hb` |
-| T1 det_paper CRPS (=MAE) | 2.85 | 2.85 | yes | `sota.ours.det_paper.sets.core.crps` |
-| T1 det CRPS (=MAE) | 0.889 | 0.889 | yes | `sota.ours.det.sets.core.crps` |
-| T1 es_marg CRPS | 0.537 | 0.537 | yes | `...core.crps_fair` |
-| T1 es_dec CRPS | 0.535 | 0.535 | yes | `...core.crps_fair` |
-| T1 es_erb CRPS | 0.512 | 0.512 | yes | `...core.crps_fair` |
-| T1 es_erb l0.1 CRPS | 0.515 | 0.515 | yes | `...core.crps_fair` |
-| T1 es_erb l0.001 CRPS | 0.683 | 0.683 | yes | `...core.crps_fair` |
-| T1 es_dec_erb CRPS | 0.514 | 0.514 | yes | `...core.crps_fair` |
-| T2 FLowHigh deficit | -1.60 | -1.60 | yes | `sota.models.flowhigh.sets.wide.deficit` |
-| T2 FLowHigh LSD | 0.761 | 0.761 | yes | `...wide.lsd` |
-| T2 FLowHigh ViSQOL | 3.61 | 3.61 | yes | `...wide.visqol_audio` |
-| T2 FLowHigh spread (prior restored) | 0.023 | 0.023 | yes | `...flowhigh_std1.sets.core.spread_hb` |
-| T2 FLowHigh CRPS (prior restored) | 0.682 | 0.682 | yes | `...flowhigh_std1.sets.core.crps_fair` |
-| T2 FLowHigh slope | -0.06 | -0.07 | **NO** | `sota.models.flowhigh.slope (wide, n=240)` |
-| T2 AP-BWE deficit | -1.38 | -1.38 | yes | `sota.models.apbwe.sets.wide.deficit` |
-| T2 AP-BWE LSD | 0.780 | 0.780 | yes | `...wide.lsd` |
-| T2 AP-BWE ViSQOL | 3.48 | 3.48 | yes | `...wide.visqol_audio` |
-| T2 AP-BWE CRPS (=MAE) | 0.777 | 0.777 | yes | `...core.crps` |
-| T2 AP-BWE slope | -0.13 | -0.12 | **NO** | `sota.models.apbwe.slope (wide, n=240)` |
-| T2 NU-Wave 2 deficit | -7.96 | -7.96 | yes | `sota.models.nuwave2.sets.wide.deficit` |
-| T2 NU-Wave 2 LSD | 0.989 | 0.989 | yes | `...wide.lsd` |
-| T2 NU-Wave 2 ViSQOL | 2.57 | 2.57 | yes | `...wide.visqol_audio` |
-| T2 NU-Wave 2 spread | 0.094 | 0.094 | yes | `...core.spread_hb` |
-| T2 NU-Wave 2 CRPS | 0.583 | 0.583 | yes | `...core.crps_fair` |
-| T2 NU-Wave 2 slope | -0.31 | -0.32 | **NO** | `sota.models.nuwave2.slope (wide, n=240)` |
-| T2 AudioSR deficit | -0.60 | -0.60 | yes | `sota.models.audiosr.sets.wide.deficit` |
-| T2 AudioSR LSD | 1.561 | 1.561 | yes | `...wide.lsd` |
-| T2 AudioSR ViSQOL | 2.41 | 2.41 | yes | `...wide.visqol_audio` |
-| T2 AudioSR spread | 0.765 | 0.765 | yes | `...core.spread_hb` |
-| T2 AudioSR CRPS | 1.243 | 1.243 | yes | `...core.crps_fair` |
-| T2 AudioSR slope | -0.34 | -0.34 | yes | `sota.models.audiosr.slope (wide, n=240)` |
-| T2 det LSD | 0.864 | 0.864 | yes | `sota.ours.det.sets.wide.lsd` |
-| T2 det ViSQOL | 3.13 | 3.13 | yes | `...wide.visqol_audio` |
-| T2 det slope | -0.28 | -0.22 | **NO** | `sota.ours.det.slope (wide, n=240)` |
-| T2 es_dec_erb LSD | 0.895 | 0.895 | yes | `...wide.lsd` |
-| T2 es_dec_erb ViSQOL | 2.83 | 2.83 | yes | `...wide.visqol_audio` |
-| T2 es_dec_erb slope | -0.29 | -0.23 | **NO** | `sota.ours.es_dec_erb_l0.1.slope (wide, n=240)` |
-| Text: SNR ceiling 12 kHz | 22.02 | 22.02 | yes | `sota.ceiling.snr_12k` |
-| Text: SNR ceiling 8 kHz | 19.0 | 19.0 | yes | `sota.ceiling.snr_8k` |
-| Text: SNR ceiling 16 kHz | 24.7 | 24.7 | yes | `sota.ceiling.snr_16k` |
-| Text: SNR ceiling 24 kHz | 30.0 | 30.0 | yes | `sota.ceiling.snr_24k` |
-| Text: ERB corr_err before | 0.374 | 0.374 | yes | `sota.ours.es_marg.sets.core.corr_err` |
-| Text: ERB corr_err after | 0.289 | 0.289 | yes | `sota.ours.es_erb_l0.01.sets.core.corr_err` |
-| Text: NU-Wave 2 loud frames | -9 | -9 | yes | `sota.models.nuwave2.sets.wide.loud` |
-| Text: NU-Wave 2 quiet frames | 4.7 | 4.7 | yes | `sota.models.nuwave2.sets.wide.quiet` |
-| Text: sampler on p236-p238 | -4.3 | -4.3 | yes | `sota.ours.es_dec_erb_l0.1.sets.ourtest.deficit` |
-| Text: FLowHigh on p236-p238 | -1.0 | -1.0 | yes | `sota.models.flowhigh.sets.ourtest.deficit` |
+| Setup: FLowHigh LSD | 0.761 | 0.761 | yes | `sota.models.flowhigh.sets.wide.lsd` |
+| Setup: FLowHigh ViSQOL | 3.61 | 3.61 | yes | `...wide.visqol_audio` |
+| Setup: AP-BWE LSD | 0.780 | 0.780 | yes | `sota.models.apbwe.sets.wide.lsd` |
+| Setup: AP-BWE ViSQOL | 3.48 | 3.48 | yes | `...wide.visqol_audio` |
+| Setup: NU-Wave 2 LSD | 0.989 | 0.989 | yes | `sota.models.nuwave2.sets.wide.lsd` |
+| Setup: NU-Wave 2 ViSQOL | 2.57 | 2.57 | yes | `...wide.visqol_audio` |
+| Level: SNR ceiling, 12 kHz | 22.02 | 22.02 | yes | `sota.ceiling.snr_12k` |
+| Level: NU-Wave 2 bound from its own table (C-S = 0.5 dB, + 2c) | -8.5 | -8.5 | yes | `derived; c = sota.models.nuwave2.sets.wide.coh` |
+| Level: NU-Wave 2 broadband deficit | -8.9 | -8.9 | yes | `...nuwave2.sets.wide.deficit_bb` |
+| Level: largest coherent fraction, any model (< 0.02) | 0.02 | 0.02 | yes | `max of sets.wide.coh` |
+| Level: calibrated gap at M = 8 | 2.50 | 2.50 | yes | `10 log10(2/(1+1/M))` |
+| T1 FLowHigh deficit | -1.60 | -1.60 | yes | `sota.models.flowhigh.sets.wide.deficit` |
+| T1 FLowHigh gap (prior restored) | 0.08 | 0.08 | yes | `...flowhigh_std1.sets.core.gap_hb` |
+| T1 FLowHigh gap if independent | 1.61 | 1.61 | yes | `from ...flowhigh_std1.sets.core.deficit_bb` |
+| T1 FLowHigh CRPS (prior restored) | 0.682 | 0.682 | yes | `...flowhigh_std1.sets.core.crps_fair` |
+| T1 AP-BWE deficit | -1.38 | -1.38 | yes | `sota.models.apbwe.sets.wide.deficit` |
+| T1 AP-BWE CRPS (= MAE) | 0.777 | 0.777 | yes | `...apbwe.sets.core.crps` |
+| T1 NU-Wave 2 deficit | -7.96 | -7.96 | yes | `sota.models.nuwave2.sets.wide.deficit` |
+| T1 NU-Wave 2 gap | 0.57 | 0.57 | yes | `...nuwave2.sets.core.gap_hb` |
+| T1 NU-Wave 2 gap if independent | 0.47 | 0.47 | yes | `from ...nuwave2.sets.core.deficit_bb` |
+| T1 NU-Wave 2 CRPS | 0.583 | 0.583 | yes | `...nuwave2.sets.core.crps_fair` |
+| T1 AudioSR deficit | -0.60 | -0.60 | yes | `sota.models.audiosr.sets.wide.deficit` |
+| T1 AudioSR LSD | 1.561 | 1.561 | yes | `...wide.lsd` |
+| T1 AudioSR ViSQOL | 2.41 | 2.41 | yes | `...wide.visqol_audio` |
+| T1 AudioSR gap | 2.62 | 2.62 | yes | `...audiosr.sets.core.gap_hb` |
+| T1 AudioSR gap if independent | 3.45 | 3.45 | yes | `from ...audiosr.sets.core.deficit_bb` |
+| T1 AudioSR CRPS | 1.243 | 1.243 | yes | `...audiosr.sets.core.crps_fair` |
+| T1 ours point: deficit | -6.18 | -6.18 | yes | `sota.ours.det.sets.wide.deficit` |
+| T1 ours point: LSD | 0.864 | 0.864 | yes | `...wide.lsd` |
+| T1 ours point: ViSQOL | 3.13 | 3.13 | yes | `...wide.visqol_audio` |
+| T1 ours point: CRPS (= MAE) | 0.889 | 0.889 | yes | `...core.crps` |
+| T1 ours sampler: deficit | -0.70 | -0.70 | yes | `sota.ours.es_dec_erb_l0.1.sets.wide.deficit` |
+| T1 ours sampler: LSD | 0.895 | 0.895 | yes | `...wide.lsd` |
+| T1 ours sampler: ViSQOL | 2.83 | 2.83 | yes | `...wide.visqol_audio` |
+| T1 ours sampler: gap | 2.07 | 2.07 | yes | `...core.gap_hb` |
+| T1 ours sampler: gap if independent | 2.09 | 2.09 | yes | `from ...core.deficit_bb` |
+| T1 ours sampler: CRPS | 0.514 | 0.514 | yes | `...core.crps_fair` |
+| Audit: FLowHigh truth below all draws (%) | 41 | 41 | yes | `...flowhigh_std1.sets.core.pit_lo` |
+| Audit: FLowHigh truth above all draws (%) | 46 | 46 | yes | `...flowhigh_std1.sets.core.pit_hi` |
+| Audit: NU-Wave 2 loud frames | -9.0 | -9.0 | yes | `...nuwave2.sets.wide.loud` |
+| Audit: NU-Wave 2 quiet frames | 4.7 | 4.7 | yes | `...nuwave2.sets.wide.quiet` |
+| Audit: NU-Wave 2 spread | 0.094 | 0.094 | yes | `...nuwave2.sets.core.spread_hb` |
+| Audit: AudioSR truth above all draws (%) | 52 | 52 | yes | `...audiosr.sets.core.pit_hi` |
+| Audit: slope FLowHigh | -0.07 | -0.07 | yes | `sota.models.flowhigh.slope` |
+| Audit: slope AP-BWE | -0.12 | -0.12 | yes | `sota.models.apbwe.slope` |
+| Audit: slope NU-Wave 2 | -0.32 | -0.32 | yes | `sota.models.nuwave2.slope` |
+| Audit: slope AudioSR | -0.34 | -0.34 | yes | `sota.models.audiosr.slope` |
+| Audit: shallowest slope of our arms | -0.20 | -0.20 | yes | `sota.ours.*.slope` |
+| Audit: steepest slope of our arms | -0.35 | -0.35 | yes | `sota.ours.*.slope` |
+| T2 det_paper deficit | -21.78 | -21.78 | yes | `sota.ours.det_paper.sets.wide.deficit` |
+| T2 det_paper CRPS (= MAE) | 2.853 | 2.853 | yes | `...core.crps` |
+| T2 es_marg deficit | -1.05 | -1.05 | yes | `sota.ours.es_marg.sets.wide.deficit` |
+| T2 es_marg gap | 2.21 | 2.21 | yes | `...core.gap_hb` |
+| T2 es_marg CRPS | 0.537 | 0.537 | yes | `...core.crps_fair` |
+| T2 es_erb deficit | -1.08 | -1.08 | yes | `sota.ours.es_erb_l0.01.sets.wide.deficit` |
+| T2 es_erb gap | 2.03 | 2.03 | yes | `...core.gap_hb` |
+| T2 es_erb CRPS | 0.512 | 0.512 | yes | `...core.crps_fair` |
+| T2 es_erb lambda=0.001 deficit | -5.73 | -5.73 | yes | `sota.ours.es_erb_l0.001.sets.wide.deficit` |
+| T2 es_erb lambda=0.001 gap | 1.16 | 1.16 | yes | `...core.gap_hb` |
+| T2 es_erb lambda=0.001 CRPS | 0.683 | 0.683 | yes | `...core.crps_fair` |
+| Deficit: det_paper shortfall | 21.8 | 21.8 | yes | `sota.ours.det_paper.sets.wide.deficit` |
+| Deficit: log-magnitude term recovers | 15.6 | 15.6 | yes | `difference of wide deficits` |
+| Deficit: energy score recovers | 5.1 | 5.1 | yes | `difference of wide deficits` |
+| Deficit: band-correlation error before | 0.374 | 0.374 | yes | `sota.ours.es_marg.sets.core.corr_err` |
+| Deficit: band-correlation error after | 0.289 | 0.289 | yes | `sota.ours.es_erb_l0.01.sets.core.corr_err` |
+| Deficit: sampler truth above all draws (%) | 21 | 21 | yes | `...es_dec_erb_l0.1.sets.core.pit_hi` |
+| Deficit: ideal tail at M = 8 (%) | 11 | 11 | yes | `1/(M+1)` |
+| Deficit: sampler lower tail (%, at ideal) | 11 | 11 | yes | `...es_dec_erb_l0.1.sets.core.pit_lo` |
 
-61 of 67 match.
-
-Pooled calibration claim in the text ("for our arms the truth lies above all eight draws in 21 to 24% of high-band bins, against 11%"): PIT high on `core`, one tail, ideal 1/9 = 0.111:
-
-- es_marg: PIT high 0.241, PIT low 0.098
-- es_dec_l0.01: PIT high 0.237, PIT low 0.098
-- es_erb_l0.01: PIT high 0.211, PIT low 0.111
-- es_erb_l0.1: PIT high 0.213, PIT low 0.108
-- es_erb_l0.001: PIT high 0.421, PIT low 0.097
-- es_dec_erb_l0.1: PIT high 0.212, PIT low 0.107
+68 of 68 match.

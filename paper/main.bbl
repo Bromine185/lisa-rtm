@@ -1,0 +1,75 @@
+\begin{thebibliography}{12}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Bouchacourt, Mudigonda, and Nowozin(2016)}]{bouchacourt2016}
+Bouchacourt, D.; Mudigonda, P.~K.; and Nowozin, S. 2016.
+\newblock {DISCO} Nets: Dissimilarity Coefficient Networks.
+\newblock In \emph{Proc. NeurIPS}.
+
+\bibitem[{Bruna, Sprechmann, and LeCun(2016)}]{bruna2016}
+Bruna, J.; Sprechmann, P.; and LeCun, Y. 2016.
+\newblock Super-Resolution with Deep Convolutional Sufficient Statistics.
+\newblock In \emph{Proc. ICLR}.
+
+\bibitem[{Gneiting and Raftery(2007)}]{gneiting2007}
+Gneiting, T.; and Raftery, A.~E. 2007.
+\newblock Strictly Proper Scoring Rules, Prediction, and Estimation.
+\newblock \emph{Journal of the American Statistical Association}, 102(477):
+  359--378.
+
+\bibitem[{Gritsenko et~al.(2020)Gritsenko, Salimans, van~den Berg, Snoek, and
+  Kalchbrenner}]{gritsenko2020}
+Gritsenko, A.~A.; Salimans, T.; van~den Berg, R.; Snoek, J.; and Kalchbrenner,
+  N. 2020.
+\newblock A Spectral Energy Distance for Parallel Speech Synthesis.
+\newblock In \emph{Proc. NeurIPS}.
+
+\bibitem[{Han and Lee(2022)}]{han2022}
+Han, S.; and Lee, J. 2022.
+\newblock {NU-Wave} 2: A General Neural Audio Upsampling Model for Various
+  Sampling Rates.
+\newblock In \emph{Proc. Interspeech}.
+
+\bibitem[{Jax and Vary(2002)}]{jax2002}
+Jax, P.; and Vary, P. 2002.
+\newblock An Upper Bound on the Quality of Artificial Bandwidth Extension of
+  Narrowband Speech Signals.
+\newblock In \emph{Proc. ICASSP}.
+
+\bibitem[{Kim et~al.(2022)Kim, Lee, Hong, and Ok}]{kim2022}
+Kim, J.; Lee, Y.; Hong, S.; and Ok, J. 2022.
+\newblock Learning Continuous Representation of Audio for Arbitrary Scale Super
+  Resolution.
+\newblock In \emph{Proc. ICASSP}.
+
+\bibitem[{Leinonen, Nerini, and Berne(2021)}]{leinonen2021}
+Leinonen, J.; Nerini, D.; and Berne, A. 2021.
+\newblock Stochastic Super-Resolution for Downscaling Time-Evolving Atmospheric
+  Fields with a Generative Adversarial Network.
+\newblock \emph{IEEE Transactions on Geoscience and Remote Sensing}, 59(9):
+  7211--7223.
+
+\bibitem[{Liu et~al.(2024)Liu, Chen, Tian, Wang, and Plumbley}]{liu2024}
+Liu, H.; Chen, K.; Tian, Q.; Wang, W.; and Plumbley, M.~D. 2024.
+\newblock {AudioSR}: Versatile Audio Super-Resolution at Scale.
+\newblock In \emph{Proc. ICASSP}.
+
+\bibitem[{Lu et~al.(2024)Lu, Ai, Du, and Ling}]{lu2024}
+Lu, Y.-X.; Ai, Y.; Du, H.-P.; and Ling, Z.-H. 2024.
+\newblock Towards High-Quality and Efficient Speech Bandwidth Extension with
+  Parallel Amplitude and Phase Prediction.
+\newblock \emph{IEEE/ACM Transactions on Audio, Speech, and Language
+  Processing}, 32.
+
+\bibitem[{Su et~al.(2021)Su, Wang, Finkelstein, and Jin}]{su2021}
+Su, J.; Wang, Y.; Finkelstein, A.; and Jin, Z. 2021.
+\newblock Bandwidth Extension is All You Need.
+\newblock In \emph{Proc. ICASSP}.
+
+\bibitem[{Yun, Kim, and Lee(2025)}]{yun2025}
+Yun, J.-H.; Kim, S.-B.; and Lee, S.-W. 2025.
+\newblock {FLowHigh}: Towards Efficient and High-Quality Audio Super-Resolution
+  with Single-Step Flow Matching.
+\newblock In \emph{Proc. ICASSP}.
+
+\end{thebibliography}

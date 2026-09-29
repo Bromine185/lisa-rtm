@@ -7,7 +7,7 @@ Start with `technical_appendix.pdf` (16 pages). The appendix sets out:
 - exact metric definitions and the derivations;
 - the audit of the four released models;
 - every metric for every model on every test set;
-- notes on the main text, and the limitations.
+- the limitations and related work.
 
 To hear the difference, open `audio/` (FLAC; `audio/README.md` lists what each file is).
 
@@ -19,7 +19,7 @@ To hear the difference, open `audio/` (FLAC; `audio/README.md` lists what each f
 | `appendix/` | Its LaTeX source; `build.sh` rebuilds the tables and the PDF |
 | `results/results.json` | Every number, in one file. `sota` holds the evaluation behind both tables of the paper |
 | `results/make_tables.py` | Rebuilds every table (CSV and LaTeX) from `results.json`, and checks each number printed in the paper against it |
-| `results/number_check.md` | That check: 61 of 67 printed numbers match exactly. The six differences are listed, with the values to print |
+| `results/number_check.md` | That check: all 68 result numbers printed in the paper match `results.json` |
 | `results/tables/` | The generated tables |
 | `results/training/` | Per-arm training histories (every logged train and validation point) and trainer logs, for all eight arms |
 | `figures/` | High-band level per band, rank histograms, spread, the SNR ceiling, quality against cost, training curves |

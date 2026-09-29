@@ -19,7 +19,7 @@
 \begin{document}
 \maketitle
 
-\noindent This appendix accompanies the two-page abstract. It gives the protocol, the model and training,
+\noindent This appendix accompanies the two-page paper. It gives the protocol, the model and training,
 exact metric definitions, the derivations behind the argument, the audit of the released models, every metric
 for every model on every test set, and the limitations. All numbers are generated from
 \file{results/results.json} by \file{results/make_tables.py}; none are typed by hand. The code that produced
@@ -34,16 +34,17 @@ them is in \file{code/}, and listening examples are in \file{audio/}.
 \small\centering
 \begin{tabular}{p{0.34\linewidth}p{0.33\linewidth}p{0.25\linewidth}}
 \toprule
-Claim in the abstract & Evidence & Where \\
+Claim in the paper & Evidence & Where \\
 \midrule
-The high band is nearly incoherent with the input & Coherent fraction $c<0.02$ for every model on the Chebyshev input, 240 utterances & Tab.~\ref{tab:snr}, \S\ref{sec:metrics} \\
-An empty high band is the SNR optimum when $c\approx 0$ & $E(1+p-2c)$ decomposition; measured ceiling & \S\ref{sec:ceiling}, Tab.~\ref{tab:ceiling}, Fig.~\ref{fig:ceiling} \\
-Point training leaves the band quiet; one change of objective closes it & Deficit $-21.8$\,dB (L1) to $-0.6$\,dB (energy score, ERB term) & Tab.~\ref{tab:t1}, Tab.~\ref{tab:levels-wide} \\
-Averaging draws rebuilds the deficit & Expected $-10\log_{10}M$ for incoherent draws & \S\ref{sec:avg}; \file{code/sota/mean_of_M.py} \\
-FLowHigh as released is deterministic; restoring its prior does not help & Code path, derivation, spread $2\times10^{-9}$ and $0.023$ & \S\ref{sec:flowhigh}, Fig.~\ref{fig:pit} \\
-Under a proper score the ranking changes & Fair CRPS on high-band log-magnitude, 32 utterances $\times$ 8 draws & Tab.~\ref{tab:t2}, Tab.~\ref{tab:calib} \\
-No model is calibrated & PIT tails, spread ratio, SNR gap & Tab.~\ref{tab:calib}, Fig.~\ref{fig:pit}, Fig.~\ref{fig:spread} \\
-The level regresses toward the corpus mean per utterance & Slope of deficit against the truth's high-band share & Tab.~\ref{tab:slope} \\
+The scoring harness reproduces the released models' published numbers & LSD/ViSQOL of FLowHigh and AP-BWE within 0.011 and 0.02 of their papers & Tab.~\ref{tab:fidelity} \\
+With a correct low band the squared error is $E(1+p-2c)$; an empty band maximises SNR when $c\approx0$ & Derivation; measured ceiling; NU-Wave~2's published SNR bounds its level & \S\ref{sec:ceiling}, Tab.~\ref{tab:ceiling}, Fig.~\ref{fig:ceiling} \\
+No model recovers the high-band waveform & Coherent fraction $c<0.02$ for every model, 240 utterances & Tab.~\ref{tab:snr} \\
+When $c\approx0$, the SNR gap of independent draws is a function of level & Derivation; measured gap against the independent value & \S\ref{sec:avg}, Tab.~\ref{tab:leveldisp} \\
+FLowHigh is a regressor: one Euler step returns the conditional mean & Code path, derivation, gap 0.08 against 1.61, rank tails 41\% / 46\% & \S\ref{sec:flowhigh-deriv}, \S\ref{sec:flowhigh}, Fig.~\ref{fig:pit} \\
+NU-Wave~2 samples but is too quiet & Gap 0.57 against 0.47; deficit by frame loudness & Tab.~\ref{tab:leveldisp}, Tab.~\ref{tab:levels-wide} \\
+AudioSR is dispersed but biased by band & Per-band levels; rank tails & Fig.~\ref{fig:levels}, Fig.~\ref{fig:pit} \\
+Every model pulls each utterance's level toward the corpus mean & Slope of deficit against the truth's high-band share & Tab.~\ref{tab:slope} \\
+The deficit is set mostly by the loss domain, and closed by an energy score & Eight paired arms of one network & Tab.~\ref{tab:t1}, Tab.~\ref{tab:levels-wide} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -244,9 +245,8 @@ level, so the truth is exchangeable with the draws by construction.
 \item \file{mean_of_M.py} returns waveform-mean deficits of $-3.01$, $-6.02$ and $-9.03$\,dB at $M=2,4,8$
 (predicted $-3.01$, $-6.02$, $-9.03$), and a log-mean deficit of $-2.63$\,dB at $M=8$ (limit $-2.51$).
 \end{itemize}
-The mean-of-$M$ numbers quoted in the abstract (``Averaging rebuilds the deficit'') were computed outside the
-committed pipeline. \file{code/sota/mean_of_M.py} is the committed version of that computation, and
-\file{code/sota/run_all.sh} runs it.
+\file{code/sota/mean_of_M.py} computes the mean-of-$M$ table on real draws, and \file{code/sota/run_all.sh}
+runs it.
 
 \subsection{The two-draw energy score: unbiased and proper}\label{sec:es}
 For any $d$, $\E\big[\tfrac12(d(y,Y_1)+d(y,Y_2))-\tfrac12 d(Y_1,Y_2)\big]=\E d(y,Y)-\tfrac12\E d(Y,Y')$, the
@@ -303,6 +303,13 @@ AudioSR & official package, \texttt{speech} checkpoint & 50 DDIM steps, guidance
 \caption{Released models as run. AP-BWE was also scored on its own paper's sinc input (``own sinc input'' rows).}
 \end{table}
 
+\begin{table}[H]\small\centering
+\input{../results/tables/fidelity.tex}
+\caption{Does the harness reproduce each model's own numbers? \texttt{wide}, 240 utterances. Reported values
+are from the papers' 12$\to$48\,kHz VCTK tables (NU-Wave~2's as re-run by AP-BWE; its own paper reports SNR,
+21.6\,dB, against our 21.3\,dB).}\label{tab:fidelity}
+\end{table}
+
 \subsection{FLowHigh}\label{sec:flowhigh}
 The released \texttt{inference.py} calls \texttt{sample(..., std\_2 = 1.)} without \texttt{std\_1}. Inside
 \texttt{sample()}, \texttt{if std\_1 is None or std\_2 is None: std\_1 = 1.0; std\_2 = self.sigma}. So the start
@@ -330,21 +337,19 @@ warm, median of three. Our 88\,k network runs at about 0.017 on the same CPU.}
 %------------------------------------------------------------------------------------------------------------
 \section{Results}\label{sec:results}
 
-\subsection{The two tables of the abstract}
+\subsection{Full versions of the paper's tables}
 \begin{table}[H]\small\centering
 \input{../results/tables/table1_arms.tex}
-\caption{Eight arms of one network (Table~1 of the abstract). Deficit on \texttt{wide} (240 utterances, one
+\caption{All eight arms of one network (the paper's Table~2 shows six). Deficit on \texttt{wide} (240 utterances, one
 draw); step = change of deficit against the arm in brackets. Spread and CRPS on \texttt{core} (32 utterances,
 8 draws); a deterministic arm's CRPS is its MAE.}\label{tab:t1}
 \end{table}
 
 \begin{table}[H]\small\centering
 \input{../results/tables/table2_released.tex}
-\caption{Released models against two of our arms (Table~2 of the abstract). Deficit, LSD and ViSQOL (audio
+\caption{Released models against two of our arms (the paper's Table~1, with spread and slope). Deficit, LSD and ViSQOL (audio
 mode) are on \texttt{wide}; spread and CRPS on \texttt{core}; slope on \texttt{wide} ($n=240$ for every
-model). FLowHigh's spread and CRPS are with its prior restored. The slope column is the committed
-240-utterance computation; the abstract's slope column came from an earlier pool of 270 utterances, and
-\texttt{results/number\_check.md} lists the differences.}\label{tab:t2}
+model). FLowHigh's spread and CRPS are with its prior restored.}\label{tab:t2}
 \end{table}
 
 \subsection{Levels}
@@ -396,13 +401,22 @@ one batch of eight clips).}\label{fig:ceiling}
 \begin{table}[H]\small\centering
 \resizebox{\linewidth}{!}{\input{../results/tables/calibration_core.tex}}
 \caption{\texttt{core}, $M=8$. Ideals: gap 2.50\,dB, spread 1, PIT low = PIT high = 0.111, corr err 0.
-``CRPS'' is the all-pairs estimator; ``CRPS fair'' is the one used in the abstract.}\label{tab:calib}
+``CRPS'' is the all-pairs estimator; ``CRPS fair'' is the one used in the paper.}\label{tab:calib}
 \end{table}
 
 \noindent The two waveform-domain measures do not always agree. Our sampler's gap (2.07\,dB) is within 17\% of
 the calibrated 2.50\,dB, while its pooled spread ratio (0.46) says it is under-dispersed. Both are dominated
 by output level when the band is incoherent with the truth (\S\ref{sec:ceiling}), so neither is read here as
 a pure measure of diversity.
+
+\begin{table}[H]\small\centering
+\resizebox{\linewidth}{!}{\input{../results/tables/level_dispersion_core.tex}}
+\caption{Level against dispersion, \texttt{core}, $M=8$. When $c\approx0$, draws that are mutually independent
+and carry $p$ times the true HB energy give gap $10\log_{10}\frac{1+p}{1+p/M}$ and spread
+$\frac{p(1+1/M)}{1+p/M}$ (from \S\ref{sec:ceiling}), with $p$ from the measured HB level. A model whose gap
+matches the independent value is diverse at its own level, whatever its spread: NU-Wave~2 (0.57 against 0.47)
+and our arms are; FLowHigh (0.08 against 1.61 with its prior restored) is not.}\label{tab:leveldisp}
+\end{table}
 
 \begin{table}[H]\small\centering
 \input{../results/tables/point_models_core.tex}
@@ -446,37 +460,6 @@ shipped; Table~\ref{tab:t2} uses the fair estimator and FLowHigh with its prior 
 \includegraphics[width=\linewidth]{training_curves.png}
 \caption{Training and validation curves of the eight arms (one run each, identical batches).}\label{fig:train}
 \end{figure}
-
-%------------------------------------------------------------------------------------------------------------
-\section{Notes on the main text}\label{sec:notes}
-Items where the abstract's wording or numbers differ from what the committed pipeline supports.
-\begin{itemize}
-\item \textbf{Corpus.} VCTK~0.92, not~0.9.
-\item \textbf{Table 1.} The \texttt{es\_dec} step is $-0.07$\,dB, which prints as $-0.1$, not 0.0.
-\item \textbf{Table 2 slope column.} The committed 240-utterance values are FLowHigh $-0.07$, AP-BWE $-0.12$,
-NU-Wave~2 $-0.32$, AudioSR $-0.34$, det $-0.22$ and es\_dec\_erb $-0.23$. The caption's ``270 utterances'' pool
-(\texttt{wide} plus \texttt{ourtest}) is not in the committed code, and \texttt{ourtest} contains speakers the
-released models were trained on.
-\item \textbf{``c $<$ 0.02''.} This holds for every model on the Chebyshev input (maximum 0.016, AP-BWE). AP-BWE
-on its own sinc input reaches 0.022.
-\item \textbf{``21 to 24\%''.} This is the one-tailed PIT high for the five arms with $\lambda\ge0.01$ (ideal
-11.1\%). The $\lambda=0.001$ arm is at 42\%.
-\item \textbf{Samplers against det on CRPS.} The CRPS comparison between samplers and det is expected by
-construction (\S\ref{sec:point}). The ranking among ensembles is the informative part.
-\item \textbf{``Strictly proper''.} The training loss is proper, and strictly proper only per coordinate
-(\S\ref{sec:es}).
-\item \textbf{``Our best sampler spread of 0.464''.} 0.464 is the arm carried into Table~2
-(\texttt{es\_dec\_erb}); the widest arm is \texttt{es\_marg} at 0.526.
-\item \textbf{``Three held-out voices''.} p236--p238 are held out from our training but seen by FLowHigh,
-NU-Wave~2 and AP-BWE.
-\item \textbf{Averaging paragraph.} Its numbers came from an ad hoc computation; \file{code/sota/mean_of_M.py} is
-the committed version (\S\ref{sec:avg}).
-\item \textbf{Blau and Michaeli's perception index.} That index concerns the marginal $p(\hat y)$. The result
-that a consistent estimator with perfect perceptual quality must be a posterior sampler is from
-\cite{ohayon2023}. BWE with low-band passthrough is consistent by construction, which is why we argue for
-committing to one draw. Deterministic estimators can reach perfect perception at lower distortion when
-consistency is not required \cite{freirich2021}.
-\end{itemize}
 
 %------------------------------------------------------------------------------------------------------------
 \section{Limitations}\label{sec:limits}
@@ -538,8 +521,8 @@ tests (31 and 18 checks), which pass on this snapshot.
 \item \textbf{Evaluate.} \file{code/sota/run_all.sh}: inputs, released models, our arms, the scorer, the
 mean-of-$M$ table and the figures.
 \item \textbf{Tables.} \file{results/make_tables.py} rebuilds every table in this appendix and checks each
-number printed in the abstract (\file{results/number_check.md}: 61 of 67 match; the six differences are listed
-in \S\ref{sec:notes}).
+number printed in the paper against \file{results/results.json} (\file{results/number_check.md}: all 68
+match).
 \end{enumerate}
 
 \begin{thebibliography}{99}\small
