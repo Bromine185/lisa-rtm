@@ -1,0 +1,9 @@
+arm,one change,deficit (dB),step,spread,CRPS
+det_paper,"LISA recipe (L1, lambda=0)",-21.78,--,--,2.853
+det,"+ log-magnitude term, lambda=0.01",-6.18,15.6 [det_paper],--,0.889
+es_marg,point -> draw (energy score),-1.05,5.1 [det],0.526,0.537
+es_dec,+ decoder noise,-1.12,-0.1 [es_marg],0.499,0.535
+es_erb,+ ERB-band term,-1.08,0.0 [es_marg],0.442,0.512
+"es_erb, lambda=0.1",lambda x 10,-0.63,0.5 [es_erb],0.479,0.515
+"es_erb, lambda=0.001",lambda / 10,-5.73,-4.6 [es_erb],0.225,0.683
+"es_dec_erb, lambda=0.1","decoder noise + ERB, lambda=0.1",-0.70,--,0.464,0.514

@@ -1,0 +1,4 @@
+model,LSD reported,LSD ours,ViSQOL reported,ViSQOL ours,reported in
+FLowHigh,0.75,0.761,3.61,3.61,"FLowHigh, Tab. I"
+AP-BWE,0.78,0.780,3.46,3.48,"AP-BWE, Tab. V"
+NU-Wave 2,0.94,0.989,2.75,2.57,"AP-BWE, Tab. V (re-run)"

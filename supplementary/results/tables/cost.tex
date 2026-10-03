@@ -1,0 +1,10 @@
+\begin{tabular}{lrrll}
+\toprule
+model & params & RTF & device & sampling \\
+\midrule
+FLowHigh & 49.4 M & 1.237 & cpu & 1 Euler step (their setting) \\
+AP-BWE & 29.8 M & 0.071 & cpu & 1 pass \\
+NU-Wave 2 & 1.7 M & 4.985 & cpu & 8 DDIM steps \\
+AudioSR (speech) & 672.0 M & 4.611 & mps & 50 DDIM steps \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,11 @@
+--- a/inference.py   (upstream FLowHigh release)
++++ b/inference.py   (trained prior restored: std_1 passed, so sample() keeps std 1)
+@@ -60,7 +60,7 @@
+             if cfm_method == 'basic_cfm':
+                 HR_audio = cfm_wrapper.sample(cond = cond, time_steps = timestep, cfm_method = cfm_method)
+             elif cfm_method == 'independent_cfm_adaptive':
+-                HR_audio = cfm_wrapper.sample(cond = cond, time_steps = timestep, cfm_method = cfm_method, std_2 = 1.) 
++                HR_audio = cfm_wrapper.sample(cond = cond, time_steps = timestep, cfm_method = cfm_method, std_1 = 1., std_2 = 1.) 
+             elif cfm_method == 'independent_cfm_constant':
+                 HR_audio = cfm_wrapper.sample(cond = cond, time_steps = timestep, cfm_method = cfm_method)
+             elif cfm_method == 'independent_cfm_mix':

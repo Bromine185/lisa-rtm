@@ -1,0 +1,234 @@
+{
+  "_about": "Architecture facts for the released models the demo carries beside the OV50 arms, from the papers and the released code, cited per model. No measured number is typed here: parameter counts come from the checkpoints (sota/count_params.py -> sota/params.json, which sums the state-dict tensors under each block's `count` prefixes; `count_whole` = every tensor of the loaded dict falls in some block), RTFs from sota/run_models.py's _run.json, and every evaluation number from sota/work/*/score_*.json via demo/tools/make_results_sota.py. Figures left in the prose are configuration (FFT sizes, step counts, rates), not results. `seen_basis` says whether the training-set list is the paper's split (`stated`) or an assumption (`assumed`).",
+  "models": {
+    "flowhigh": {
+      "name": "FLowHigh",
+      "paper": "Yun, Kim, Lee. FLowHigh: Towards Efficient and High-Quality Audio Super-Resolution with Single-Step Flow Matching. ICASSP 2025. arXiv:2501.04926",
+      "code": "github.com/jjunak-yun/FLowHigh_code (MIT); checkpoint FLowHigh_indep_adaptive_400k.pt + BigVGAN g_48_00850000",
+      "family": "flow matching, mel domain, one Euler step, neural vocoder",
+      "params_note": "the flow model and the BigVGAN vocoder, both in the released checkpoint and both run at inference",
+      "det": true,
+      "det_note": "Stochastic by design, deterministic as shipped: inference.py passes std_2 without std_1, so sample() resets the noise scale to σ and every draw is the same to within rounding. Restoring the trained prior does not bring the spread back: one Euler step from t = 0 returns the conditional mean for any noise.",
+      "input": "resample_poly to 48 kHz, peak-normalised; mel spectrogram 2048/480, 256 mels, 0–24 kHz",
+      "blocks": [
+        {
+          "id": "mel",
+          "label": "mel front end",
+          "detail": "STFT 2048 / hop 480 / 256 mel bands at 48 kHz",
+          "count": []
+        },
+        {
+          "id": "flow",
+          "label": "flow transformer",
+          "detail": "2 layers, 16 heads × 64, independent CFM (adaptive), σ = 1e-4; x₀ = the input's mel + noise → x₁ = the target's mel in ONE Euler step",
+          "count": [
+            "flowhigh.null_cond",
+            "flowhigh.sinu_pos_emb",
+            "flowhigh.to_embed",
+            "flowhigh.conv_embed",
+            "flowhigh.transformer",
+            "flowhigh.to_pred"
+          ]
+        },
+        {
+          "id": "vocoder",
+          "label": "BigVGAN 48 kHz",
+          "detail": "256-band mel → waveform, 850k-step checkpoint",
+          "count": [
+            "flowhigh.audio_enc_dec"
+          ]
+        },
+        {
+          "id": "post",
+          "label": "post-processing",
+          "detail": "STFT-domain low-band replacement from the input below the 99 %-cumulative-energy bin; output peak-normalised to 0.99",
+          "count": []
+        }
+      ],
+      "training": "VCTK 0.92, the NU-Wave 2 split (100 speakers train; p360–p376, s5 test), 400 k steps",
+      "seen": [
+        "p236",
+        "p237",
+        "p238"
+      ],
+      "seen_note": "p236–p238 are in its training set; p360, p361, p374 are not",
+      "steps": "1 Euler step (their setting)",
+      "context": "a whole mel frame (2048 samples = 43 ms) and, through attention, the whole utterance",
+      "count_whole": true,
+      "seen_basis": "stated"
+    },
+    "apbwe": {
+      "name": "AP-BWE",
+      "paper": "Lu, Ai, Du, Ling. Towards High-Quality and Efficient Speech Bandwidth Extension with Parallel Amplitude and Phase Prediction. IEEE/ACM TASLP 2024. arXiv:2401.06387",
+      "code": "github.com/yxlu-0102/AP-BWE (MIT); checkpoint g_12kto48k",
+      "family": "amplitude + phase spectrum prediction, GAN-trained, deterministic",
+      "params_note": "generator only; the discriminators are training-time",
+      "det": true,
+      "det_note": "A point estimate: one output per input.",
+      "input": "torchaudio (sinc) resample to 48 kHz; STFT 1024 / hop 80 / win 320; log-amplitude and phase spectra. Not level-invariant: fed at the corpus's stored level, since a peak-normalised input scores worse",
+      "blocks": [
+        {
+          "id": "stft",
+          "label": "STFT",
+          "detail": "1024 / 80 / 320 at 48 kHz → log-amplitude and phase, 513 bins",
+          "count": []
+        },
+        {
+          "id": "amp",
+          "label": "amplitude stream",
+          "detail": "8 ConvNeXt blocks, 512 channels, with cross-connections to the phase stream",
+          "count": [
+            "conv_pre_mag",
+            "norm_pre_mag",
+            "convnext_mag",
+            "norm_post_mag",
+            "linear_post_mag"
+          ]
+        },
+        {
+          "id": "phase",
+          "label": "phase stream",
+          "detail": "8 ConvNeXt blocks, 512 channels; phase parallel-estimated (two-component + anti-wrapping)",
+          "count": [
+            "conv_pre_pha",
+            "norm_pre_pha",
+            "convnext_pha",
+            "norm_post_pha",
+            "linear_post_pha_r",
+            "linear_post_pha_i"
+          ]
+        },
+        {
+          "id": "istft",
+          "label": "iSTFT",
+          "detail": "amplitude ∘ phase → waveform",
+          "count": []
+        }
+      ],
+      "training": "VCTK 0.92 train split (test = p360–p376, s5); GAN losses (multi-period + multi-resolution discriminators) + amplitude, phase and STFT losses",
+      "seen": [
+        "p236",
+        "p237",
+        "p238"
+      ],
+      "seen_note": "p236–p238 are in its training set; p360, p361, p374 are not",
+      "steps": "1 pass",
+      "context": "the whole spectrum of a 6.7 ms frame; ConvNeXt kernels spanning tens of frames",
+      "count_whole": true,
+      "seen_basis": "stated"
+    },
+    "nuwave2": {
+      "name": "NU-Wave 2",
+      "paper": "Han, Lee. NU-Wave 2: A General Neural Audio Upsampling Model for Various Sampling Rates. Interspeech 2022. arXiv:2206.08545",
+      "code": "github.com/maum-ai/nuwave2 (BSD); official checkpoint (epoch 629)",
+      "family": "waveform diffusion (DiffWave-style), 8 DDIM steps",
+      "params_note": "every weight of the network, counted from the checkpoint",
+      "det": false,
+      "det_note": "A sampler: eight DDIM steps from Gaussian noise; each seed is a different draw.",
+      "input": "Chebyshev-8 low-pass (0.05 dB) + resample_poly down and back up to 48 kHz; the band mask (input Nyquist) conditions every layer",
+      "blocks": [
+        {
+          "id": "noise",
+          "label": "Gaussian noise",
+          "detail": "z ~ N(0, I) at 48 kHz, the same length as the input",
+          "count": []
+        },
+        {
+          "id": "embed",
+          "label": "noise-level embedding",
+          "detail": "log-SNR embedding, and the input, skip and output projections",
+          "count": [
+            "model.model.diffusion_embedding",
+            "model.model.input_projection",
+            "model.model.skip_projection",
+            "model.model.output_projection"
+          ]
+        },
+        {
+          "id": "res",
+          "label": "15 residual layers",
+          "detail": "64 channels; each with a short-time Fourier convolution (STFC: STFT → conv on real/imag → iSTFT) and a bandwidth spectral feature transform (BSFT) conditioned on the band mask",
+          "count": [
+            "model.model.residual_layers"
+          ]
+        },
+        {
+          "id": "ddim",
+          "label": "8 DDIM steps",
+          "detail": "fixed log-SNR schedule (−2.6 … 17.2); the input waveform is concatenated at every step",
+          "count": []
+        }
+      ],
+      "training": "VCTK 0.92, 100 train speakers (p360–p376, s5 held out); input rates drawn uniformly 6–48 kHz with random Chebyshev filters",
+      "seen": [
+        "p236",
+        "p237",
+        "p238"
+      ],
+      "seen_note": "p236–p238 are in its training set; p360, p361, p374 are not",
+      "steps": "8 DDIM steps",
+      "context": "STFC frames of 1024 samples (21 ms); the residual stack sees the whole clip",
+      "count_whole": true,
+      "seen_basis": "stated"
+    },
+    "audiosr": {
+      "name": "AudioSR (speech)",
+      "paper": "Liu, Chen, Tian, Wang, Plumbley. AudioSR: Versatile Audio Super-Resolution at Scale. ICASSP 2024. arXiv:2309.07314",
+      "code": "github.com/haoheliu/versatile_audio_super_resolution (MIT); checkpoint haoheliu/audiosr_speech",
+      "family": "latent diffusion on a mel VAE, 50 DDIM steps, HiFi-GAN vocoder",
+      "params_note": "the diffusion U-Net, the conditioning VAE's encoder and the VAE decoder with its vocoder, all run at inference; the EMA copy, the CLAP model and the first-stage encoder in the checkpoint are not",
+      "det": false,
+      "det_note": "A sampler: 50 DDIM steps with classifier-free guidance; each seed is a different draw. Its low band also varies from draw to draw, so its full-band spread is wider than its high-band spread.",
+      "input": "resampled to 48 kHz and padded to a multiple of 5.12 s; the cutoff is located from the input's own spectrum (98.5 % cumulative energy) and a random low-pass of that cutoff makes the conditioning mel",
+      "blocks": [
+        {
+          "id": "mel",
+          "label": "mel + VAE encoder",
+          "detail": "48 kHz mel (2048/480, 256 bands) → latent, 12.8 latent frames per second",
+          "count": [
+            "cond_stage_models.0.vae.encoder",
+            "cond_stage_models.0.vae.quant_conv"
+          ]
+        },
+        {
+          "id": "unet",
+          "label": "latent diffusion U-Net",
+          "detail": "conditioned on the low-passed mel; 50 DDIM steps, guidance scale 3.5",
+          "count": [
+            "model.diffusion_model"
+          ]
+        },
+        {
+          "id": "dec",
+          "label": "VAE decoder + HiFi-GAN",
+          "detail": "latent → mel → waveform at 48 kHz",
+          "count": [
+            "first_stage_model.decoder",
+            "first_stage_model.post_quant_conv",
+            "first_stage_model.vocoder"
+          ]
+        },
+        {
+          "id": "post",
+          "label": "post-processing",
+          "detail": "the input's low band replaces the output's below the located cutoff",
+          "count": []
+        }
+      ],
+      "training": "a large multi-domain set (speech, music, sound effects) that includes VCTK; the speech checkpoint is fine-tuned on speech",
+      "seen": [
+        "p236",
+        "p237",
+        "p238",
+        "p360",
+        "p361",
+        "p374"
+      ],
+      "seen_note": "VCTK is in its training data and the paper does not state a speaker split; assume every VCTK speaker was seen",
+      "steps": "50 DDIM steps",
+      "context": "5.12 s windows through a U-Net with attention: the whole window",
+      "count_whole": false,
+      "seen_basis": "assumed"
+    }
+  }
+}

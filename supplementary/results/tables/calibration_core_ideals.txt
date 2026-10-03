@@ -1,0 +1,1 @@
+M = 8: gap HB 2.50 dB; spread 1; PIT low = PIT high = 1/(M+1) = 0.111; corr_err 0.
