@@ -2,14 +2,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import s from "@/app/page.module.css";
-import { ARM_META, ARM_ORDER, DEFAULT_ARM, FS_LO, REF_ARM, type ArmName, type Rate } from "@/lib/arms";
+import { ARM_META, DEFAULT_ARM, FS_LO, MODEL_ORDER, REF_ARM, RELEASED_DRAWS, RELEASED_META, REL_RATE, isReleased,
+         type ArmName, type ModelId, type Rate, type ReleasedDraw, type ReleasedId } from "@/lib/arms";
 import { ABPlayer, type SourceName } from "@/lib/audio";
 import { energyAbove, parseWav, specFill, specOf, type Spectrogram } from "@/lib/dsp";
 import { getEngine, type Engine } from "@/lib/engine";
 import { useT, type Key, type Lang } from "@/lib/i18n";
 import { decimate, upsample } from "@/lib/resample";
-import type { AudioManifest, Results, Signal, Speaker, WeightsManifest } from "@/lib/types";
+import type { AudioManifest, ReleasedManifest, Results, Signal, Speaker, WeightsManifest } from "@/lib/types";
 import { Blind, type Tally, type Trial, type Vote } from "./Blind";
+import { CompareStrip } from "./Compare";
 import { Instrument, type InstrumentHandle } from "./Instrument";
 import { Numbers } from "./Numbers";
 import { DrawKnobs, ModelList, RateSeg, ReadoutSeg, SpeakerList, ViewSeg, speakerName } from "./Rails";
@@ -60,6 +62,9 @@ export function App() {
   const engine = useRef<Engine | null>(null);
   const models = useRef<Record<string, unknown>>({});
   const gen = useRef(0);
+  // one token per loadOutput: a slower fetch for an earlier pick must not land in the current slot. Separate
+  // from gen, which runInference bumps for itself and which would invalidate the arm path's own token.
+  const loadSeq = useRef(0);
   const raf = useRef(0);
 
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
@@ -84,6 +89,10 @@ export function App() {
   const [blindOn, setBlindOn] = useState(false);
   const [trial, setTrial] = useState<Trial | null>(null);
   const [tally, setTally] = useState<Tally>(zeroTally);
+  // a released slot (precomputed, never run here); `arm` keeps the last OV50 arm for the blind test
+  const [released, setReleased] = useState<ReleasedId | null>(null);
+  const [relDraw, setRelDraw] = useState<ReleasedDraw>("draw");
+  const [relMan, setRelMan] = useState<ReleasedManifest | null>(null);   // manifest.released, set on boot
 
   // signals and spectrograms live in refs: they are large and painted imperatively
   const sig = useRef<{ truth: Signal | null; input: Signal | null; naive: Signal | null; output: Signal | null }>({ truth: null, input: null, naive: null, output: null });
@@ -104,10 +113,26 @@ export function App() {
   const effTau = det ? 0 : tau;
   const live = !!speaker?.live;
   const effReadout: Readout = live && !det ? "draw" : readout;
+  const relInfo = released ? relMan?.models?.[released] ?? null : null;
+  const relDet = released ? (relInfo?.det ?? RELEASED_META[released].det) : false;
+  const effRelDraw: ReleasedDraw = relDet ? "draw" : relDraw;   // a deterministic release has one output
+  const effRate: Rate = released ? REL_RATE : rate;              // ×4 only for a released slot
+  // whether the current speaker is in the released model's training set; null when that does not apply or
+  // the manifest has no entry to say (no badge rather than a claim)
+  const seen = released && speaker && !speaker.live && relInfo ? relInfo.seen.includes(speaker.id) : null;
+  const seenKey: Key = seen ? (relInfo?.seen_basis === "assumed" ? "rel.seen.assumed" : "rel.seen") : "rel.unseen";
+  const modelId: ModelId = released ?? arm;
+  const selectModel = useCallback((m: ModelId) => {
+    if (isReleased(m)) setReleased(m); else { setReleased(null); setArm(m); }
+  }, []);
 
+  // what an empty output says: a released slot cannot run, so it says why instead of asking for a run.
+  // A ref, kept current after each render, so paintView (and everything that depends on it) stays stable.
+  const noOut = useRef<Key>("noout");
+  useEffect(() => { noOut.current = released ? (live ? "rel.nolive" : "rel.nofile") : "noout"; }, [released, live]);
   const paintView = useCallback((v: View) => {
     const sp = spec.current[v];
-    if (!sp) { setEmpty(v === "output" ? t("noout") : t("loading")); inst.current?.clear(); return; }
+    if (!sp) { setEmpty(v === "output" ? t(noOut.current) : t("loading")); inst.current?.clear(); return; }
     setEmpty(null);
     inst.current?.showAll(sp, v === "truth" ? "truth" : "band");
   }, [t]);
@@ -120,6 +145,21 @@ export function App() {
       return;
     }
     if (mode) { setStatus(<span>{mode}</span>); return; }
+    if (released && !blindOn) {
+      // a precomputed release: its measured RTF on the author's M4 comes from the manifest, never typed in
+      const rtf = relInfo?.rtf_m4, out = !!sig.current.output;
+      setStatus(<>
+        {out && <span>{t("rel.pre")}</span>}
+        <span>{relInfo?.name ?? RELEASED_META[released].name}</span>
+        {out && <span>RTF <b>{rtf != null && isFinite(rtf) ? rtf.toFixed(3) : "—"}</b> {t("rel.on", { cpu: relInfo?.machine ?? "—", device: relInfo?.rtf_device ?? "—" })}</span>}
+        <span>{spk}</span><span>×{REL_RATE} · {((FS_LO * REL_RATE) / 1000).toFixed(0)} kHz</span>
+        {out && <span>{outputTag.current}</span>}
+        {seen != null && <span className={`${s.badge} ${seen ? s.badgeSeen : ""}`} title={relInfo?.seen_note}>{t(seenKey)}</span>}
+        {speaker?.live && <span>{t("rel.nolive")}</span>}
+        {!out && !speaker?.live && <span>{t("rel.nofile")}</span>}
+      </>);
+      return;
+    }
     const tm = timing.current;
     // the bench number is measured, not asserted: one pass on the bench CPU, from results.json
     const lat = results?.arms?.[arm]?.latency, env = results?.latency_env;
@@ -133,7 +173,7 @@ export function App() {
       {sig.current.output && x8 != null && <span>{t("above24")}: <b>{pct(x8)}</b></span>}
       {!sig.current.output && <span>{t("noout")}</span>}
     </>);
-  }, [speaker, arm, rate, results, t]);
+  }, [speaker, arm, rate, results, released, relInfo, seen, seenKey, blindOn, t]);
 
   // ---- playback ---------------------------------------------------------------------------------
   const stopAudio = useCallback(() => {
@@ -164,6 +204,7 @@ export function App() {
   }, []);
 
   const runInference = useCallback(async () => {
+    if (released) return;   // a released slot is precomputed: nothing to run here (also covers R)
     const eng = engine.current, x = sig.current.input;
     if (!eng || !x) return;
     const g = ++gen.current;
@@ -201,7 +242,7 @@ export function App() {
     setRunning(false); inst.current?.setSweep(null);
     paintView(view); showStatus();
     player.current?.swap(sources());
-  }, [arm, rate, effTau, seed, view, paintView, showStatus, loadModel, sources, t]);
+  }, [released, arm, rate, effTau, seed, view, paintView, showStatus, loadModel, sources, t]);
 
   const cancelInference = useCallback(() => { gen.current++; setRunning(false); inst.current?.setSweep(null); showStatus(t("stopped")); }, [showStatus, t]);
 
@@ -211,6 +252,32 @@ export function App() {
   // its only readout). Anything else (another seed, another τ, a clip recorded here) has to come from
   // the engine, which is the point of it.
   const loadOutput = useCallback(async (sp: Speaker) => {
+    const ls = ++loadSeq.current;
+    if (released) {
+      // one precomputed file per draw from sota/run_models.py; a recorded clip has none, and no engine
+      // can stand in for it, so the slot stays empty and says why
+      // an arm's inference still in flight must not land in this slot
+      gen.current++; setRunning(false); inst.current?.setSweep(null);
+      x8Above24.current = null; outputLive.current = false;
+      const f = sp.files?.released?.[released];
+      const path = sp.live ? undefined : effRelDraw === "draw2" ? f?.draw2 ?? f?.draw : f?.draw;
+      sig.current.output = null; spec.current.output = null;
+      if (path) {
+        try {
+          const o = await getWav(wavUrl(path));
+          if (ls !== loadSeq.current) return;   // a later pick owns the slot now
+          sig.current.output = o; spec.current.output = specOf(o);
+          outputTag.current = t("tag.rel", { lbl: t(effRelDraw === "draw2" && f?.draw2 ? "lbl.draw2" : "lbl.draw") });
+        } catch { if (ls !== loadSeq.current) return; sig.current.output = null; spec.current.output = null; }
+      }
+      paintView(view);
+      // Run is off here, so the arm path's "run inference" empty text would ask for the impossible; the
+      // speaker state may not have caught up with `sp` yet, so say it from `sp` itself
+      if (view === "output" && !spec.current.output) setEmpty(t(sp.live ? "rel.nolive" : "rel.nofile"));
+      showStatus();
+      player.current?.swap(sources());
+      return;
+    }
     const a = sp.files?.arms?.[arm];
     let path: string | undefined, lbl = "";
     x8Above24.current = null;
@@ -223,14 +290,15 @@ export function App() {
     if (path) {
       try {
         const o = await getWav(wavUrl(path));
+        if (ls !== loadSeq.current) return;   // a later pick owns the slot now
         sig.current.output = o; spec.current.output = specOf(o); outputLive.current = false;
         outputTag.current = t("tag.pre", { lbl });
-      } catch { sig.current.output = null; spec.current.output = null; x8Above24.current = null; }
+      } catch { if (ls !== loadSeq.current) return; sig.current.output = null; spec.current.output = null; x8Above24.current = null; }
     } else { sig.current.output = null; spec.current.output = null; }
     paintView(view); showStatus();
     // a live clip has no file to fall back on: it always runs
     if ((autorun || sp.live) && engine.current && wman?.arms?.[arm]) void runInference();
-  }, [arm, rate, det, effTau, seed, readout, view, autorun, wman, paintView, showStatus, runInference, t]);
+  }, [released, effRelDraw, arm, rate, det, effTau, seed, readout, view, autorun, wman, paintView, showStatus, runInference, sources, t]);
 
   const loadBase = useCallback(async (sp: Speaker): Promise<Base> => {
     if (sp.live) { const b = liveBase.current[sp.id]; if (!b) throw new Error(sp.id); return b; }
@@ -345,7 +413,7 @@ export function App() {
         getJSON<Results>("/assets/results.json"), getEngine(),
       ]);
       if (dead) return;
-      engine.current = eng; setHasEngine(!!eng); setResults(res); setWman(wm);
+      engine.current = eng; setHasEngine(!!eng); setResults(res); setWman(wm); setRelMan(am?.released ?? null);
       if (am?.speakers?.length) { setSpeakers(am.speakers); }
       else { setEmpty(t("manifest.none")); setStatus(<span>{t("fixtures.none")}</span>); }
     })();
@@ -364,7 +432,7 @@ export function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (speaker) void loadOutput(speaker);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arm, rate, tauCommit, seed, readout]);
+  }, [arm, rate, tauCommit, seed, readout, released, effRelDraw]);
   useEffect(() => { paintView(view); }, [view, paintView]);
   // the status line is prose assembled from refs, so a language change re-renders it by hand
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -389,10 +457,10 @@ export function App() {
       }
       if (k === "1") pickSource("input"); else if (k === "2") pickSource("output"); else if (k === "3") pickSource("truth");
       else if (k === "r" || k === "R") { if (running) cancelInference(); else void runInference(); }
-      else if ((k === "n" || k === "N") && !det) setSeed((n) => n + 1);
+      else if ((k === "n" || k === "N") && !det && !released) setSeed((n) => n + 1);
       else if (k === "v" || k === "V") voice.current?.toggle();
       else if (k === "b" || k === "B") startBlind();
-      else if (k === "ArrowUp" || k === "ArrowDown") { e.preventDefault(); setArm(step(ARM_ORDER, arm, k === "ArrowDown" ? 1 : -1) as ArmName); }
+      else if (k === "ArrowUp" || k === "ArrowDown") { e.preventDefault(); selectModel(step(MODEL_ORDER, modelId, k === "ArrowDown" ? 1 : -1) as ModelId); }
       else if ((k === "ArrowLeft" || k === "ArrowRight") && speakers.length) {
         e.preventDefault();
         const ids = speakers.map((x) => x.id);
@@ -400,14 +468,14 @@ export function App() {
       }
     };
     window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
-  }, [playing, stopAudio, startAudio, pickSource, blindOn, vote, trial, newTrial, speakers, exitBlind, running, cancelInference, runInference, det, startBlind, arm, speaker, loadSpeaker, step, lang, setLang]);
+  }, [playing, stopAudio, startAudio, pickSource, blindOn, vote, trial, newTrial, speakers, exitBlind, running, cancelInference, runInference, det, released, startBlind, modelId, selectModel, speaker, loadSpeaker, step, lang, setLang]);
 
-  const openArch = useCallback((a: ArmName) => { stopAudio(); router.push(`/architecture/${a}`); }, [router, stopAudio]);
+  const openArch = useCallback((m: ModelId) => { stopAudio(); router.push(`/architecture/${m}`); }, [router, stopAudio]);
 
   const srcRow: [SourceName, string][] = blindOn
     ? [["a", "A"], ["b", "B"], ["input", t("src.input")]]
     : [["input", t("src.input")], ["output", t("src.output")], ["truth", t("src.truth")]];
-  const keys: [string, Key][] = [["space", "k.space"], ["1 2 3", "k.123"], ["R", "k.r"], ["N", "k.n"], ["↑ ↓", "k.updown"], ["← →", "k.leftright"], ["V", "k.v"], ["B", "k.b"], ["L", "k.l"], ["?", "k.q"]];
+  const keys: [string, Key][] = [["space", "k.space"], ["1 2 3", "k.123"], ["R", "k.r"], ["N", "k.n"], ["↑ ↓", "k.updown.all"], ["← →", "k.leftright"], ["V", "k.v"], ["B", "k.b"], ["L", "k.l"], ["?", "k.q"]];
 
   return (
     <div className={s.app}>
@@ -440,21 +508,26 @@ export function App() {
           </div>
           <div className={s.block}>
             <div className={`lbl ${s.blockhead}`}><span>{t("rate")}</span><span className={s.hint}>{t("rate.hint")}</span></div>
-            <RateSeg rate={rate} onPick={setRate} />
+            <RateSeg rate={effRate} onPick={setRate} lock8={!!released} />
           </div>
           <div className={s.block}>
             <div className={`lbl ${s.blockhead}`}><span>{t("model")}</span><span className={s.hint}>{t("model.hint")}</span></div>
-            <ModelList current={arm} results={results?.arms ?? null} onPick={setArm} onOpen={openArch} />
+            <CompareStrip sota={results?.sota ?? null} results={results} compact />
+            <ModelList current={modelId} results={results?.arms ?? null} sota={results?.sota ?? null} released={relMan}
+                       speakerId={speaker?.id ?? null} live={live} onPick={selectModel} onOpen={openArch} />
           </div>
           <div className={s.block}>
             <div className={`lbl ${s.blockhead}`}><span>{t("readout")}</span><span className={s.hint}>{t("readout.hint")}</span></div>
-            <ReadoutSeg readout={det ? "tau0" : effReadout} available={det ? ["tau0"] : live ? ["draw"] : ["draw", "mean16", "logmean16"]} live={live && !det}
-                        best={results?.arms?.[arm]?.best_readout?.replace("_pt", "") ?? null}
-                        onPick={(r) => setReadout(r as Readout)} />
+            {released
+              ? <ReadoutSeg readout={effRelDraw} available={relDet ? ["draw"] : [...RELEASED_DRAWS]} best={null} live={false}
+                            note={t(relDet ? "rel.ro.det" : "rel.ro.sampler")} onPick={(r) => setRelDraw(r as ReleasedDraw)} />
+              : <ReadoutSeg readout={det ? "tau0" : effReadout} available={det ? ["tau0"] : live ? ["draw"] : ["draw", "mean16", "logmean16"]} live={live && !det}
+                            best={results?.arms?.[arm]?.best_readout?.replace("_pt", "") ?? null}
+                            onPick={(r) => setReadout(r as Readout)} />}
           </div>
           <div className={s.block}>
             <div className={`lbl ${s.blockhead}`}><span>{t("draw")}</span><span className={s.hint}>{t("draw.hint")}</span></div>
-            <DrawKnobs tau={tau} seed={seed} det={det} onTau={setTau} onTauCommit={() => setTauCommit((n) => n + 1)} onSeed={setSeed} onNewDraw={() => setSeed((n) => n + 1)} />
+            <DrawKnobs tau={tau} seed={seed} det={det} disabled={!!released} why={released ? t("rel.knobs") : undefined} onTau={setTau} onTauCommit={() => setTauCommit((n) => n + 1)} onSeed={setSeed} onNewDraw={() => setSeed((n) => n + 1)} />
           </div>
         </aside>
 
@@ -463,8 +536,10 @@ export function App() {
             <div className={s.toolbar}>
               <ViewSeg view={view} onPick={(v) => { if (!blindOn) setView(v); }} />
               <span className={s.grow} />
-              <label className={`lbl ${s.auto}`}><input type="checkbox" checked={autorun} onChange={(e) => setAutorun(e.target.checked)} />{t("autorun")}</label>
-              <button type="button" className={`${s.run} ${running ? s.stop : ""}`} disabled={!hasEngine || blindOn} title={hasEngine ? "" : t("engine.none")}
+              <label className={`lbl ${s.auto}`} title={released ? t("autorun.off") : undefined}>
+                <input type="checkbox" checked={autorun} disabled={!!released} onChange={(e) => setAutorun(e.target.checked)} />{t("autorun")}</label>
+              <button type="button" className={`${s.run} ${running ? s.stop : ""}`} disabled={!hasEngine || blindOn || !!released}
+                      title={released ? t("rel.norun") : hasEngine ? "" : t("engine.none")}
                       onClick={() => (running ? cancelInference() : void runInference())}>{running ? t("stop") : t("run")} <kbd>R</kbd></button>
             </div>
             <Instrument ref={inst} empty={empty} />
@@ -487,7 +562,7 @@ export function App() {
         <aside className={`${s.rail} ${s.right}`}>
           {blindOn
             ? <Blind trial={trial} tally={tally} onVote={vote} onNext={() => void newTrial(speakers)} onReset={resetTally} onExit={exitBlind} />
-            : <Numbers arm={arm} results={results} onOpen={() => openArch(arm)} />}
+            : <Numbers arm={arm} released={released} results={results} manifest={relMan} onOpen={() => openArch(modelId)} />}
         </aside>
       </main>
       {tour && <Tour onClose={() => setTour(false)} />}

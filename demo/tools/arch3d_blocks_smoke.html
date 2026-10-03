@@ -1,0 +1,106 @@
+<!doctype html>
+<!--
+  Smoke test for web/public/arch3d.js's block-flow scene. Serve the repo root and open this page:
+    python3 -m http.server 8765   (from the repo root)
+    http://localhost:8765/demo/tools/arch3d_blocks_smoke.html            FLowHigh
+    http://localhost:8765/demo/tools/arch3d_blocks_smoke.html?m=nuwave2  any released id
+    http://localhost:8765/demo/tools/arch3d_blocks_smoke.html?m=lisa     the LISA scene, no blocks
+  The blocks (with their measured parameter counts), name, det and steps all come from the audio
+  manifest's released block (demo/tools/add_sota.py), the same copy the app serves.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>arch3d blocks smoke</title>
+<style>
+  :root { --ground: #0A0C10; --panel: #11141A; --line: #1F2430; --ink: #E7EBF2; --dim: #7D8798; --warm: #FFB347; }
+  html, body { margin: 0; height: 100%; background: var(--ground); color: var(--ink);
+    font: 12px/1.4 "JetBrains Mono", ui-monospace, Menlo, monospace; }
+  #bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+  #bar button, #bar select { background: var(--panel); color: var(--ink); border: 1px solid var(--line); padding: 3px 8px; font: inherit; cursor: pointer; }
+  #bar button.on { border-color: var(--warm); color: var(--warm); }
+  #bar input[type=range] { width: 220px; }
+  #stage { position: relative; height: calc(100% - 90px); min-height: 320px; }
+  #log { padding: 4px 16px; color: var(--dim); white-space: pre-wrap; }
+  #log.bad { color: #FF6B6B; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <select id="model" aria-label="model"></select>
+  <button id="play">play</button>
+  <input id="t" type="range" min="0" max="1" step="0.001" value="0" aria-label="time">
+  <span id="tv">t 0.000 · stage 0</span>
+  <span id="stages"></span>
+  <button id="whole">whole</button>
+</div>
+<div id="stage"></div>
+<div id="log"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../../web/public/arch3d.js"></script>
+<script>
+(function () {
+  var log = document.getElementById('log');
+  function say(msg, bad) { log.textContent = msg; log.className = bad ? 'bad' : ''; }
+  window.addEventListener('error', function (e) { say('error: ' + e.message, true); });
+
+  var params = new URLSearchParams(location.search);
+  var id = params.get('m') || 'flowhigh';
+  var el = document.getElementById('stage'), h = null, playing = false;
+  var tIn = document.getElementById('t'), tv = document.getElementById('tv');
+
+  function show(t) {
+    tIn.value = t;
+    tv.textContent = 't ' + t.toFixed(3) + ' · stage ' + (h ? h.stageOf(t) : 0);
+  }
+
+  fetch('../../web/public/assets/audio/manifest.json').then(function (r) { return r.json(); }).then(function (man) {
+    var J = { models: {} };
+    Object.keys((man.released || {}).models || {}).forEach(function (k) { var a = man.released.models[k].arch; if (a) J.models[k] = a; });
+    var sel = document.getElementById('model');
+    Object.keys(J.models).concat(['lisa']).forEach(function (k) {
+      var o = document.createElement('option'); o.value = k; o.textContent = k; if (k === id) o.selected = true; sel.appendChild(o);
+    });
+    sel.onchange = function () { params.set('m', sel.value); location.search = params.toString(); };
+
+    var m = J.models[id];
+    var opts = { arm: id === 'lisa' ? 'lisas' : id, cls: 'LISAS', onTime: show };
+    if (m) { opts.blocks = m.blocks; opts.name = m.name; opts.det = m.det; opts.steps = m.steps; opts.params = m.params; }
+    h = window.Arch3D.mount(el, opts);
+    h.pause(); h.seek(0);
+
+    var sb = document.getElementById('stages');
+    h.stages.forEach(function (s, i) {
+      var b = document.createElement('button');
+      b.textContent = m ? m.blocks[i].label : String(i);
+      b.onclick = function () { h.focus(i); h.seek((s[0] + s[1]) / 2); };
+      sb.appendChild(b);
+    });
+    document.getElementById('whole').onclick = function () { h.focus(null); };
+    document.getElementById('play').onclick = function (e) {
+      playing = !playing; if (playing) h.play(); else h.pause();
+      e.target.classList.toggle('on', playing); e.target.textContent = playing ? 'pause' : 'play';
+    };
+    tIn.oninput = function () { h.seek(+tIn.value); };
+
+    // the checks: stage count, STAGES formula, stageOf at the boundaries, a render without errors
+    var n = m ? m.blocks.length : 5, fails = [];
+    if (h.stages.length !== n) fails.push('stages ' + h.stages.length + ' != ' + n);
+    if (m) h.stages.forEach(function (s, i) {
+      if (Math.abs(s[0] - i / n) > 1e-12 || Math.abs(s[1] - (i + 1) / n) > 1e-12) fails.push('STAGES[' + i + '] = ' + s);
+      if (h.stageOf((i + 0.5) / n) !== i) fails.push('stageOf mid ' + i);
+    });
+    if (h.stageOf(1) !== n - 1) fails.push('stageOf(1)');
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      var st = h.stats(), d = h.debug();
+      var info = (m ? m.name : 'LISA') + ' · ' + n + ' stages · draw calls ' + st.calls + ' · labels ' + d.labels.length +
+        ' [' + d.labels.map(function (L) { return L.text; }).join(' | ') + ']';
+      window.__smoke = { fails: fails, stats: st, labels: d.labels };
+      say((fails.length ? 'FAIL ' + fails.join('; ') : 'PASS') + '\n' + info, fails.length > 0);
+    }); });
+  }).catch(function (e) { say('could not load the audio manifest (serve the repo root over http): ' + e, true); });
+})();
+</script>
+</body>
+</html>

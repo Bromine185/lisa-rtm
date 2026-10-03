@@ -1,8 +1,18 @@
 /* arch3d.js — the LISA architecture as a 3D diagram.  window.Arch3D
  *
- *   mount(el, {arm, cls, tokens, dims, onTime}) -> handle
+ *   mount(el, {arm, cls, tokens, dims, onTime, blocks?, name?, det?, steps?, params?}) -> handle
  *   handle.setArm(arm, cls); play(); pause(); seek(t01); setInference(p01); dispose()
  *   handle.focus(stage|null); reset(); panBy(dx, dy); zoomBy(f)   -- the camera, eased
+ *   handle.stages ([start, end] per stage); stageOf(t01)
+ *
+ * With `blocks` ([{id, label, detail, params}], a released model) the scene is a block flow
+ * instead: the 12 kHz input on the left, one slab per block along +X (height ~ log10(params + 1),
+ * a thin plate for a block with no parameters), the output on the right. `name` heads the caption
+ * and the canvas label; `det: false` adds a Gaussian noise inlet; `steps > 1` (a number, or a phrase
+ * such as "8 DDIM steps") adds a loop arc labelled with the count; `params`, the measured total,
+ * goes in the caption when given. One stage per block: STAGES[i] = [i / n, (i + 1) / n], and
+ * focus(i) frames block i. These are read once, at mount; remount to change them. Without `blocks`
+ * the scene is the LISA diagram, five stages (Arch3D.STAGES).
  *
  * Controls: drag orbits; shift-drag, middle/right button, two fingers together or a two-finger
  * swipe pan; pinch or ctrl/⌘-wheel zooms; double-click resets. Orbit never re-fits the framing.
@@ -45,6 +55,11 @@ function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
 function seg(t, a, b) { return clamp01((t - a) / (b - a)); }
 function smooth(a, b, x) { x = clamp01((x - a) / (b - a)); return x * x * (3 - 2 * x); }
 function lerp(a, b, f) { return a + (b - a) * f; }
+// the stage that t falls in: the last one whose start it has reached
+function stageAt(stages, t) {
+  for (var i = stages.length - 1; i > 0; i--) if (t >= stages[i][0]) return i;
+  return 0;
+}
 function mulberry32(seed) {
   var a = seed >>> 0;
   return function () {
@@ -233,7 +248,7 @@ function mount(el, opts) {
   renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, 2));
   renderer.setClearColor(new THREE.Color(tk.ground), 1);
   var canvas = renderer.domElement;
-  canvas.setAttribute('aria-label', 'LISA architecture, 3D diagram');
+  canvas.setAttribute('aria-label', (opts.name ? String(opts.name) : 'LISA') + ' architecture, 3D diagram');
   wrap.appendChild(canvas);
   wrap.appendChild(overlay);
   el.appendChild(wrap);
@@ -251,244 +266,8 @@ function mount(el, opts) {
   C.warmDim = mixc(C.ghost, C.warm, 0.35);
   C.slab = mixc(C.panel, C.cold, 0.35);
 
-  // ---- layout (world units; flow along +X, amplitude along Y, channels/width along Z)
-  var Lx = {
-    inX0: -17, inX1: -10, slabX0: -9, slabGap: 0.34,
-    ribX0: -2.5, ribX1: 1.5, ribH: 2.4,
-    decX0: 3.0, decPitch: 1.5, grid: 12, nodePitch: 0.2,
-    outX0: 10.5, outX1: 17.5, warmLift: 1.9, groundY: -2.8
-  };
-  // The floor is the diagram's footprint, nothing more: it is what the camera fit measures,
-  // so anything drawn on it is guaranteed to be in frame.
-  var FLOOR = { x0: Lx.inX0 - 0.8, x1: Lx.outX1 + 0.6, z0: -1.7, z1: 2.6 };
   var dot = buildDotTexture();
   var rnd = mulberry32(7);
-
-  // ---- signal
-  var S = synth(N_CELLS, R, 11);
-  var x48 = new Float32Array(N), x48o = new Float32Array(N);
-  for (var j = 0; j < N; j++) {
-    x48[j] = Lx.inX0 + (Lx.inX1 - Lx.inX0) * j / (N - 1);
-    x48o[j] = Lx.outX0 + (Lx.outX1 - Lx.outX0) * j / (N - 1);
-  }
-  var cellX = function (i) { return x48[i * R]; };
-  var cellXo = function (i) { return x48o[i * R]; };
-
-  // ---- ground grid (one draw call)
-  (function () {
-    var verts = [], i;
-    for (i = 0; i <= 18; i++) {
-      var x = FLOOR.x0 + (FLOOR.x1 - FLOOR.x0) * i / 18;
-      verts.push(x, Lx.groundY, FLOOR.z0, x, Lx.groundY, FLOOR.z1);
-    }
-    for (i = 0; i <= 4; i++) {
-      var z = FLOOR.z0 + (FLOOR.z1 - FLOOR.z0) * i / 4;
-      verts.push(FLOOR.x0, Lx.groundY, z, FLOOR.x1, Lx.groundY, z);
-    }
-    var g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
-    var m = new THREE.LineBasicMaterial({ color: new THREE.Color(tk.line), transparent: true, opacity: 0.55 });
-    scene.add(new THREE.LineSegments(g, m));
-  })();
-
-  // ---- stage connectors: hairlines along the flow at y = 0
-  var slabs = [];  // {x0,x1,cx,thick,foot,ch,k}
-  (function () {
-    var x = Lx.slabX0;
-    for (var k = 0; k < D.encChannels.length; k++) {
-      var thick = D.encChannels[k] / 32, foot = D.encKernels[k] * 0.4;
-      slabs.push({ x0: x, x1: x + thick, cx: x + thick / 2, thick: thick, foot: foot, ch: D.encChannels[k], k: D.encKernels[k] });
-      x += thick + Lx.slabGap;
-    }
-  })();
-  var slabEnd = slabs[slabs.length - 1].x1;
-  var decX = [];
-  for (var k = 0; k < D.decLayers; k++) decX.push(Lx.decX0 + k * Lx.decPitch);
-  (function () {
-    var v = [
-      Lx.inX1 + 0.15, 0, 0, slabs[0].x0, 0, 0,
-      slabEnd, 0, 0, Lx.ribX0, 0, 0,
-      Lx.ribX1, 0, 0, decX[0] - 0.25, 0, 0,
-      decX[decX.length - 1] + 0.25, 0, 0, Lx.outX0 - 0.15, 0, 0
-    ];
-    for (var i = 0; i < slabs.length - 1; i++) v.push(slabs[i].x1, 0, 0, slabs[i + 1].x0, 0, 0);
-    var g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
-    var m = new THREE.LineBasicMaterial({ color: new THREE.Color(tk.dim), transparent: true, opacity: 0.35 });
-    scene.add(new THREE.LineSegments(g, m));
-  })();
-
-  // ---- input waveform: points + line, 4 x N_CELLS samples
-  var inPts = makePoints(N, 2.8, dot);
-  var inLine = makeLine(N, false, 0.9);
-  scene.add(inPts.obj); scene.add(inLine.obj);
-
-  // ---- 6-24 kHz at the input: the band decimation throws away. Same height and colour as
-  // the output's warm band, so the eye reads one as the answer to the other.
-  var inWarm = makeLine(N, false, 0);
-  (function () {
-    var w = inWarm.pos.array, c = inWarm.col.array;
-    for (var j = 0; j < N; j++) {
-      w[j * 3] = x48[j]; w[j * 3 + 1] = Lx.warmLift + S.hf[j] * 2.6; w[j * 3 + 2] = 0;
-      put3s(c, j * 3, C.warm, 1);
-    }
-    inWarm.pos.needsUpdate = inWarm.col.needsUpdate = true;
-  })();
-  scene.add(inWarm.obj);
-
-  // ---- 8 noise channels behind the waveform (LISAS / LISASD)
-  var NZ = D.noiseIn * N_CELLS;
-  var nzPts = makePoints(NZ, 2.2, dot);
-  var nzA = new Float32Array(NZ), nzB = new Float32Array(NZ), nzPh = new Float32Array(NZ);
-  for (var q = 0; q < NZ; q++) { nzA[q] = randn(rnd); nzB[q] = randn(rnd); nzPh[q] = rnd() * 6.283; }
-  scene.add(nzPts.obj);
-
-  // ---- receptive-field bracket on the input
-  var bracket = makeLine(4, false, 1);
-  scene.add(bracket.obj);
-
-  // ---- conv slabs: one InstancedMesh + one merged edge set
-  var slabMesh, slabEdges;
-  (function () {
-    var geo = new THREE.BoxGeometry(1, 1, 1);
-    var mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.26, depthWrite: false });
-    slabMesh = new THREE.InstancedMesh(geo, mat, slabs.length);
-    slabMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(slabs.length * 3), 3);
-    slabMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
-    var M = new THREE.Matrix4();
-    var ev = [];
-    slabs.forEach(function (s, i) {
-      M.makeScale(s.thick, s.foot, s.foot);
-      M.setPosition(s.cx, 0, 0);
-      slabMesh.setMatrixAt(i, M);
-      var hx = s.thick / 2, hy = s.foot / 2, hz = s.foot / 2, cx = s.cx;
-      var P = [[cx - hx, -hy, -hz], [cx + hx, -hy, -hz], [cx + hx, hy, -hz], [cx - hx, hy, -hz],
-               [cx - hx, -hy, hz], [cx + hx, -hy, hz], [cx + hx, hy, hz], [cx - hx, hy, hz]];
-      var E = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
-      E.forEach(function (e) { ev.push(P[e[0]][0], P[e[0]][1], P[e[0]][2], P[e[1]][0], P[e[1]][1], P[e[1]][2]); });
-    });
-    slabMesh.instanceMatrix.needsUpdate = true;
-    slabMesh.renderOrder = 2;
-    scene.add(slabMesh);
-    slabEdges = makeLine(slabs.length * 24, true, 0.9);
-    slabEdges.pos.array.set(ev); slabEdges.pos.needsUpdate = true;
-    scene.add(slabEdges.obj);
-  })();
-
-  // ---- the packet that travels through the encoder
-  var NP = 56;
-  var pk = makePoints(NP, 4.5, dot, THREE.AdditiveBlending);
-  var pkOff = new Float32Array(NP * 3), pkPh = new Float32Array(NP);
-  for (q = 0; q < NP; q++) {
-    var r = Math.pow(rnd(), 0.6), th = rnd() * 6.283, ph = Math.acos(2 * rnd() - 1);
-    pkOff[q * 3] = r * Math.sin(ph) * Math.cos(th);
-    pkOff[q * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
-    pkOff[q * 3 + 2] = r * Math.cos(ph);
-    pkPh[q] = rnd() * 6.283;
-  }
-  scene.add(pk.obj);
-
-  // ---- latent ribbon: N_CELLS x latent cells, one InstancedMesh
-  var LAT = D.latent, NR = N_CELLS * LAT;
-  var ribMesh, ribVal = new Float32Array(NR);
-  var ribCW = (Lx.ribX1 - Lx.ribX0) / N_CELLS, ribRH = Lx.ribH / LAT;
-  var ribX = function (i) { return Lx.ribX0 + (i + 0.5) * ribCW; };
-  (function () {
-    var geo = new THREE.BoxGeometry(ribCW * 0.78, ribRH * 0.78, 0.06);
-    var mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-    ribMesh = new THREE.InstancedMesh(geo, mat, NR);
-    ribMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(NR * 3), 3);
-    ribMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
-    var M = new THREE.Matrix4();
-    for (var i = 0; i < N_CELLS; i++) {
-      var e = 0; for (var r = 0; r < R; r++) e += Math.abs(S.lf[i * R + r]);
-      e /= R;
-      for (var d = 0; d < LAT; d++) {
-        var idx = i * LAT + d;
-        M.makeTranslation(ribX(i), -Lx.ribH / 2 + (d + 0.5) * ribRH, 0);
-        ribMesh.setMatrixAt(idx, M);
-        var v = 0.8 * Math.sin(0.33 * i + 0.9 * d + 0.012 * i * d) + 1.6 * e * Math.sin(0.5 * d + 1.1) + 0.35 * randn(rnd);
-        ribVal[idx] = Math.tanh(v);
-      }
-    }
-    ribMesh.instanceMatrix.needsUpdate = true;
-    scene.add(ribMesh);
-  })();
-
-  // ---- decoder: decLayers columns of decWidth nodes, one InstancedMesh
-  var NW = D.decWidth, ND = D.decLayers * NW, G = Lx.grid;
-  var nodeMesh, nodeAct = new Float32Array(ND), nodePos = new Float32Array(ND * 3);
-  (function () {
-    var geo = new THREE.BoxGeometry(0.085, 0.085, 0.085);
-    var mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-    nodeMesh = new THREE.InstancedMesh(geo, mat, ND);
-    nodeMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(ND * 3), 3);
-    nodeMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
-    var M = new THREE.Matrix4();
-    for (var k = 0; k < D.decLayers; k++) {
-      for (var n = 0; n < NW; n++) {
-        var idx = k * NW + n, row = Math.floor(n / G), colm = n % G;
-        var x = decX[k], y = (row - (G - 1) / 2) * Lx.nodePitch, z = (colm - (G - 1) / 2) * Lx.nodePitch;
-        nodePos[idx * 3] = x; nodePos[idx * 3 + 1] = y; nodePos[idx * 3 + 2] = z;
-        M.makeTranslation(x, y, z);
-        nodeMesh.setMatrixAt(idx, M);
-        nodeAct[idx] = clamp01(0.2 + 0.6 * randn(rnd));   // ReLU-ish sparsity
-      }
-    }
-    nodeMesh.instanceMatrix.needsUpdate = true;
-    scene.add(nodeMesh);
-  })();
-
-  // ---- connections between columns (a sparse sample of the dense weights)
-  var PER_GAP = 56, NCON = (D.decLayers - 1) * PER_GAP;
-  var con = makeLine(NCON * 2, true, 0.75);
-  var conW = new Float32Array(NCON), conMid = new Float32Array(NCON);
-  (function () {
-    var p = con.pos.array;
-    for (var g = 0; g < D.decLayers - 1; g++) {
-      for (var i = 0; i < PER_GAP; i++) {
-        var c = g * PER_GAP + i;
-        var a = g * NW + Math.floor(rnd() * NW), b = (g + 1) * NW + Math.floor(rnd() * NW);
-        p[c * 6] = nodePos[a * 3]; p[c * 6 + 1] = nodePos[a * 3 + 1]; p[c * 6 + 2] = nodePos[a * 3 + 2];
-        p[c * 6 + 3] = nodePos[b * 3]; p[c * 6 + 4] = nodePos[b * 3 + 1]; p[c * 6 + 5] = nodePos[b * 3 + 2];
-        conW[c] = 0.35 + 0.65 * rnd();
-        conMid[c] = (decX[g] + decX[g + 1]) / 2;
-      }
-    }
-    con.pos.needsUpdate = true;
-  })();
-  scene.add(con.obj);
-
-  // ---- inlets into the first column: three latents, the coordinate c, and (LISASD) 4 noise values
-  var NIN_LAT = 3 * 4, NIN_C = 4, NIN_NZ = D.noiseDec * 2;
-  var NIN = NIN_LAT + NIN_C + NIN_NZ;
-  var inlet = makeLine(NIN * 2, true, 0.85);
-  var inletTarget = new Int32Array(NIN);
-  for (q = 0; q < NIN; q++) inletTarget[q] = Math.floor(rnd() * NW);
-  scene.add(inlet.obj);
-  var cSlider = { x: decX[0] - 1.0, y0: -2.35, y1: -1.45, z: 0 };
-  var cRail = makeLine(2, false, 0.8);
-  cRail.pos.array.set([cSlider.x, cSlider.y0, cSlider.z, cSlider.x, cSlider.y1, cSlider.z]);
-  cRail.pos.needsUpdate = true;
-  scene.add(cRail.obj);
-  var knob = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.16), new THREE.MeshLambertMaterial({ color: new THREE.Color(tk.ink) }));
-  scene.add(knob);
-  var dnz = { x: decX[0] - 1.0, y: 2.5, z: 0 };
-  var dnzPts = makePoints(D.noiseDec, 3.4, dot);
-  var dnzA = new Float32Array(D.noiseDec), dnzB = new Float32Array(D.noiseDec), dnzPh = new Float32Array(D.noiseDec);
-  for (q = 0; q < D.noiseDec; q++) { dnzA[q] = randn(rnd); dnzB[q] = randn(rnd); dnzPh[q] = rnd() * 6.283; }
-  scene.add(dnzPts.obj);
-
-  // ---- output: 48 kHz points, cold baseband line, warm high band above it
-  var outPts = makePoints(N, 2.8, dot);
-  var outLine = makeLine(N, false, 0.9);
-  var warmLine = makeLine(N, false, 0);
-  scene.add(outPts.obj); scene.add(outLine.obj); scene.add(warmLine.obj);
-  (function () {
-    var w = warmLine.pos.array;
-    for (var j = 0; j < N; j++) { w[j * 3] = x48o[j]; w[j * 3 + 1] = Lx.warmLift + S.hfB[j] * 2.6; w[j * 3 + 2] = 0; }
-    warmLine.pos.needsUpdate = true;
-  })();
 
   // ---- lights (Lambert on the boxes only; points and lines are unlit)
   scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x0a0c10, 0.95));
@@ -513,19 +292,6 @@ function mount(el, opts) {
     labels.push(L);
     return L;
   }
-  var inCX = (Lx.inX0 + Lx.inX1) / 2, outCX = (Lx.outX0 + Lx.outX1) / 2;
-  var NZ_Y = -0.95, NZ_DZ = 0.28, BR_Y = 1.45;
-  var lbIn = addLabel([inCX, Lx.warmLift + 0.85, 0], '48 kHz → 12 kHz', 'everything above 6 kHz is gone', 'above', 0);
-  var lbNz = addLabel([Lx.inX0 + 2.6, NZ_Y - 0.2, NZ_DZ * D.noiseIn], 'ε  ' + D.noiseIn + ' Gaussian channels', '+' + fmtInt(D.noiseIn * D.encChannels[0] * D.encKernels[0]) + ' weights', 'below', 1, 'warm');
-  var lbConv = addLabel([(slabs[0].x0 + slabEnd) / 2, slabs[0].foot / 2 + 0.4, 0], 'conv1d × ' + D.encChannels.length, 'k ' + D.encKernels.join('·') + '   ch ' + D.encChannels.join('·'), 'above', 1);
-  var lbRF = addLabel([cellX(ANCHOR), BR_Y - 0.04, 0], 'RF ' + D.receptiveField + ' samples = ' + (D.receptiveField / D.fsIn * 1000).toFixed(1) + ' ms', '', 'below', 1);
-  var lbRib = addLabel([(Lx.ribX0 + Lx.ribX1) / 2, Lx.ribH / 2 + 0.25, 0], 'z  ' + D.latent + ' × ' + (D.fsIn / 1000) + ' kHz', 'one latent per input sample', 'above', 2);
-  var lbDec = addLabel([(decX[0] + decX[decX.length - 1]) / 2 + 0.6, 1.35, 0], 'decoder  ' + D.decLayers + ' × Linear(' + D.decWidth + ')', '', 'above', 3);
-  var lbC = addLabel([cSlider.x, cSlider.y0 - 0.1, 0], 'c = 2(q − i) − 1', 'c ∈ [−1, 1]', 'below', 3);
-  var lbDnz = addLabel([dnz.x, dnz.y + 0.2, 0], 'ε  ' + D.noiseDec + ' per output sample', '+' + fmtInt(D.noiseDec * D.decWidth) + ' weights', 'above', 3, 'warm');
-  var lbOut = addLabel([Lx.outX0 + 2.2, Lx.warmLift + 0.55, 0], 'output ' + (D.fsOut / 1000) + ' kHz', '×' + R + ' per input sample', 'above', 4);
-  var lbWarm = addLabel([Lx.outX1 + 0.15, Lx.warmLift, 0], '6–24 kHz', 'from the model', 'right', 4, 'warm');
-  var lbBase = addLabel([Lx.outX1 + 0.15, 0, 0], '0–6 kHz', 'from the input', 'right', 4);
 
   // ---- state
   var state = {
@@ -545,279 +311,934 @@ function mount(el, opts) {
   var narrow = false, userMoved = false, focusIdx = null;
   var AZ_LIM = 1.35, EL_MIN = 0.03, EL_MAX = 1.25, ZOOM_MIN = 0.3, ZOOM_MAX = 3.5;
 
-  function hasNoiseIn() { return state.cls !== 'LISA'; }
-  function hasNoiseDec() { return state.cls === 'LISASD'; }
+  // ---- the scene: the LISA diagram, or a released model's block flow. Either builder returns
+  // { STAGES, STAGE_X, BB, apply(now) -> stage, setArm(arm, cls), padRight(focusIdx) }; the camera,
+  // the labels, the interaction and the loop below only read that object.
+  function buildLisa() {
+    // ---- layout (world units; flow along +X, amplitude along Y, channels/width along Z)
+    var Lx = {
+      inX0: -17, inX1: -10, slabX0: -9, slabGap: 0.34,
+      ribX0: -2.5, ribX1: 1.5, ribH: 2.4,
+      decX0: 3.0, decPitch: 1.5, grid: 12, nodePitch: 0.2,
+      outX0: 10.5, outX1: 17.5, warmLift: 1.9, groundY: -2.8
+    };
+    // The floor is the diagram's footprint, nothing more: it is what the camera fit measures,
+    // so anything drawn on it is guaranteed to be in frame.
+    var FLOOR = { x0: Lx.inX0 - 0.8, x1: Lx.outX1 + 0.6, z0: -1.7, z1: 2.6 };
 
-  function setCaption() {
-    var n = D.params[state.cls];
-    caption.innerHTML = '<b>' + state.cls + '</b>' +
-      (state.arm && state.arm.toUpperCase() !== state.cls ? ' · ' + state.arm : '') +
-      (n ? ' · ' + fmtInt(n) + ' parameters' : '') +
-      (hasNoiseIn() ? ' · <span class="w">ε</span> ' + D.noiseIn + (hasNoiseDec() ? ' + ' + D.noiseDec : '') : '');
-    var inW = 1 + 3 * D.latent + (hasNoiseDec() ? D.noiseDec : 0);
-    lbDec.s.textContent = '[c, z[i−1], z[i], z[i+1]' + (hasNoiseDec() ? ', ε' : '') + ']  ' + inW + ' → ' + D.decWidth + ' → 1';
-    lbDec.s.style.display = '';
+    // ---- signal
+    var S = synth(N_CELLS, R, 11);
+    var x48 = new Float32Array(N), x48o = new Float32Array(N);
+    for (var j = 0; j < N; j++) {
+      x48[j] = Lx.inX0 + (Lx.inX1 - Lx.inX0) * j / (N - 1);
+      x48o[j] = Lx.outX0 + (Lx.outX1 - Lx.outX0) * j / (N - 1);
+    }
+    var cellX = function (i) { return x48[i * R]; };
+    var cellXo = function (i) { return x48o[i * R]; };
+
+    // ---- ground grid (one draw call)
+    (function () {
+      var verts = [], i;
+      for (i = 0; i <= 18; i++) {
+        var x = FLOOR.x0 + (FLOOR.x1 - FLOOR.x0) * i / 18;
+        verts.push(x, Lx.groundY, FLOOR.z0, x, Lx.groundY, FLOOR.z1);
+      }
+      for (i = 0; i <= 4; i++) {
+        var z = FLOOR.z0 + (FLOOR.z1 - FLOOR.z0) * i / 4;
+        verts.push(FLOOR.x0, Lx.groundY, z, FLOOR.x1, Lx.groundY, z);
+      }
+      var g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+      var m = new THREE.LineBasicMaterial({ color: new THREE.Color(tk.line), transparent: true, opacity: 0.55 });
+      scene.add(new THREE.LineSegments(g, m));
+    })();
+
+    // ---- stage connectors: hairlines along the flow at y = 0
+    var slabs = [];  // {x0,x1,cx,thick,foot,ch,k}
+    (function () {
+      var x = Lx.slabX0;
+      for (var k = 0; k < D.encChannels.length; k++) {
+        var thick = D.encChannels[k] / 32, foot = D.encKernels[k] * 0.4;
+        slabs.push({ x0: x, x1: x + thick, cx: x + thick / 2, thick: thick, foot: foot, ch: D.encChannels[k], k: D.encKernels[k] });
+        x += thick + Lx.slabGap;
+      }
+    })();
+    var slabEnd = slabs[slabs.length - 1].x1;
+    var decX = [];
+    for (var k = 0; k < D.decLayers; k++) decX.push(Lx.decX0 + k * Lx.decPitch);
+    (function () {
+      var v = [
+        Lx.inX1 + 0.15, 0, 0, slabs[0].x0, 0, 0,
+        slabEnd, 0, 0, Lx.ribX0, 0, 0,
+        Lx.ribX1, 0, 0, decX[0] - 0.25, 0, 0,
+        decX[decX.length - 1] + 0.25, 0, 0, Lx.outX0 - 0.15, 0, 0
+      ];
+      for (var i = 0; i < slabs.length - 1; i++) v.push(slabs[i].x1, 0, 0, slabs[i + 1].x0, 0, 0);
+      var g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
+      var m = new THREE.LineBasicMaterial({ color: new THREE.Color(tk.dim), transparent: true, opacity: 0.35 });
+      scene.add(new THREE.LineSegments(g, m));
+    })();
+
+    // ---- input waveform: points + line, 4 x N_CELLS samples
+    var inPts = makePoints(N, 2.8, dot);
+    var inLine = makeLine(N, false, 0.9);
+    scene.add(inPts.obj); scene.add(inLine.obj);
+
+    // ---- 6-24 kHz at the input: the band decimation throws away. Same height and colour as
+    // the output's warm band, so the eye reads one as the answer to the other.
+    var inWarm = makeLine(N, false, 0);
+    (function () {
+      var w = inWarm.pos.array, c = inWarm.col.array;
+      for (var j = 0; j < N; j++) {
+        w[j * 3] = x48[j]; w[j * 3 + 1] = Lx.warmLift + S.hf[j] * 2.6; w[j * 3 + 2] = 0;
+        put3s(c, j * 3, C.warm, 1);
+      }
+      inWarm.pos.needsUpdate = inWarm.col.needsUpdate = true;
+    })();
+    scene.add(inWarm.obj);
+
+    // ---- 8 noise channels behind the waveform (LISAS / LISASD)
+    var NZ = D.noiseIn * N_CELLS;
+    var nzPts = makePoints(NZ, 2.2, dot);
+    var nzA = new Float32Array(NZ), nzB = new Float32Array(NZ), nzPh = new Float32Array(NZ);
+    for (var q = 0; q < NZ; q++) { nzA[q] = randn(rnd); nzB[q] = randn(rnd); nzPh[q] = rnd() * 6.283; }
+    scene.add(nzPts.obj);
+
+    // ---- receptive-field bracket on the input
+    var bracket = makeLine(4, false, 1);
+    scene.add(bracket.obj);
+
+    // ---- conv slabs: one InstancedMesh + one merged edge set
+    var slabMesh, slabEdges;
+    (function () {
+      var geo = new THREE.BoxGeometry(1, 1, 1);
+      var mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.26, depthWrite: false });
+      slabMesh = new THREE.InstancedMesh(geo, mat, slabs.length);
+      slabMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(slabs.length * 3), 3);
+      slabMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      var M = new THREE.Matrix4();
+      var ev = [];
+      slabs.forEach(function (s, i) {
+        M.makeScale(s.thick, s.foot, s.foot);
+        M.setPosition(s.cx, 0, 0);
+        slabMesh.setMatrixAt(i, M);
+        var hx = s.thick / 2, hy = s.foot / 2, hz = s.foot / 2, cx = s.cx;
+        var P = [[cx - hx, -hy, -hz], [cx + hx, -hy, -hz], [cx + hx, hy, -hz], [cx - hx, hy, -hz],
+                 [cx - hx, -hy, hz], [cx + hx, -hy, hz], [cx + hx, hy, hz], [cx - hx, hy, hz]];
+        var E = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+        E.forEach(function (e) { ev.push(P[e[0]][0], P[e[0]][1], P[e[0]][2], P[e[1]][0], P[e[1]][1], P[e[1]][2]); });
+      });
+      slabMesh.instanceMatrix.needsUpdate = true;
+      slabMesh.renderOrder = 2;
+      scene.add(slabMesh);
+      slabEdges = makeLine(slabs.length * 24, true, 0.9);
+      slabEdges.pos.array.set(ev); slabEdges.pos.needsUpdate = true;
+      scene.add(slabEdges.obj);
+    })();
+
+    // ---- the packet that travels through the encoder
+    var NP = 56;
+    var pk = makePoints(NP, 4.5, dot, THREE.AdditiveBlending);
+    var pkOff = new Float32Array(NP * 3), pkPh = new Float32Array(NP);
+    for (q = 0; q < NP; q++) {
+      var r = Math.pow(rnd(), 0.6), th = rnd() * 6.283, ph = Math.acos(2 * rnd() - 1);
+      pkOff[q * 3] = r * Math.sin(ph) * Math.cos(th);
+      pkOff[q * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+      pkOff[q * 3 + 2] = r * Math.cos(ph);
+      pkPh[q] = rnd() * 6.283;
+    }
+    scene.add(pk.obj);
+
+    // ---- latent ribbon: N_CELLS x latent cells, one InstancedMesh
+    var LAT = D.latent, NR = N_CELLS * LAT;
+    var ribMesh, ribVal = new Float32Array(NR);
+    var ribCW = (Lx.ribX1 - Lx.ribX0) / N_CELLS, ribRH = Lx.ribH / LAT;
+    var ribX = function (i) { return Lx.ribX0 + (i + 0.5) * ribCW; };
+    (function () {
+      var geo = new THREE.BoxGeometry(ribCW * 0.78, ribRH * 0.78, 0.06);
+      var mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      ribMesh = new THREE.InstancedMesh(geo, mat, NR);
+      ribMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(NR * 3), 3);
+      ribMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      var M = new THREE.Matrix4();
+      for (var i = 0; i < N_CELLS; i++) {
+        var e = 0; for (var r = 0; r < R; r++) e += Math.abs(S.lf[i * R + r]);
+        e /= R;
+        for (var d = 0; d < LAT; d++) {
+          var idx = i * LAT + d;
+          M.makeTranslation(ribX(i), -Lx.ribH / 2 + (d + 0.5) * ribRH, 0);
+          ribMesh.setMatrixAt(idx, M);
+          var v = 0.8 * Math.sin(0.33 * i + 0.9 * d + 0.012 * i * d) + 1.6 * e * Math.sin(0.5 * d + 1.1) + 0.35 * randn(rnd);
+          ribVal[idx] = Math.tanh(v);
+        }
+      }
+      ribMesh.instanceMatrix.needsUpdate = true;
+      scene.add(ribMesh);
+    })();
+
+    // ---- decoder: decLayers columns of decWidth nodes, one InstancedMesh
+    var NW = D.decWidth, ND = D.decLayers * NW, G = Lx.grid;
+    var nodeMesh, nodeAct = new Float32Array(ND), nodePos = new Float32Array(ND * 3);
+    (function () {
+      var geo = new THREE.BoxGeometry(0.085, 0.085, 0.085);
+      var mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      nodeMesh = new THREE.InstancedMesh(geo, mat, ND);
+      nodeMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(ND * 3), 3);
+      nodeMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      var M = new THREE.Matrix4();
+      for (var k = 0; k < D.decLayers; k++) {
+        for (var n = 0; n < NW; n++) {
+          var idx = k * NW + n, row = Math.floor(n / G), colm = n % G;
+          var x = decX[k], y = (row - (G - 1) / 2) * Lx.nodePitch, z = (colm - (G - 1) / 2) * Lx.nodePitch;
+          nodePos[idx * 3] = x; nodePos[idx * 3 + 1] = y; nodePos[idx * 3 + 2] = z;
+          M.makeTranslation(x, y, z);
+          nodeMesh.setMatrixAt(idx, M);
+          nodeAct[idx] = clamp01(0.2 + 0.6 * randn(rnd));   // ReLU-ish sparsity
+        }
+      }
+      nodeMesh.instanceMatrix.needsUpdate = true;
+      scene.add(nodeMesh);
+    })();
+
+    // ---- connections between columns (a sparse sample of the dense weights)
+    var PER_GAP = 56, NCON = (D.decLayers - 1) * PER_GAP;
+    var con = makeLine(NCON * 2, true, 0.75);
+    var conW = new Float32Array(NCON), conMid = new Float32Array(NCON);
+    (function () {
+      var p = con.pos.array;
+      for (var g = 0; g < D.decLayers - 1; g++) {
+        for (var i = 0; i < PER_GAP; i++) {
+          var c = g * PER_GAP + i;
+          var a = g * NW + Math.floor(rnd() * NW), b = (g + 1) * NW + Math.floor(rnd() * NW);
+          p[c * 6] = nodePos[a * 3]; p[c * 6 + 1] = nodePos[a * 3 + 1]; p[c * 6 + 2] = nodePos[a * 3 + 2];
+          p[c * 6 + 3] = nodePos[b * 3]; p[c * 6 + 4] = nodePos[b * 3 + 1]; p[c * 6 + 5] = nodePos[b * 3 + 2];
+          conW[c] = 0.35 + 0.65 * rnd();
+          conMid[c] = (decX[g] + decX[g + 1]) / 2;
+        }
+      }
+      con.pos.needsUpdate = true;
+    })();
+    scene.add(con.obj);
+
+    // ---- inlets into the first column: three latents, the coordinate c, and (LISASD) 4 noise values
+    var NIN_LAT = 3 * 4, NIN_C = 4, NIN_NZ = D.noiseDec * 2;
+    var NIN = NIN_LAT + NIN_C + NIN_NZ;
+    var inlet = makeLine(NIN * 2, true, 0.85);
+    var inletTarget = new Int32Array(NIN);
+    for (q = 0; q < NIN; q++) inletTarget[q] = Math.floor(rnd() * NW);
+    scene.add(inlet.obj);
+    var cSlider = { x: decX[0] - 1.0, y0: -2.35, y1: -1.45, z: 0 };
+    var cRail = makeLine(2, false, 0.8);
+    cRail.pos.array.set([cSlider.x, cSlider.y0, cSlider.z, cSlider.x, cSlider.y1, cSlider.z]);
+    cRail.pos.needsUpdate = true;
+    scene.add(cRail.obj);
+    var knob = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.16), new THREE.MeshLambertMaterial({ color: new THREE.Color(tk.ink) }));
+    scene.add(knob);
+    var dnz = { x: decX[0] - 1.0, y: 2.5, z: 0 };
+    var dnzPts = makePoints(D.noiseDec, 3.4, dot);
+    var dnzA = new Float32Array(D.noiseDec), dnzB = new Float32Array(D.noiseDec), dnzPh = new Float32Array(D.noiseDec);
+    for (q = 0; q < D.noiseDec; q++) { dnzA[q] = randn(rnd); dnzB[q] = randn(rnd); dnzPh[q] = rnd() * 6.283; }
+    scene.add(dnzPts.obj);
+
+    // ---- output: 48 kHz points, cold baseband line, warm high band above it
+    var outPts = makePoints(N, 2.8, dot);
+    var outLine = makeLine(N, false, 0.9);
+    var warmLine = makeLine(N, false, 0);
+    scene.add(outPts.obj); scene.add(outLine.obj); scene.add(warmLine.obj);
+    (function () {
+      var w = warmLine.pos.array;
+      for (var j = 0; j < N; j++) { w[j * 3] = x48o[j]; w[j * 3 + 1] = Lx.warmLift + S.hfB[j] * 2.6; w[j * 3 + 2] = 0; }
+      warmLine.pos.needsUpdate = true;
+    })();
+
+    var inCX = (Lx.inX0 + Lx.inX1) / 2, outCX = (Lx.outX0 + Lx.outX1) / 2;
+    var NZ_Y = -0.95, NZ_DZ = 0.28, BR_Y = 1.45;
+    var lbIn = addLabel([inCX, Lx.warmLift + 0.85, 0], '48 kHz → 12 kHz', 'everything above 6 kHz is gone', 'above', 0);
+    var lbNz = addLabel([Lx.inX0 + 2.6, NZ_Y - 0.2, NZ_DZ * D.noiseIn], 'ε  ' + D.noiseIn + ' Gaussian channels', '+' + fmtInt(D.noiseIn * D.encChannels[0] * D.encKernels[0]) + ' weights', 'below', 1, 'warm');
+    var lbConv = addLabel([(slabs[0].x0 + slabEnd) / 2, slabs[0].foot / 2 + 0.4, 0], 'conv1d × ' + D.encChannels.length, 'k ' + D.encKernels.join('·') + '   ch ' + D.encChannels.join('·'), 'above', 1);
+    var lbRF = addLabel([cellX(ANCHOR), BR_Y - 0.04, 0], 'RF ' + D.receptiveField + ' samples = ' + (D.receptiveField / D.fsIn * 1000).toFixed(1) + ' ms', '', 'below', 1);
+    var lbRib = addLabel([(Lx.ribX0 + Lx.ribX1) / 2, Lx.ribH / 2 + 0.25, 0], 'z  ' + D.latent + ' × ' + (D.fsIn / 1000) + ' kHz', 'one latent per input sample', 'above', 2);
+    var lbDec = addLabel([(decX[0] + decX[decX.length - 1]) / 2 + 0.6, 1.35, 0], 'decoder  ' + D.decLayers + ' × Linear(' + D.decWidth + ')', '', 'above', 3);
+    var lbC = addLabel([cSlider.x, cSlider.y0 - 0.1, 0], 'c = 2(q − i) − 1', 'c ∈ [−1, 1]', 'below', 3);
+    var lbDnz = addLabel([dnz.x, dnz.y + 0.2, 0], 'ε  ' + D.noiseDec + ' per output sample', '+' + fmtInt(D.noiseDec * D.decWidth) + ' weights', 'above', 3, 'warm');
+    var lbOut = addLabel([Lx.outX0 + 2.2, Lx.warmLift + 0.55, 0], 'output ' + (D.fsOut / 1000) + ' kHz', '×' + R + ' per input sample', 'above', 4);
+    var lbWarm = addLabel([Lx.outX1 + 0.15, Lx.warmLift, 0], '6–24 kHz', 'from the model', 'right', 4, 'warm');
+    var lbBase = addLabel([Lx.outX1 + 0.15, 0, 0], '0–6 kHz', 'from the input', 'right', 4);
+
+
+    function hasNoiseIn() { return state.cls !== 'LISA'; }
+    function hasNoiseDec() { return state.cls === 'LISASD'; }
+
+    function setCaption() {
+      var n = D.params[state.cls];
+      caption.innerHTML = '<b>' + state.cls + '</b>' +
+        (state.arm && state.arm.toUpperCase() !== state.cls ? ' · ' + state.arm : '') +
+        (n ? ' · ' + fmtInt(n) + ' parameters' : '') +
+        (hasNoiseIn() ? ' · <span class="w">ε</span> ' + D.noiseIn + (hasNoiseDec() ? ' + ' + D.noiseDec : '') : '');
+      var inW = 1 + 3 * D.latent + (hasNoiseDec() ? D.noiseDec : 0);
+      lbDec.s.textContent = '[c, z[i−1], z[i], z[i+1]' + (hasNoiseDec() ? ', ε' : '') + ']  ' + inW + ' → ' + D.decWidth + ' → 1';
+      lbDec.s.style.display = '';
+    }
+    setCaption();
+
+    // ---- the timeline: everything below is a function of (t, p, cls) plus the wall clock for jitter
+    var tmpA = [0, 0, 0];
+    function applyTimeline(now) {
+      var t = state.t, p = state.p;
+      var u0 = seg(t, STAGES[0][0], STAGES[0][1]), u1 = seg(t, STAGES[1][0], STAGES[1][1]),
+          u2 = seg(t, STAGES[2][0], STAGES[2][1]), u3 = seg(t, STAGES[3][0], STAGES[3][1]),
+          u4 = seg(t, STAGES[4][0], STAGES[4][1]);
+      var stage = t < STAGES[1][0] ? 0 : t < STAGES[2][0] ? 1 : t < STAGES[3][0] ? 2 : t < STAGES[4][0] ? 3 : 4;
+      var live = reducedMotion ? 0 : now;
+      var i, j, k, q, f, x, y, c;
+
+      // -- stage 0: the 48 kHz waveform loses its high band and collapses 4:1
+      var hfGain = 1 - smooth(0.18, 0.72, u0);   // the high band goes first ...
+      var col = smooth(0.52, 1, u0);             // ... then the samples collapse 4:1
+      inWarm.mat.opacity = 0.95 * hfGain;
+      inWarm.obj.visible = hfGain > 0.01;
+      var brOp = stage === 1 ? smooth(0, 0.12, u1) * (1 - smooth(0.72, 0.95, u1)) : 0;
+      var hi0 = ANCHOR - (D.receptiveField - 1) / 2, hi1 = ANCHOR + (D.receptiveField - 1) / 2;
+      (function () {
+        var P = inPts.pos.array, Cc = inPts.col.array, LC = inLine.col.array;
+        for (j = 0; j < N; j++) {
+          i = Math.floor(j / R);
+          var y48 = S.lf[j] + S.hf[j] * hfGain;
+          x = lerp(x48[j], x48[i * R], col);
+          y = lerp(y48, S.lf[i * R], col);
+          P[j * 3] = x; P[j * 3 + 1] = y; P[j * 3 + 2] = 0;
+          var w = S.env[j] * hfGain * (1 - col);
+          put3(Cc, j * 3, C.cold, C.warm, w);
+          if (brOp > 0 && i >= hi0 && i <= hi1) put3(Cc, j * 3, [Cc[j * 3], Cc[j * 3 + 1], Cc[j * 3 + 2]], C.ink, 0.7 * brOp);
+          LC[j * 3] = Cc[j * 3] * 0.8; LC[j * 3 + 1] = Cc[j * 3 + 1] * 0.8; LC[j * 3 + 2] = Cc[j * 3 + 2] * 0.8;
+        }
+        inLine.pos.array.set(P);
+        inPts.pos.needsUpdate = inPts.col.needsUpdate = inLine.pos.needsUpdate = inLine.col.needsUpdate = true;
+      })();
+
+      // -- noise channels behind the waveform
+      nzPts.obj.visible = hasNoiseIn();
+      if (nzPts.obj.visible) {
+        var P = nzPts.pos.array, Cc = nzPts.col.array;
+        // dim while the input still carries its own high band, lit once the encoder reads them
+        var bright = 0.38 + 0.62 * (stage === 1 ? smooth(0, 0.15, u1) : 0);
+        for (k = 0; k < D.noiseIn; k++) {
+          for (i = 0; i < N_CELLS; i++) {
+            q = k * N_CELLS + i;
+            var jit = reducedMotion ? nzA[q] : nzA[q] * Math.cos(live * 2.1 + nzPh[q]) + nzB[q] * Math.sin(live * 1.7 + nzPh[q] * 0.7);
+            P[q * 3] = cellX(i); P[q * 3 + 1] = NZ_Y + 0.13 * jit; P[q * 3 + 2] = NZ_DZ * (k + 1);
+            put3s(Cc, q * 3, C.warm, bright * (0.55 + 0.45 * Math.min(1, Math.abs(jit))));
+          }
+        }
+        nzPts.pos.needsUpdate = nzPts.col.needsUpdate = true;
+      }
+
+      // -- the receptive-field bracket
+      (function () {
+        var xa = cellX(hi0) - ribCW * 0.5, xb = cellX(hi1) + ribCW * 0.5, yb = BR_Y;
+        bracket.pos.array.set([xa, yb - 0.14, 0, xa, yb, 0, xb, yb, 0, xb, yb - 0.14, 0]);
+        bracket.pos.needsUpdate = true;
+        var Cc = bracket.col.array;
+        for (q = 0; q < 4; q++) put3s(Cc, q * 3, C.ink, 1);
+        bracket.col.needsUpdate = true;
+        bracket.mat.opacity = brOp;
+        bracket.obj.visible = brOp > 0.001;
+        lbRF.hidden = brOp < 0.05;
+      })();
+
+      // -- the packet through the encoder (stage 1) and across the ribbon (stage 2)
+      var px = 0, pAlpha = 0, spread = 0.12;
+      if (stage === 1) {
+        px = lerp(cellX(ANCHOR), Lx.ribX0 - 0.3, u1);
+        pAlpha = smooth(0, 0.08, u1);
+      } else if (stage === 2) {
+        px = lerp(Lx.ribX0 - 0.3, Lx.ribX1 + 0.2, u2);
+        pAlpha = 1 - smooth(0.75, 1, u2);
+      }
+      var chFrac = 0;
+      for (k = 0; k < slabs.length; k++) {
+        var s = slabs[k];
+        chFrac += (s.ch / 64) * Math.exp(-Math.pow((px - s.cx) / (s.thick / 2 + 0.3), 2));
+      }
+      spread = 0.12 + 0.55 * Math.min(1, chFrac);
+      (function () {
+        pk.obj.visible = pAlpha > 0.001;
+        pk.mat.opacity = pAlpha;
+        if (!pk.obj.visible) return;
+        var py = S.lf[ANCHOR * R] * (1 - smooth(cellX(ANCHOR), Lx.inX1, px));
+        var P = pk.pos.array, Cc = pk.col.array;
+        var nWarm = hasNoiseIn() ? Math.round(NP * 0.3) : 0;
+        for (q = 0; q < NP; q++) {
+          var sh = reducedMotion ? 1 : 1 + 0.18 * Math.sin(live * 6 + pkPh[q]);
+          P[q * 3] = px + pkOff[q * 3] * spread * 0.6 * sh;
+          P[q * 3 + 1] = py + pkOff[q * 3 + 1] * spread * sh;
+          P[q * 3 + 2] = pkOff[q * 3 + 2] * spread * sh;
+          var isWarm = q >= NP - nWarm;
+          put3(Cc, q * 3, isWarm ? C.warm : C.cold, C.ink, isWarm ? 0.15 : 0.35);
+        }
+        pk.pos.needsUpdate = pk.col.needsUpdate = true;
+      })();
+
+      // -- slab lighting
+      (function () {
+        var IC = slabMesh.instanceColor.array, EC = slabEdges.col.array;
+        var settled = stage >= 2 ? 0.28 : 0;
+        for (k = 0; k < slabs.length; k++) {
+          var s = slabs[k];
+          var lit = stage === 1 ? Math.exp(-Math.pow((px - s.cx) / (s.thick / 2 + 0.35), 2)) : settled;
+          put3(IC, k * 3, C.slab, C.cold, 0.25 + 0.75 * lit);
+          for (q = 0; q < 24; q++) put3(EC, (k * 24 + q) * 3, C.dim, C.cold, 0.15 + 0.85 * lit);
+        }
+        slabMesh.instanceColor.needsUpdate = true;
+        slabEdges.col.needsUpdate = true;
+      })();
+
+      // -- the latent ribbon: ghost, then revealed left to right behind the packet
+      var hiLat = stage === 3 ? smooth(0, 0.1, u3) : stage === 4 ? 0.35 : 0;
+      (function () {
+        var IC = ribMesh.instanceColor.array;
+        for (i = 0; i < N_CELLS; i++) {
+          var rev = stage < 2 ? 0 : stage > 2 ? 1 : smooth(0, 1, (u2 * 1.08 - (i + 0.5) / N_CELLS) / 0.06);
+          var nb = (i >= ANCHOR - 1 && i <= ANCHOR + 1) ? hiLat : 0;
+          for (var d = 0; d < LAT; d++) {
+            q = i * LAT + d;
+            var v = (ribVal[q] + 1) / 2;
+            tmpA[0] = C.ghost[0] + (C.cold[0] - C.ghost[0]) * (0.08 + 0.92 * v);
+            tmpA[1] = C.ghost[1] + (C.cold[1] - C.ghost[1]) * (0.08 + 0.92 * v);
+            tmpA[2] = C.ghost[2] + (C.cold[2] - C.ghost[2]) * (0.08 + 0.92 * v);
+            put3(IC, q * 3, C.ghost, tmpA, rev);
+            if (nb > 0) put3(IC, q * 3, [IC[q * 3], IC[q * 3 + 1], IC[q * 3 + 2]], C.ink, 0.5 * nb * (0.4 + 0.6 * v));
+          }
+        }
+        ribMesh.instanceColor.needsUpdate = true;
+      })();
+
+      // -- the decoder: four pulses, one per output sample of the anchor cell
+      var pulses = R;
+      var pulseIdx = stage === 3 ? Math.min(pulses - 1, Math.floor(u3 * pulses)) : stage > 3 ? pulses - 1 : 0;
+      var pf = stage === 3 ? Math.min(1, u3 * pulses - pulseIdx) : stage > 3 ? 1 : 0;
+      var pulseX = lerp(decX[0] - 0.9, decX[decX.length - 1] + 0.9, pf);
+      var decRev = stage < 3 ? 0 : stage === 3 ? smooth(0, 0.08, u3) : 1;
+      var flash = stage === 3 ? Math.exp(-Math.pow(pf / 0.14, 2)) : 0;
+      var cVal = 2 * (pulseIdx / R) - 1;
+      (function () {
+        var IC = nodeMesh.instanceColor.array;
+        var base = mixc(C.ghost, C.coldDim, decRev);
+        for (q = 0; q < ND; q++) {
+          var lit = 0;
+          if (stage === 3) lit = nodeAct[q] * Math.exp(-Math.pow((nodePos[q * 3] - pulseX) / 0.75, 2));
+          else if (stage === 4) lit = 0.18 * nodeAct[q];
+          put3(IC, q * 3, base, C.coldLit, lit);
+        }
+        nodeMesh.instanceColor.needsUpdate = true;
+        var CC = con.col.array;
+        var lineBase = mixc(C.ghost, C.coldDim, decRev * 0.8);
+        for (c = 0; c < NCON; c++) {
+          var a = stage === 3 ? conW[c] * Math.exp(-Math.pow((conMid[c] - pulseX) / 0.9, 2)) : stage === 4 ? 0.12 * conW[c] : 0;
+          put3(CC, c * 6, lineBase, C.cold, a);
+          put3(CC, c * 6 + 3, lineBase, C.cold, a);
+        }
+        con.col.needsUpdate = true;
+      })();
+
+      // -- inlets into the first column
+      (function () {
+        var P = inlet.pos.array, Cc = inlet.col.array;
+        var q0 = 0, n, tgt;
+        var inA = decRev * (0.35 + 0.65 * flash);
+        for (var m = -1; m <= 1; m++) {
+          var xr = ribX(ANCHOR + m), yr = Lx.ribH / 2 + 0.03;
+          for (n = 0; n < 4; n++) {
+            tgt = inletTarget[q0];
+            P[q0 * 6] = xr; P[q0 * 6 + 1] = yr; P[q0 * 6 + 2] = 0;
+            P[q0 * 6 + 3] = nodePos[tgt * 3]; P[q0 * 6 + 4] = nodePos[tgt * 3 + 1]; P[q0 * 6 + 5] = nodePos[tgt * 3 + 2];
+            put3(Cc, q0 * 6, C.ghost, C.cold, inA);
+            put3(Cc, q0 * 6 + 3, C.ghost, C.cold, inA);
+            q0++;
+          }
+        }
+        var ky = lerp(cSlider.y0, cSlider.y1, (cVal + 1) / 2);
+        knob.position.set(cSlider.x, ky, cSlider.z);
+        knob.material.color.setRGB(
+          C.dim[0] + (C.ink[0] - C.dim[0]) * decRev, C.dim[1] + (C.ink[1] - C.dim[1]) * decRev, C.dim[2] + (C.ink[2] - C.dim[2]) * decRev);
+        for (n = 0; n < NIN_C; n++) {
+          tgt = inletTarget[q0];
+          P[q0 * 6] = cSlider.x; P[q0 * 6 + 1] = ky; P[q0 * 6 + 2] = cSlider.z;
+          P[q0 * 6 + 3] = nodePos[tgt * 3]; P[q0 * 6 + 4] = nodePos[tgt * 3 + 1]; P[q0 * 6 + 5] = nodePos[tgt * 3 + 2];
+          put3(Cc, q0 * 6, C.ghost, C.dim, decRev * (0.4 + 0.6 * flash));
+          put3(Cc, q0 * 6 + 3, C.ghost, C.dim, decRev * (0.4 + 0.6 * flash));
+          q0++;
+        }
+        var showDnz = hasNoiseDec();
+        dnzPts.obj.visible = showDnz;
+        var DP = dnzPts.pos.array, DC = dnzPts.col.array;
+        for (n = 0; n < D.noiseDec; n++) {
+          var jit = reducedMotion ? dnzA[n] : dnzA[n] * Math.cos(live * 2.3 + dnzPh[n]) + dnzB[n] * Math.sin(live * 1.9 + dnzPh[n] * 0.7);
+          var nx = dnz.x + (n - (D.noiseDec - 1) / 2) * 0.18, ny = dnz.y + 0.12 * jit, nzz = dnz.z;
+          DP[n * 3] = nx; DP[n * 3 + 1] = ny; DP[n * 3 + 2] = nzz;
+          put3s(DC, n * 3, C.warm, 0.6 + 0.4 * decRev);
+          for (var e = 0; e < 2; e++) {
+            tgt = inletTarget[q0];
+            P[q0 * 6] = nx; P[q0 * 6 + 1] = ny; P[q0 * 6 + 2] = nzz;
+            P[q0 * 6 + 3] = nodePos[tgt * 3]; P[q0 * 6 + 4] = nodePos[tgt * 3 + 1]; P[q0 * 6 + 5] = nodePos[tgt * 3 + 2];
+            var wa = showDnz ? decRev * (0.35 + 0.65 * flash) : 0;
+            put3(Cc, q0 * 6, C.ghost, C.warm, wa);
+            put3(Cc, q0 * 6 + 3, C.ghost, C.warm, wa);
+            if (!showDnz) { P[q0 * 6 + 3] = nx; P[q0 * 6 + 4] = ny; P[q0 * 6 + 5] = nzz; }
+            q0++;
+          }
+        }
+        dnzPts.pos.needsUpdate = dnzPts.col.needsUpdate = true;
+        inlet.pos.needsUpdate = inlet.col.needsUpdate = true;
+        var rc = cRail.col.array;
+        put3(rc, 0, C.ghost, C.dim, 0.5 + 0.5 * decRev); put3(rc, 3, C.ghost, C.dim, 0.5 + 0.5 * decRev);
+        cRail.col.needsUpdate = true;
+        lbC.t.textContent = stage === 3 ? 'c = ' + (cVal < 0 ? '−' : '+') + Math.abs(cVal).toFixed(2) : 'c = 2(q − i) − 1';
+        lbDnz.hidden = !showDnz;
+        lbNz.hidden = !hasNoiseIn();
+      })();
+
+      // -- output: fan out 4:1, the warm band lights, the inference sweep gates it
+      (function () {
+        var P = outPts.pos.array, Cc = outPts.col.array, BC = outLine.col.array, WC = warmLine.col.array;
+        var fanAll = smooth(0, 1, u4);
+        var edge = 6 / N, leadW = 5 / N, sweeping = p < 0.999;
+        for (j = 0; j < N; j++) {
+          i = Math.floor(j / R);
+          var r = j - i * R;
+          var fan = fanAll;
+          if (stage === 3 && i === ANCHOR) fan = Math.max(fan, smooth(0.82, 1.0, u3 * pulses - r));
+          else if (stage === 4 && i === ANCHOR) fan = 1;
+          x = lerp(cellXo(i), x48o[j], fan);
+          y = lerp(S.lf[i * R], S.lf[j] + S.hfB[j], fan);
+          P[j * 3] = x; P[j * 3 + 1] = y; P[j * 3 + 2] = 0;
+          var sweep = p - j / (N - 1);
+          var inf = 0.08 + 0.92 * smooth(-edge, edge, sweep);
+          var lead = sweeping ? Math.exp(-Math.pow(sweep / leadW, 2)) : 0;
+          var ready = (stage >= 4 ? 1 : 0) * inf;
+          var warmW = S.envB[j] * fan;
+          tmpA = mixc(C.cold, C.warm, warmW);
+          var pb = mixc(C.coldDim, tmpA, fan);
+          if (lead > 0.02) pb = mixc(pb, C.ink, 0.6 * lead);
+          var gate = stage >= 4 ? inf : 1;
+          put3s(Cc, j * 3, pb, gate);
+          put3(BC, j * 3, C.ghost, pb, (0.6 + 0.4 * fan) * gate * (0.8 + 0.2 * fan));
+          put3s(WC, j * 3, C.warm, Math.min(1.3, ready * (1 + 1.3 * lead)));
+        }
+        outLine.pos.array.set(P);
+        outPts.pos.needsUpdate = outPts.col.needsUpdate = outLine.pos.needsUpdate = outLine.col.needsUpdate = warmLine.col.needsUpdate = true;
+        warmLine.mat.opacity = 0.95 * fanAll;
+        warmLine.obj.visible = fanAll > 0.001;
+      })();
+
+      // -- label emphasis
+      for (q = 0; q < labels.length; q++) {
+        var L = labels[q];
+        var on = L.stage === stage;
+        if (L.el.classList.contains('on') !== on) L.el.classList.toggle('on', on);
+      }
+      return stage;
+    }
+
+    var BB = { x0: Lx.inX0 - 0.35, x1: Lx.outX1 + 0.35, y0: cSlider.y0 - 0.2, y1: Lx.warmLift + 1.05,
+               z0: -1.35, z1: NZ_DZ * D.noiseIn + 0.1 };
+    // one box per stage along the flow, the full height and depth of the diagram
+    var STAGE_X = [
+      [Lx.inX0 - 0.35, Lx.inX1 + 0.35],
+      [Lx.slabX0 - 0.4, slabEnd + 0.4],
+      [Lx.ribX0 - 0.35, Lx.ribX1 + 0.35],
+      [decX[0] - 1.0, decX[decX.length - 1] + 1.0],
+      [Lx.outX0 - 0.35, Lx.outX1 + 0.35]
+    ];
+
+    return {
+      STAGES: STAGES, STAGE_X: STAGE_X, BB: BB, apply: applyTimeline,
+      setArm: function (arm, cls) {
+        if (arm != null) state.arm = arm;
+        if (cls) state.cls = cls;
+        setCaption();
+      },
+      // the whole diagram and the output stage keep room on the right for the labels off the output
+      padRight: function (fi) { return fi == null || fi === 4 ? null : (narrow ? 16 : 40); }
+    };
   }
-  setCaption();
 
-  // ---- the timeline: everything below is a function of (t, p, cls) plus the wall clock for jitter
-  var tmpA = [0, 0, 0];
-  function applyTimeline(now) {
-    var t = state.t, p = state.p;
-    var u0 = seg(t, STAGES[0][0], STAGES[0][1]), u1 = seg(t, STAGES[1][0], STAGES[1][1]),
-        u2 = seg(t, STAGES[2][0], STAGES[2][1]), u3 = seg(t, STAGES[3][0], STAGES[3][1]),
-        u4 = seg(t, STAGES[4][0], STAGES[4][1]);
-    var stage = t < STAGES[1][0] ? 0 : t < STAGES[2][0] ? 1 : t < STAGES[3][0] ? 2 : t < STAGES[4][0] ? 3 : 4;
-    var live = reducedMotion ? 0 : now;
-    var i, j, k, q, f, x, y, c;
+  // A released model as a block flow, in the LISA diagram's world units so the camera needs no new
+  // constants: the input on the left at x -17..-10, the output on the right at 10.5..17.5, and one
+  // slab per block between them, its height the log of its parameter count, a thin plate for a block
+  // with none. One stage per block; the packet sits over block i at the middle of stage i. A sampler
+  // gets a noise inlet before the block that takes the noise, and a loop arc, labelled with the step
+  // count, over the block it iterates.
+  function buildBlocks(blocks, cfg) {
+    var n = blocks.length;
+    var Lx = { inX0: -17, inX1: -10, runX0: -8.6, runX1: 8.4, outX0: 10.5, outX1: 17.5, warmLift: 1.9, groundY: -2.8 };
+    var W = 1.5, PLATE = 0.14, PLATE_H = 1.1, DEPTH = 1.6;
+    var NZ_Y = -0.95, NZ_DZ = 0.28, NZ_CH = 4, NZ_PER = 10, ARC_B = 1.5, NARC = 25, NLOOP = 6;
+    var FLOOR = { x0: Lx.inX0 - 0.8, x1: Lx.outX1 + 0.6, z0: -1.7, z1: 2.6 };
+    var name = cfg.name, det = cfg.det, steps = cfg.steps;
+    var i, j, q;
 
-    // -- stage 0: the 48 kHz waveform loses its high band and collapses 4:1
-    var hfGain = 1 - smooth(0.18, 0.72, u0);   // the high band goes first ...
-    var col = smooth(0.52, 1, u0);             // ... then the samples collapse 4:1
-    inWarm.mat.opacity = 0.95 * hfGain;
-    inWarm.obj.visible = hfGain > 0.01;
-    var brOp = stage === 1 ? smooth(0, 0.12, u1) * (1 - smooth(0.72, 0.95, u1)) : 0;
-    var hi0 = ANCHOR - (D.receptiveField - 1) / 2, hi1 = ANCHOR + (D.receptiveField - 1) / 2;
+    var BSTAGES = [];
+    for (i = 0; i < n; i++) BSTAGES.push([i / n, (i + 1) / n]);
+
+    // ---- signal: every released model is fed the 12 kHz input on the 48 kHz grid
+    var S = synth(N_CELLS, R, 11);
+    var x48 = new Float32Array(N), x48o = new Float32Array(N);
+    for (j = 0; j < N; j++) {
+      x48[j] = Lx.inX0 + (Lx.inX1 - Lx.inX0) * j / (N - 1);
+      x48o[j] = Lx.outX0 + (Lx.outX1 - Lx.outX0) * j / (N - 1);
+    }
+
+    // ---- the blocks along the run
+    var slabs = blocks.map(function (b, i) {
+      var cx = n === 1 ? (Lx.runX0 + Lx.runX1) / 2 : lerp(Lx.runX0 + W / 2, Lx.runX1 - W / 2, i / (n - 1));
+      var plate = !(b.params > 0);
+      var w = plate ? PLATE : W, h = plate ? PLATE_H : Math.max(0.3, 0.35 * Math.log10(b.params + 1));
+      return { cx: cx, x0: cx - w / 2, x1: cx + w / 2, w: w, h: h, top: h / 2, plate: plate, b: b };
+    });
+    var hMax = 0;
+    slabs.forEach(function (s) { hMax = Math.max(hMax, s.h); });
+    function findBlock(re, fallback) {
+      for (var i = 0; i < n; i++) if (re.test(blocks[i].id) || re.test(blocks[i].label)) return i;
+      return fallback;
+    }
+    var noiseIdx = det ? -1 : findBlock(/noise|flow|unet|ddim|diff|res/i, 0);
+    var loopIdx = steps > 1 ? findBlock(/unet|res|flow|diff/i, noiseIdx >= 0 ? noiseIdx : 0) : -1;
+    // the low band is the input's only when a block says it puts it back
+    var lowFromInput = blocks.some(function (b) { return /replac/i.test(b.label + ' ' + b.detail); });
+
+    // ---- ground grid (one draw call)
+    (function () {
+      var verts = [], i;
+      for (i = 0; i <= 18; i++) {
+        var x = FLOOR.x0 + (FLOOR.x1 - FLOOR.x0) * i / 18;
+        verts.push(x, Lx.groundY, FLOOR.z0, x, Lx.groundY, FLOOR.z1);
+      }
+      for (i = 0; i <= 4; i++) {
+        var z = FLOOR.z0 + (FLOOR.z1 - FLOOR.z0) * i / 4;
+        verts.push(FLOOR.x0, Lx.groundY, z, FLOOR.x1, Lx.groundY, z);
+      }
+      var g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+      var m = new THREE.LineBasicMaterial({ color: new THREE.Color(tk.line), transparent: true, opacity: 0.55 });
+      scene.add(new THREE.LineSegments(g, m));
+    })();
+
+    // ---- connectors: hairlines along the flow at y = 0
+    (function () {
+      var v = [Lx.inX1 + 0.15, 0, 0, slabs[0].x0, 0, 0, slabs[n - 1].x1, 0, 0, Lx.outX0 - 0.15, 0, 0];
+      for (var i = 0; i < n - 1; i++) v.push(slabs[i].x1, 0, 0, slabs[i + 1].x0, 0, 0);
+      var g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
+      var m = new THREE.LineBasicMaterial({ color: new THREE.Color(tk.dim), transparent: true, opacity: 0.35 });
+      scene.add(new THREE.LineSegments(g, m));
+    })();
+
+    // ---- input waveform: the cold baseband, already on the 48 kHz grid
+    var inPts = makePoints(N, 2.8, dot);
+    var inLine = makeLine(N, false, 0.9);
     (function () {
       var P = inPts.pos.array, Cc = inPts.col.array, LC = inLine.col.array;
-      for (j = 0; j < N; j++) {
-        i = Math.floor(j / R);
-        var y48 = S.lf[j] + S.hf[j] * hfGain;
-        x = lerp(x48[j], x48[i * R], col);
-        y = lerp(y48, S.lf[i * R], col);
-        P[j * 3] = x; P[j * 3 + 1] = y; P[j * 3 + 2] = 0;
-        var w = S.env[j] * hfGain * (1 - col);
-        put3(Cc, j * 3, C.cold, C.warm, w);
-        if (brOp > 0 && i >= hi0 && i <= hi1) put3(Cc, j * 3, [Cc[j * 3], Cc[j * 3 + 1], Cc[j * 3 + 2]], C.ink, 0.7 * brOp);
-        LC[j * 3] = Cc[j * 3] * 0.8; LC[j * 3 + 1] = Cc[j * 3 + 1] * 0.8; LC[j * 3 + 2] = Cc[j * 3 + 2] * 0.8;
+      for (var j = 0; j < N; j++) {
+        P[j * 3] = x48[j]; P[j * 3 + 1] = S.lf[j]; P[j * 3 + 2] = 0;
+        put3s(Cc, j * 3, C.cold, 1);
+        put3s(LC, j * 3, C.cold, 0.8);
       }
       inLine.pos.array.set(P);
       inPts.pos.needsUpdate = inPts.col.needsUpdate = inLine.pos.needsUpdate = inLine.col.needsUpdate = true;
     })();
+    scene.add(inPts.obj); scene.add(inLine.obj);
 
-    // -- noise channels behind the waveform
-    nzPts.obj.visible = hasNoiseIn();
-    if (nzPts.obj.visible) {
-      var P = nzPts.pos.array, Cc = nzPts.col.array;
-      // dim while the input still carries its own high band, lit once the encoder reads them
-      var bright = 0.38 + 0.62 * (stage === 1 ? smooth(0, 0.15, u1) : 0);
-      for (k = 0; k < D.noiseIn; k++) {
-        for (i = 0; i < N_CELLS; i++) {
-          q = k * N_CELLS + i;
-          var jit = reducedMotion ? nzA[q] : nzA[q] * Math.cos(live * 2.1 + nzPh[q]) + nzB[q] * Math.sin(live * 1.7 + nzPh[q] * 0.7);
-          P[q * 3] = cellX(i); P[q * 3 + 1] = NZ_Y + 0.13 * jit; P[q * 3 + 2] = NZ_DZ * (k + 1);
-          put3s(Cc, q * 3, C.warm, bright * (0.55 + 0.45 * Math.min(1, Math.abs(jit))));
+    // ---- the slabs: one InstancedMesh + one merged edge set
+    var slabMesh, slabEdges;
+    (function () {
+      var geo = new THREE.BoxGeometry(1, 1, 1);
+      var mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.26, depthWrite: false });
+      slabMesh = new THREE.InstancedMesh(geo, mat, n);
+      slabMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
+      slabMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      var M = new THREE.Matrix4();
+      var ev = [];
+      slabs.forEach(function (s, i) {
+        M.makeScale(s.w, s.h, DEPTH);
+        M.setPosition(s.cx, 0, 0);
+        slabMesh.setMatrixAt(i, M);
+        var hx = s.w / 2, hy = s.h / 2, hz = DEPTH / 2, cx = s.cx;
+        var P = [[cx - hx, -hy, -hz], [cx + hx, -hy, -hz], [cx + hx, hy, -hz], [cx - hx, hy, -hz],
+                 [cx - hx, -hy, hz], [cx + hx, -hy, hz], [cx + hx, hy, hz], [cx - hx, hy, hz]];
+        var E = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+        E.forEach(function (e) { ev.push(P[e[0]][0], P[e[0]][1], P[e[0]][2], P[e[1]][0], P[e[1]][1], P[e[1]][2]); });
+      });
+      slabMesh.instanceMatrix.needsUpdate = true;
+      slabMesh.renderOrder = 2;
+      scene.add(slabMesh);
+      slabEdges = makeLine(n * 24, true, 0.9);
+      slabEdges.pos.array.set(ev); slabEdges.pos.needsUpdate = true;
+      scene.add(slabEdges.obj);
+    })();
+
+    // ---- the noise inlet (a sampler): Gaussian channels in the gap before the noise block, with
+    // one warm hairline per channel into its left face
+    var nz = null;
+    if (noiseIdx >= 0) {
+      var nzX1 = slabs[noiseIdx].x0 - 0.15, nzX0 = nzX1 - 1.1;
+      var NZ = NZ_CH * NZ_PER;
+      nz = { x0: nzX0, x1: nzX1, pts: makePoints(NZ, 2.2, dot), feed: makeLine(NZ_CH * 2, true, 0.8),
+             A: new Float32Array(NZ), B: new Float32Array(NZ), Ph: new Float32Array(NZ) };
+      for (q = 0; q < NZ; q++) { nz.A[q] = randn(rnd); nz.B[q] = randn(rnd); nz.Ph[q] = rnd() * 6.283; }
+      (function () {
+        var F = nz.feed.pos.array;
+        for (var k = 0; k < NZ_CH; k++) {
+          var z = (k - (NZ_CH - 1) / 2) * NZ_DZ;
+          F[k * 6] = nzX1; F[k * 6 + 1] = NZ_Y; F[k * 6 + 2] = z;
+          F[k * 6 + 3] = slabs[noiseIdx].x0; F[k * 6 + 4] = 0; F[k * 6 + 5] = z;
         }
-      }
-      nzPts.pos.needsUpdate = nzPts.col.needsUpdate = true;
+        nz.feed.pos.needsUpdate = true;
+      })();
+      scene.add(nz.pts.obj); scene.add(nz.feed.obj);
     }
 
-    // -- the receptive-field bracket
-    (function () {
-      var xa = cellX(hi0) - ribCW * 0.5, xb = cellX(hi1) + ribCW * 0.5, yb = BR_Y;
-      bracket.pos.array.set([xa, yb - 0.14, 0, xa, yb, 0, xb, yb, 0, xb, yb - 0.14, 0]);
-      bracket.pos.needsUpdate = true;
-      var Cc = bracket.col.array;
-      for (q = 0; q < 4; q++) put3s(Cc, q * 3, C.ink, 1);
-      bracket.col.needsUpdate = true;
-      bracket.mat.opacity = brOp;
-      bracket.obj.visible = brOp > 0.001;
-      lbRF.hidden = brOp < 0.05;
-    })();
-
-    // -- the packet through the encoder (stage 1) and across the ribbon (stage 2)
-    var px = 0, pAlpha = 0, spread = 0.12;
-    if (stage === 1) {
-      px = lerp(cellX(ANCHOR), Lx.ribX0 - 0.3, u1);
-      pAlpha = smooth(0, 0.08, u1);
-    } else if (stage === 2) {
-      px = lerp(Lx.ribX0 - 0.3, Lx.ribX1 + 0.2, u2);
-      pAlpha = 1 - smooth(0.75, 1, u2);
+    // ---- the loop arc (a sampler with more than one step): from the block's right top corner back
+    // over it to its left, the output of one step fed back as the input of the next
+    var loop = null;
+    if (loopIdx >= 0) {
+      var ls = slabs[loopIdx];
+      loop = { a: Math.max(ls.w / 2, 0.6), b: ARC_B, cx: ls.cx, top: ls.top,
+               arc: makeLine(NARC, false, 0.9), dots: makePoints(NLOOP, 4.5, dot, THREE.AdditiveBlending),
+               revs: Math.min(steps, 12) };
+      (function () {
+        var P = loop.arc.pos.array;
+        for (var m = 0; m < NARC; m++) {
+          var th = Math.PI * m / (NARC - 1);
+          P[m * 3] = loop.cx + loop.a * Math.cos(th); P[m * 3 + 1] = loop.top + loop.b * Math.sin(th); P[m * 3 + 2] = 0;
+        }
+        loop.arc.pos.needsUpdate = true;
+      })();
+      scene.add(loop.arc.obj); scene.add(loop.dots.obj);
     }
-    var chFrac = 0;
-    for (k = 0; k < slabs.length; k++) {
-      var s = slabs[k];
-      chFrac += (s.ch / 64) * Math.exp(-Math.pow((px - s.cx) / (s.thick / 2 + 0.3), 2));
+
+    // ---- the packet that travels through the blocks
+    var NP = 56;
+    var pk = makePoints(NP, 4.5, dot, THREE.AdditiveBlending);
+    var pkOff = new Float32Array(NP * 3), pkPh = new Float32Array(NP);
+    for (q = 0; q < NP; q++) {
+      var r = Math.pow(rnd(), 0.6), th = rnd() * 6.283, ph = Math.acos(2 * rnd() - 1);
+      pkOff[q * 3] = r * Math.sin(ph) * Math.cos(th);
+      pkOff[q * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+      pkOff[q * 3 + 2] = r * Math.cos(ph);
+      pkPh[q] = rnd() * 6.283;
     }
-    spread = 0.12 + 0.55 * Math.min(1, chFrac);
+    scene.add(pk.obj);
+    // stage i carries the packet from the boundary before block i to its centre, then on to the next
+    // boundary; the ends are the input's right edge and the output's left
+    var BND = [Lx.inX1 + 0.2];
+    for (i = 1; i < n; i++) BND.push((slabs[i - 1].cx + slabs[i].cx) / 2);
+    BND.push(Lx.outX0 - 0.2);
+
+    // ---- output: 48 kHz points, cold baseband line, warm high band above it
+    var outPts = makePoints(N, 2.8, dot);
+    var outLine = makeLine(N, false, 0.9);
+    var warmLine = makeLine(N, false, 0);
+    scene.add(outPts.obj); scene.add(outLine.obj); scene.add(warmLine.obj);
     (function () {
-      pk.obj.visible = pAlpha > 0.001;
-      pk.mat.opacity = pAlpha;
-      if (!pk.obj.visible) return;
-      var py = S.lf[ANCHOR * R] * (1 - smooth(cellX(ANCHOR), Lx.inX1, px));
-      var P = pk.pos.array, Cc = pk.col.array;
-      var nWarm = hasNoiseIn() ? Math.round(NP * 0.3) : 0;
-      for (q = 0; q < NP; q++) {
-        var sh = reducedMotion ? 1 : 1 + 0.18 * Math.sin(live * 6 + pkPh[q]);
-        P[q * 3] = px + pkOff[q * 3] * spread * 0.6 * sh;
-        P[q * 3 + 1] = py + pkOff[q * 3 + 1] * spread * sh;
-        P[q * 3 + 2] = pkOff[q * 3 + 2] * spread * sh;
-        var isWarm = q >= NP - nWarm;
-        put3(Cc, q * 3, isWarm ? C.warm : C.cold, C.ink, isWarm ? 0.15 : 0.35);
-      }
-      pk.pos.needsUpdate = pk.col.needsUpdate = true;
+      var w = warmLine.pos.array;
+      for (var j = 0; j < N; j++) { w[j * 3] = x48o[j]; w[j * 3 + 1] = Lx.warmLift + S.hfB[j] * 2.6; w[j * 3 + 2] = 0; }
+      warmLine.pos.needsUpdate = true;
     })();
 
-    // -- slab lighting
-    (function () {
-      var IC = slabMesh.instanceColor.array, EC = slabEdges.col.array;
-      var settled = stage >= 2 ? 0.28 : 0;
-      for (k = 0; k < slabs.length; k++) {
-        var s = slabs[k];
-        var lit = stage === 1 ? Math.exp(-Math.pow((px - s.cx) / (s.thick / 2 + 0.35), 2)) : settled;
-        put3(IC, k * 3, C.slab, C.cold, 0.25 + 0.75 * lit);
-        for (q = 0; q < 24; q++) put3(EC, (k * 24 + q) * 3, C.dim, C.cold, 0.15 + 0.85 * lit);
-      }
-      slabMesh.instanceColor.needsUpdate = true;
-      slabEdges.col.needsUpdate = true;
-    })();
+    // ---- labels
+    var kHz = function (hz) { return String(hz / 1000); };
+    addLabel([(Lx.inX0 + Lx.inX1) / 2, 1.6, 0], 'input ' + kHz(D.fsIn) + ' kHz', 'on the ' + kHz(D.fsOut) + ' kHz grid', 'above', 0);
+    slabs.forEach(function (s, i) {
+      var sub = s.b.params > 0 ? fmtInt(s.b.params) + ' parameters' : 'no parameters';
+      // the loop block's name goes underneath, the arc and its step count take the top
+      if (i === loopIdx) addLabel([s.cx, -s.h / 2 - 0.3, 0], s.b.label, sub, 'below', i);
+      else addLabel([s.cx, s.top + 0.4, 0], s.b.label, sub, 'above', i);
+    });
+    if (loop) addLabel([loop.cx, loop.top + loop.b + 0.05, 0], '× ' + steps + ' steps', '', 'above', loopIdx, 'warm');
+    // a block that is the noise already says so; otherwise the inlet is named
+    if (nz && !/noise/i.test(blocks[noiseIdx].id + ' ' + blocks[noiseIdx].label)) {
+      addLabel([(nz.x0 + nz.x1) / 2, NZ_Y - 0.2, (NZ_CH - 1) / 2 * NZ_DZ], 'ε  Gaussian noise', '', 'below', noiseIdx, 'warm');
+    }
+    addLabel([Lx.outX0 + 2.2, Lx.warmLift + 0.55, 0], 'output ' + kHz(D.fsOut) + ' kHz', '', 'above', n - 1);
+    addLabel([Lx.outX1 + 0.15, Lx.warmLift, 0], kHz(D.fsIn / 2) + '–' + kHz(D.fsOut / 2) + ' kHz', 'from the model', 'right', n - 1, 'warm');
+    addLabel([Lx.outX1 + 0.15, 0, 0], '0–' + kHz(D.fsIn / 2) + ' kHz', lowFromInput ? 'from the input' : 'from the model, given the input', 'right', n - 1);
 
-    // -- the latent ribbon: ghost, then revealed left to right behind the packet
-    var hiLat = stage === 3 ? smooth(0, 0.1, u3) : stage === 4 ? 0.35 : 0;
-    (function () {
-      var IC = ribMesh.instanceColor.array;
-      for (i = 0; i < N_CELLS; i++) {
-        var rev = stage < 2 ? 0 : stage > 2 ? 1 : smooth(0, 1, (u2 * 1.08 - (i + 0.5) / N_CELLS) / 0.06);
-        var nb = (i >= ANCHOR - 1 && i <= ANCHOR + 1) ? hiLat : 0;
-        for (var d = 0; d < LAT; d++) {
-          q = i * LAT + d;
-          var v = (ribVal[q] + 1) / 2;
-          tmpA[0] = C.ghost[0] + (C.cold[0] - C.ghost[0]) * (0.08 + 0.92 * v);
-          tmpA[1] = C.ghost[1] + (C.cold[1] - C.ghost[1]) * (0.08 + 0.92 * v);
-          tmpA[2] = C.ghost[2] + (C.cold[2] - C.ghost[2]) * (0.08 + 0.92 * v);
-          put3(IC, q * 3, C.ghost, tmpA, rev);
-          if (nb > 0) put3(IC, q * 3, [IC[q * 3], IC[q * 3 + 1], IC[q * 3 + 2]], C.ink, 0.5 * nb * (0.4 + 0.6 * v));
+    // ---- caption
+    var totalParams = cfg.params;
+    function esc(x) { return String(x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function setCaption() {
+      caption.innerHTML = '<b>' + esc(name) + '</b>' +
+        (totalParams > 0 ? ' · ' + fmtInt(totalParams) + ' parameters' : '') +
+        (det ? '' : ' · <span class="w">ε</span> sampler') +
+        (steps > 1 ? ' · ' + steps + ' steps' : '');
+    }
+    setCaption();
+
+    // ---- the timeline: a function of (t, p) plus the wall clock for the jitter and the shimmer
+    function apply(now) {
+      var t = state.t, p = state.p;
+      var stage = stageAt(BSTAGES, t);
+      var u = seg(t, BSTAGES[stage][0], BSTAGES[stage][1]);
+      var uLast = seg(t, BSTAGES[n - 1][0], BSTAGES[n - 1][1]);
+      var live = reducedMotion ? 0 : now;
+      var i, j, k, q, x, y;
+
+      // -- the packet: over block i at the middle of stage i; the loop block holds it for the steps
+      var hold0 = 0.25, hold1 = 0.75, looping = stage === loopIdx && u > hold0 && u < hold1;
+      var uu = u;
+      if (stage === loopIdx) uu = u < hold0 ? 0.5 * u / hold0 : u > hold1 ? 0.5 + 0.5 * (u - hold1) / (1 - hold1) : 0.5;
+      var px = uu < 0.5 ? lerp(BND[stage], slabs[stage].cx, uu / 0.5) : lerp(slabs[stage].cx, BND[stage + 1], (uu - 0.5) / 0.5);
+      var pAlpha = smooth(0, 0.08, seg(t, BSTAGES[0][0], BSTAGES[0][1])) * (1 - smooth(0.8, 1, uLast));
+      var fill = 0;
+      for (k = 0; k < n; k++) fill += (slabs[k].h / hMax) * Math.exp(-Math.pow((px - slabs[k].cx) / (slabs[k].w / 2 + 0.3), 2));
+      var spread = 0.12 + 0.55 * Math.min(1, fill);
+      (function () {
+        pk.obj.visible = pAlpha > 0.001;
+        pk.mat.opacity = pAlpha;
+        if (!pk.obj.visible) return;
+        var P = pk.pos.array, Cc = pk.col.array;
+        var nWarm = nz && px >= nz.x1 ? Math.round(NP * 0.3) : 0;
+        for (q = 0; q < NP; q++) {
+          var sh = reducedMotion ? 1 : 1 + 0.18 * Math.sin(live * 6 + pkPh[q]);
+          P[q * 3] = px + pkOff[q * 3] * spread * 0.6 * sh;
+          P[q * 3 + 1] = pkOff[q * 3 + 1] * spread * sh;
+          P[q * 3 + 2] = pkOff[q * 3 + 2] * spread * sh;
+          var isWarm = q >= NP - nWarm;
+          put3(Cc, q * 3, isWarm ? C.warm : C.cold, C.ink, isWarm ? 0.15 : 0.35);
+        }
+        pk.pos.needsUpdate = pk.col.needsUpdate = true;
+      })();
+
+      // -- slab lighting: lit as the packet passes, settled once it has gone by
+      (function () {
+        var IC = slabMesh.instanceColor.array, EC = slabEdges.col.array;
+        for (k = 0; k < n; k++) {
+          var s = slabs[k];
+          var lit = pAlpha > 0.001 ? Math.exp(-Math.pow((px - s.cx) / (s.w / 2 + 0.35), 2)) : 0;
+          if (px > s.cx || t >= 1) lit = Math.max(lit, 0.28);
+          put3(IC, k * 3, C.slab, C.cold, 0.25 + 0.75 * lit);
+          for (q = 0; q < 24; q++) put3(EC, (k * 24 + q) * 3, C.dim, C.cold, 0.15 + 0.85 * lit);
+        }
+        slabMesh.instanceColor.needsUpdate = true;
+        slabEdges.col.needsUpdate = true;
+      })();
+
+      // -- the noise inlet: dim until its block reads it
+      if (nz) {
+        var P = nz.pts.pos.array, Cc = nz.pts.col.array;
+        var bright = 0.38 + 0.62 * (stage === noiseIdx ? smooth(0, 0.15, u) : stage > noiseIdx ? 0.35 : 0);
+        for (k = 0; k < NZ_CH; k++) {
+          var z = (k - (NZ_CH - 1) / 2) * NZ_DZ;
+          for (i = 0; i < NZ_PER; i++) {
+            q = k * NZ_PER + i;
+            var jit = reducedMotion ? nz.A[q] : nz.A[q] * Math.cos(live * 2.1 + nz.Ph[q]) + nz.B[q] * Math.sin(live * 1.7 + nz.Ph[q] * 0.7);
+            P[q * 3] = lerp(nz.x0, nz.x1, (i + 0.5) / NZ_PER); P[q * 3 + 1] = NZ_Y + 0.13 * jit; P[q * 3 + 2] = z;
+            put3s(Cc, q * 3, C.warm, bright * (0.55 + 0.45 * Math.min(1, Math.abs(jit))));
+          }
+        }
+        nz.pts.pos.needsUpdate = nz.pts.col.needsUpdate = true;
+        var FC = nz.feed.col.array;
+        for (q = 0; q < NZ_CH * 2; q++) put3(FC, q * 3, C.ghost, C.warm, bright);
+        nz.feed.col.needsUpdate = true;
+      }
+
+      // -- the loop arc, and the step dots going round it while the packet holds
+      if (loop) {
+        var arcLit = stage === loopIdx ? 0.15 + 0.85 * smooth(0.1, hold0, u) * (1 - 0.6 * smooth(hold1, 0.95, u))
+                   : stage > loopIdx ? 0.4 : 0.15;
+        var AC = loop.arc.col.array;
+        for (q = 0; q < NARC; q++) put3(AC, q * 3, C.warmDim, C.warm, arcLit);
+        loop.arc.col.needsUpdate = true;
+        loop.dots.obj.visible = looping;
+        if (looping) {
+          var frac = (((u - hold0) / (hold1 - hold0)) * loop.revs) % 1;
+          var DP = loop.dots.pos.array, DC = loop.dots.col.array;
+          for (q = 0; q < NLOOP; q++) {
+            var th = Math.PI * clamp01(frac - q * 0.035);
+            DP[q * 3] = loop.cx + loop.a * Math.cos(th); DP[q * 3 + 1] = loop.top + loop.b * Math.sin(th); DP[q * 3 + 2] = 0;
+            put3s(DC, q * 3, mixc(C.warm, C.ink, 0.3), 1 - q / NLOOP);
+          }
+          loop.dots.pos.needsUpdate = loop.dots.col.needsUpdate = true;
         }
       }
-      ribMesh.instanceColor.needsUpdate = true;
-    })();
 
-    // -- the decoder: four pulses, one per output sample of the anchor cell
-    var pulses = R;
-    var pulseIdx = stage === 3 ? Math.min(pulses - 1, Math.floor(u3 * pulses)) : stage > 3 ? pulses - 1 : 0;
-    var pf = stage === 3 ? Math.min(1, u3 * pulses - pulseIdx) : stage > 3 ? 1 : 0;
-    var pulseX = lerp(decX[0] - 0.9, decX[decX.length - 1] + 0.9, pf);
-    var decRev = stage < 3 ? 0 : stage === 3 ? smooth(0, 0.08, u3) : 1;
-    var flash = stage === 3 ? Math.exp(-Math.pow(pf / 0.14, 2)) : 0;
-    var cVal = 2 * (pulseIdx / R) - 1;
-    (function () {
-      var IC = nodeMesh.instanceColor.array;
-      var base = mixc(C.ghost, C.coldDim, decRev);
-      for (q = 0; q < ND; q++) {
-        var lit = 0;
-        if (stage === 3) lit = nodeAct[q] * Math.exp(-Math.pow((nodePos[q * 3] - pulseX) / 0.75, 2));
-        else if (stage === 4) lit = 0.18 * nodeAct[q];
-        put3(IC, q * 3, base, C.coldLit, lit);
-      }
-      nodeMesh.instanceColor.needsUpdate = true;
-      var CC = con.col.array;
-      var lineBase = mixc(C.ghost, C.coldDim, decRev * 0.8);
-      for (c = 0; c < NCON; c++) {
-        var a = stage === 3 ? conW[c] * Math.exp(-Math.pow((conMid[c] - pulseX) / 0.9, 2)) : stage === 4 ? 0.12 * conW[c] : 0;
-        put3(CC, c * 6, lineBase, C.cold, a);
-        put3(CC, c * 6 + 3, lineBase, C.cold, a);
-      }
-      con.col.needsUpdate = true;
-    })();
-
-    // -- inlets into the first column
-    (function () {
-      var P = inlet.pos.array, Cc = inlet.col.array;
-      var q0 = 0, n, tgt;
-      var inA = decRev * (0.35 + 0.65 * flash);
-      for (var m = -1; m <= 1; m++) {
-        var xr = ribX(ANCHOR + m), yr = Lx.ribH / 2 + 0.03;
-        for (n = 0; n < 4; n++) {
-          tgt = inletTarget[q0];
-          P[q0 * 6] = xr; P[q0 * 6 + 1] = yr; P[q0 * 6 + 2] = 0;
-          P[q0 * 6 + 3] = nodePos[tgt * 3]; P[q0 * 6 + 4] = nodePos[tgt * 3 + 1]; P[q0 * 6 + 5] = nodePos[tgt * 3 + 2];
-          put3(Cc, q0 * 6, C.ghost, C.cold, inA);
-          put3(Cc, q0 * 6 + 3, C.ghost, C.cold, inA);
-          q0++;
+      // -- output: the high band grows in over the last stage, the inference sweep gates it
+      (function () {
+        var P = outPts.pos.array, Cc = outPts.col.array, BC = outLine.col.array, WC = warmLine.col.array;
+        var fan = smooth(0.55, 1, uLast), last = stage === n - 1;
+        var edge = 6 / N, leadW = 5 / N, sweeping = p < 0.999;
+        for (j = 0; j < N; j++) {
+          x = x48o[j];
+          y = S.lf[j] + S.hfB[j] * fan;
+          P[j * 3] = x; P[j * 3 + 1] = y; P[j * 3 + 2] = 0;
+          var sweep = p - j / (N - 1);
+          var inf = 0.08 + 0.92 * smooth(-edge, edge, sweep);
+          var lead = sweeping ? Math.exp(-Math.pow(sweep / leadW, 2)) : 0;
+          var ready = (last ? 1 : 0) * inf;
+          var pb = mixc(C.coldDim, mixc(C.cold, C.warm, S.envB[j] * fan), fan);
+          if (lead > 0.02) pb = mixc(pb, C.ink, 0.6 * lead);
+          var gate = last ? inf : 1;
+          put3s(Cc, j * 3, pb, gate);
+          put3(BC, j * 3, C.ghost, pb, (0.6 + 0.4 * fan) * gate * (0.8 + 0.2 * fan));
+          put3s(WC, j * 3, C.warm, Math.min(1.3, ready * (1 + 1.3 * lead)));
         }
-      }
-      var ky = lerp(cSlider.y0, cSlider.y1, (cVal + 1) / 2);
-      knob.position.set(cSlider.x, ky, cSlider.z);
-      knob.material.color.setRGB(
-        C.dim[0] + (C.ink[0] - C.dim[0]) * decRev, C.dim[1] + (C.ink[1] - C.dim[1]) * decRev, C.dim[2] + (C.ink[2] - C.dim[2]) * decRev);
-      for (n = 0; n < NIN_C; n++) {
-        tgt = inletTarget[q0];
-        P[q0 * 6] = cSlider.x; P[q0 * 6 + 1] = ky; P[q0 * 6 + 2] = cSlider.z;
-        P[q0 * 6 + 3] = nodePos[tgt * 3]; P[q0 * 6 + 4] = nodePos[tgt * 3 + 1]; P[q0 * 6 + 5] = nodePos[tgt * 3 + 2];
-        put3(Cc, q0 * 6, C.ghost, C.dim, decRev * (0.4 + 0.6 * flash));
-        put3(Cc, q0 * 6 + 3, C.ghost, C.dim, decRev * (0.4 + 0.6 * flash));
-        q0++;
-      }
-      var showDnz = hasNoiseDec();
-      dnzPts.obj.visible = showDnz;
-      var DP = dnzPts.pos.array, DC = dnzPts.col.array;
-      for (n = 0; n < D.noiseDec; n++) {
-        var jit = reducedMotion ? dnzA[n] : dnzA[n] * Math.cos(live * 2.3 + dnzPh[n]) + dnzB[n] * Math.sin(live * 1.9 + dnzPh[n] * 0.7);
-        var nx = dnz.x + (n - (D.noiseDec - 1) / 2) * 0.18, ny = dnz.y + 0.12 * jit, nzz = dnz.z;
-        DP[n * 3] = nx; DP[n * 3 + 1] = ny; DP[n * 3 + 2] = nzz;
-        put3s(DC, n * 3, C.warm, 0.6 + 0.4 * decRev);
-        for (var e = 0; e < 2; e++) {
-          tgt = inletTarget[q0];
-          P[q0 * 6] = nx; P[q0 * 6 + 1] = ny; P[q0 * 6 + 2] = nzz;
-          P[q0 * 6 + 3] = nodePos[tgt * 3]; P[q0 * 6 + 4] = nodePos[tgt * 3 + 1]; P[q0 * 6 + 5] = nodePos[tgt * 3 + 2];
-          var wa = showDnz ? decRev * (0.35 + 0.65 * flash) : 0;
-          put3(Cc, q0 * 6, C.ghost, C.warm, wa);
-          put3(Cc, q0 * 6 + 3, C.ghost, C.warm, wa);
-          if (!showDnz) { P[q0 * 6 + 3] = nx; P[q0 * 6 + 4] = ny; P[q0 * 6 + 5] = nzz; }
-          q0++;
-        }
-      }
-      dnzPts.pos.needsUpdate = dnzPts.col.needsUpdate = true;
-      inlet.pos.needsUpdate = inlet.col.needsUpdate = true;
-      var rc = cRail.col.array;
-      put3(rc, 0, C.ghost, C.dim, 0.5 + 0.5 * decRev); put3(rc, 3, C.ghost, C.dim, 0.5 + 0.5 * decRev);
-      cRail.col.needsUpdate = true;
-      lbC.t.textContent = stage === 3 ? 'c = ' + (cVal < 0 ? '−' : '+') + Math.abs(cVal).toFixed(2) : 'c = 2(q − i) − 1';
-      lbDnz.hidden = !showDnz;
-      lbNz.hidden = !hasNoiseIn();
-    })();
+        outLine.pos.array.set(P);
+        outPts.pos.needsUpdate = outPts.col.needsUpdate = outLine.pos.needsUpdate = outLine.col.needsUpdate = warmLine.col.needsUpdate = true;
+        warmLine.mat.opacity = 0.95 * fan;
+        warmLine.obj.visible = fan > 0.001;
+      })();
 
-    // -- output: fan out 4:1, the warm band lights, the inference sweep gates it
-    (function () {
-      var P = outPts.pos.array, Cc = outPts.col.array, BC = outLine.col.array, WC = warmLine.col.array;
-      var fanAll = smooth(0, 1, u4);
-      var edge = 6 / N, leadW = 5 / N, sweeping = p < 0.999;
-      for (j = 0; j < N; j++) {
-        i = Math.floor(j / R);
-        var r = j - i * R;
-        var fan = fanAll;
-        if (stage === 3 && i === ANCHOR) fan = Math.max(fan, smooth(0.82, 1.0, u3 * pulses - r));
-        else if (stage === 4 && i === ANCHOR) fan = 1;
-        x = lerp(cellXo(i), x48o[j], fan);
-        y = lerp(S.lf[i * R], S.lf[j] + S.hfB[j], fan);
-        P[j * 3] = x; P[j * 3 + 1] = y; P[j * 3 + 2] = 0;
-        var sweep = p - j / (N - 1);
-        var inf = 0.08 + 0.92 * smooth(-edge, edge, sweep);
-        var lead = sweeping ? Math.exp(-Math.pow(sweep / leadW, 2)) : 0;
-        var ready = (stage >= 4 ? 1 : 0) * inf;
-        var warmW = S.envB[j] * fan;
-        tmpA = mixc(C.cold, C.warm, warmW);
-        var pb = mixc(C.coldDim, tmpA, fan);
-        if (lead > 0.02) pb = mixc(pb, C.ink, 0.6 * lead);
-        var gate = stage >= 4 ? inf : 1;
-        put3s(Cc, j * 3, pb, gate);
-        put3(BC, j * 3, C.ghost, pb, (0.6 + 0.4 * fan) * gate * (0.8 + 0.2 * fan));
-        put3s(WC, j * 3, C.warm, Math.min(1.3, ready * (1 + 1.3 * lead)));
+      // -- label emphasis
+      for (q = 0; q < labels.length; q++) {
+        var L = labels[q];
+        var on = L.stage === stage;
+        if (L.el.classList.contains('on') !== on) L.el.classList.toggle('on', on);
       }
-      outLine.pos.array.set(P);
-      outPts.pos.needsUpdate = outPts.col.needsUpdate = outLine.pos.needsUpdate = outLine.col.needsUpdate = warmLine.col.needsUpdate = true;
-      warmLine.mat.opacity = 0.95 * fanAll;
-      warmLine.obj.visible = fanAll > 0.001;
-    })();
-
-    // -- label emphasis
-    for (q = 0; q < labels.length; q++) {
-      var L = labels[q];
-      var on = L.stage === stage;
-      if (L.el.classList.contains('on') !== on) L.el.classList.toggle('on', on);
+      return stage;
     }
-    return stage;
+
+    // ---- camera boxes: the whole diagram, and one per block (the first takes the input with it,
+    // the last the output, since those are what their stages show)
+    var yLo = -hMax / 2 - 0.6, yHi = Math.max(hMax / 2 + 1.0, Lx.warmLift + 1.05);
+    if (nz) yLo = Math.min(yLo, NZ_Y - 0.5);
+    if (loop) yHi = Math.max(yHi, loop.top + loop.b + 0.6);
+    var BB = { x0: Lx.inX0 - 0.35, x1: Lx.outX1 + 0.35, y0: yLo, y1: yHi, z0: -1.35, z1: 2.4 };
+    var STAGE_X = slabs.map(function (s, i) {
+      var x0 = s.x0 - 0.5, x1 = s.x1 + 0.5;
+      if (i === noiseIdx && nz) x0 = Math.min(x0, nz.x0 - 0.3);
+      if (i === loopIdx && loop) { x0 = Math.min(x0, loop.cx - loop.a - 0.3); x1 = Math.max(x1, loop.cx + loop.a + 0.3); }
+      if (i === 0) x0 = Lx.inX0 - 0.35;
+      if (i === n - 1) x1 = Lx.outX1 + 0.35;
+      return [x0, x1];
+    });
+
+    return {
+      STAGES: BSTAGES, STAGE_X: STAGE_X, BB: BB, apply: apply,
+      // the class means nothing to a block flow; an arm names the caption only when no name was given
+      setArm: function (arm) {
+        if (!cfg.fixedName && arm) name = String(arm);
+        setCaption();
+      },
+      // the whole diagram and the last block (which takes the output) keep room for the output labels
+      padRight: function (fi) { return fi == null || fi === n - 1 ? null : (narrow ? 16 : 40); }
+    };
   }
+
+  var blocks = Array.isArray(opts.blocks) && opts.blocks.length ? opts.blocks.map(function (b, i) {
+    b = b || {};
+    return { id: String(b.id || i), label: String(b.label || ''), detail: String(b.detail || ''), params: Math.max(0, +b.params || 0) };
+  }) : null;
+  // steps may come as a number or as the facts' own phrase ("8 DDIM steps"); absent or unreadable is one pass
+  var relSteps = Math.max(1, parseInt(String(opts.steps == null ? 1 : opts.steps), 10) || 1);
+  var sc = blocks ? buildBlocks(blocks, {
+    name: opts.name ? String(opts.name) : (opts.arm ? String(opts.arm) : 'model'),
+    fixedName: !!opts.name,
+    det: opts.det !== false,               // absent → deterministic: no inlet
+    steps: relSteps,
+    params: Math.max(0, +opts.params || 0) // the measured total, when the page has one; else no total
+  }) : buildLisa();
 
   // ---- camera --------------------------------------------------------------
   // Two orbits: `goal` is where the camera is asked to be, `cam` is where it is, and every frame
@@ -826,16 +1247,7 @@ function mount(el, opts) {
   // re-centring it under the cursor. Drag orbits; shift-drag, a middle or right button, two
   // fingers together, or a two-finger swipe pan; pinch or ctrl/⌘-wheel zooms.
   var _v = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3();
-  var BB = { x0: Lx.inX0 - 0.35, x1: Lx.outX1 + 0.35, y0: cSlider.y0 - 0.2, y1: Lx.warmLift + 1.05,
-             z0: -1.35, z1: NZ_DZ * D.noiseIn + 0.1 };
-  // one box per stage along the flow, the full height and depth of the diagram
-  var STAGE_X = [
-    [Lx.inX0 - 0.35, Lx.inX1 + 0.35],
-    [Lx.slabX0 - 0.4, slabEnd + 0.4],
-    [Lx.ribX0 - 0.35, Lx.ribX1 + 0.35],
-    [decX[0] - 1.0, decX[decX.length - 1] + 1.0],
-    [Lx.outX0 - 0.35, Lx.outX1 + 0.35]
-  ];
+  var BB = sc.BB, STAGE_X = sc.STAGE_X;
   function boxOf(i) {
     if (i == null) return BB;
     return { x0: STAGE_X[i][0], x1: STAGE_X[i][1], y0: BB.y0, y1: BB.y1, z0: BB.z0, z1: BB.z1 };
@@ -897,7 +1309,7 @@ function mount(el, opts) {
   // re-solve the framing for the current focus (a stage, or the whole) at the goal orbit
   function refit(immediate) {
     if (!wrap.clientWidth || !wrap.clientHeight) return;
-    var padR = focusIdx == null || focusIdx === 4 ? null : (narrow ? 16 : 40);
+    var padR = sc.padRight(focusIdx);
     var f = fitBox(boxOf(focusIdx), goal.az, goal.el, padR);
     goal.d = f.d; goal.target.copy(f.target);
     if (immediate) snapCamera();
@@ -1137,7 +1549,7 @@ function mount(el, opts) {
     var moving = easeCamera(dt);
     // wall-clock effects (jitter, shimmer, drift) need a render every frame unless reduced motion
     var animate = !reducedMotion;
-    if (state.dirty || animate) { applyTimeline(now); state.dirty = false; state.needsRender = true; }
+    if (state.dirty || animate) { sc.apply(now); state.dirty = false; state.needsRender = true; }
     if (state.needsRender || animate || moving) {
       placeCamera(now);
       renderer.render(scene, camera);
@@ -1150,9 +1562,7 @@ function mount(el, opts) {
   // ---- the handle
   var handle = {
     setArm: function (arm, cls) {
-      if (arm != null) state.arm = arm;
-      if (cls) state.cls = cls;
-      setCaption();
+      sc.setArm(arm, cls);
       state.dirty = true; state.needsRender = true;
       return handle;
     },
@@ -1174,7 +1584,7 @@ function mount(el, opts) {
       state.dirty = true; state.needsRender = true;
       return handle;
     },
-    // Fly to one stage of the flow (0..4), or back to the whole diagram with null. The orbit is kept;
+    // Fly to one stage of the flow (0..4 for LISA, one per block for a block flow), or back to the whole diagram with null. The orbit is kept;
     // only the framing changes, eased.
     focus: function (i) {
       focusIdx = (i == null || i < 0 || i >= STAGE_X.length) ? null : i | 0;
@@ -1212,8 +1622,8 @@ function mount(el, opts) {
     getTime: function () { return state.t; },
     isPlaying: function () { return state.playing; },
     reducedMotion: function () { return reducedMotion; },
-    stageOf: function (t) { t = clamp01(+t || 0); return t < 0.15 ? 0 : t < 0.45 ? 1 : t < 0.60 ? 2 : t < 0.90 ? 3 : 4; },
-    stages: STAGES.slice(),
+    stageOf: function (t) { return stageAt(sc.STAGES, clamp01(+t || 0)); },
+    stages: sc.STAGES.map(function (s) { return s.slice(); }),
     // A read-only view of the camera, the canvas and where every label ought to sit. The dev
     // harness checks the overlay against it; nothing in the page needs it.
     debug: function () {

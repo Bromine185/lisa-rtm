@@ -10,6 +10,7 @@
 .arms a { font-family: var(--font-mono); font-size: 10.5px; color: var(--dim-2); padding: 4px 7px; border-radius: 3px; }
 .arms a:hover { color: var(--ink); }
 .arms a[aria-current="page"] { color: var(--warm); background: var(--panel-2); }
+.arms .sep { color: var(--dim-2); padding: 4px 2px; }
 .mount { position: relative; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); overflow: hidden; flex: 1 1 0; min-height: 240px; max-width: 100%; }
 .help { position: absolute; right: 12px; bottom: 9px; font-family: var(--font-mono), var(--font-jp); font-size: 10px; color: var(--dim-2); letter-spacing: .02em; white-space: pre; pointer-events: none; text-align: right; }
 .tl { flex: none; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; font-family: var(--font-mono), var(--font-jp); font-size: 11px; color: var(--dim); }
@@ -26,5 +27,9 @@
 .facts div { display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--line); padding-top: 6px; }
 .facts dt { color: var(--dim-2); letter-spacing: .12em; text-transform: uppercase; font-size: 10px; }
 .facts dd { margin: 0; color: var(--dim); }
+/* a released model's facts: the block list spans the grid */
+.wide { grid-column: 1 / -1; }
+.facts ol { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 2px; }
+.facts ol b { color: var(--ink); font-weight: 500; }
 @media (max-width: 760px) { .arms { display: none; } .help { display: none; } }
 @media (max-height: 620px) { .facts { display: none; } }
