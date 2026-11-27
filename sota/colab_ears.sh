@@ -9,7 +9,7 @@
 #   !bash /content/lisa-rtm/sota/colab_ears.sh score     # scorer, bootstrap, slopes, draw agreement
 #   !bash /content/lisa-rtm/sota/colab_ears.sh pack      # results (JSON only) -> Drive
 #
-# Needs Drive mounted at /content/drive (our checkpoints in MyDrive/lisa_rtm/ckpt_OV50/*.pt; results go to
+# Needs Drive mounted at /content/drive (the six Table 2 checkpoints in MyDrive/lisa_rtm/ckpt_OV50/<arm>.pt; results go to
 # MyDrive/lisa_rtm/ears_cr/). Environments: P = released models (Python 3.11, torch 2.2.1, the Mac's sotaenv);
 # Q = Colab's own Python for our arms and the scorer.
 set -euo pipefail
@@ -18,7 +18,7 @@ export BWE_CACHE=/content/cache PYTHONUNBUFFERED=1
 P=/content/sotaenv/bin/python; Q=python3
 DRIVE=/content/drive/MyDrive/lisa_rtm; CKPT=$DRIVE/ckpt_OV50; OUTD=$DRIVE/ears_cr
 SOTA=$BWE_CACHE/sota; LOG=$BWE_CACHE/logs; mkdir -p "$SOTA" "$LOG"
-ARMS="det_paper det es_marg es_erb_l0.001 es_erb_l0.01 es_erb_l0.1 es_dec_l0.01 es_dec_erb_l0.1"
+ARMS="det_paper det es_marg es_erb_l0.01 es_erb_l0.001 es_dec_erb_l0.1"   # the six arms of Table 2
 OURS=""; for a in $ARMS; do OURS="$OURS ours_$a"; done
 SPK="p102 p103 p104 p105 p106 p107"
 cd "$REPO"
