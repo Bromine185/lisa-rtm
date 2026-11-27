@@ -32,7 +32,7 @@ import soundfile as sf
 import scipy.signal as sps
 
 RUN_CTX = {}
-SOTA = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota")
+SOTA = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/sota")
 FS = 48000
 
 

@@ -79,6 +79,23 @@ prediction is still a point prediction. The notebook is kept for three things th
    deliberately mis-specified map, and a frame shuffle, plus HB-LSD in a second STFT basis. They fired
    on the first clean run and caught LSD rewarding generic energy inflation.
 
+## Reproducing the paper (AAAI-27 student abstract)
+
+"The Missing Band Is a Distribution: Do Generative Bandwidth-Extension Models Sample It?" The paper is
+`paper/main.tex`. Everything behind its numbers is in `supplementary/`:
+
+- **Harness:** `supplementary/code/sota/run_all.sh` runs the whole evaluation in order: inputs, the four
+  released models, our arms, the scorer (`sota/score.py`), the mean-of-M table and the figures.
+- **Per-model inference settings:** the docstring of `sota/run_models.py` and the "Environments" section
+  of `supplementary/code/README.md` (steps, guidance, seeds, checkpoints).
+- **FLowHigh prior-restore patch:** `supplementary/code/patches/flowhigh_inference_restore_prior.diff`.
+- **Camera-ready additions:** `sota/bootstrap.py` (utterance-bootstrap intervals), `sota/draw_agreement.py`
+  (how far apart each model's draws are), `sota/level_checks.py` (unrounded slopes, det_paper against the
+  empty band). Their outputs are in `supplementary/results/camera_ready/`.
+- **Listening examples:** `supplementary/audio/` (p360, p361, p374).
+
+Scripts read and write under one cache directory, `$BWE_CACHE` (default `./lisa_rtm_cache`, gitignored).
+
 ## Files
 
 ```

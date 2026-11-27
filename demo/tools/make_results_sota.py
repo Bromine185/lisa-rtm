@@ -25,12 +25,13 @@ spread, spread_hb, spread_indep_hb, pit_lo, pit_hi, M. Missing -> null, and the 
 gap_indep_hb / spread_indep_hb: independent draws at the model's own measured energies (sota/score.py, or
 sota/gap_indep.py for a run scored before those fields existed).
 """
+import os
 import argparse, json, pathlib, platform, subprocess
 
 import numpy as np
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-WORK = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work")
+WORK = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[2] / "lisa_rtm_cache")) + "/sota/work")
 SETS = {"wide": "240 utterances of the paper-split speakers, one draw",
         "core": "32 utterances of the paper-split speakers, 8 draws",
         "ourtest": "p236-p238, 30 utterances, 16 draws"}

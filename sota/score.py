@@ -58,6 +58,7 @@ COLUMNS AND IDEALS.
 
 Writes <work>/<set>/score_<set>.json and .md.
 """
+import os
 import argparse, json, pathlib, sys, time
 import numpy as np
 
@@ -65,7 +66,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 from fast.paper_split_eval import lsd as lsd_paper, up_naive                      # noqa: E402
 
-WORK = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work")
+WORK = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/sota/work")
 FS, CUT, ALIGN = 48000, 6000.0, 5500.0
 MODELS = ["flowhigh", "flowhigh_std1", "nuwave2", "audiosr", "apbwe", "apbwe_sinc", "ours_es_dec_erb_l0.1", "ours_det"]
 NAMES = {"flowhigh": "FLowHigh (as shipped)", "flowhigh_std1": "FLowHigh, trained prior (std 1)", "nuwave2": "NU-Wave 2",

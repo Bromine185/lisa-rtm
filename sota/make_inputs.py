@@ -20,6 +20,7 @@ instead of audit_wide. raw_peak is the flac's stored peak, which AP-BWE needs (i
 Layout: <work>/<set>/truth/<utt>.npy, <work>/<set>/lo12k/<utt>.wav, <work>/<set>/utts.json.
 `--per-speaker k` takes k utterances evenly spaced through what audit_wide holds for each speaker.
 """
+import os
 import argparse, json, pathlib, sys
 import numpy as np
 import soundfile as sf
@@ -29,9 +30,9 @@ sys.path.insert(0, str(REPO))
 from audit.vctk_fixtures import load                               # noqa: E402
 from fast.paper_split_eval import down_cheby, down_poly            # noqa: E402
 
-SRC = {"wide": pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/audit_wide"),
-       "audit": pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/audit")}
-WORK = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work")
+SRC = {"wide": pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/audit_wide"),
+       "audit": pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/audit")}
+WORK = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/sota/work")
 SPEAKERS = ("p360", "p361", "p362", "p363", "p364", "p374", "p376", "s5")
 FS, R, QUANT = 48000, 4, 3840
 
