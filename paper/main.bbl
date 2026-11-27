@@ -1,4 +1,4 @@
-\begin{thebibliography}{14}
+\begin{thebibliography}{15}
 \providecommand{\natexlab}[1]{#1}
 
 \bibitem[{Bouchacourt, Mudigonda, and Nowozin(2016)}]{bouchacourt2016}
@@ -70,6 +70,14 @@ Lu, Y.-X.; Ai, Y.; Du, H.-P.; and Ling, Z.-H. 2024.
 Nilsson, M.; and Kle{\ij}n, W.~B. 2001.
 \newblock Avoiding Over-Estimation in Bandwidth Extension of Telephony Speech.
 \newblock In \emph{Proc. ICASSP}, volume~2, 869--872.
+
+\bibitem[{Richter et~al.(2024)Richter, Wu, Krenn, Welker, Lay, Watanabe,
+  Richard, and Gerkmann}]{richter2024}
+Richter, J.; Wu, Y.-C.; Krenn, S.; Welker, S.; Lay, B.; Watanabe, S.; Richard,
+  A.; and Gerkmann, T. 2024.
+\newblock {EARS}: An Anechoic Fullband Speech Dataset Benchmarked for Speech
+  Enhancement and Dereverberation.
+\newblock In \emph{Proc. Interspeech}, 4873--4877.
 
 \bibitem[{Su et~al.(2021)Su, Wang, Finkelstein, and Jin}]{su2021}
 Su, J.; Wang, Y.; Finkelstein, A.; and Jin, Z. 2021.

@@ -27,13 +27,13 @@ Primary Author Email: raghav.sharma.research@gmail.com
 
 \begin{abstract}
 Generative audio bandwidth extension (BWE) models are meant to sample the missing high band, yet are
-evaluated with single-reference metrics. We audit four released 12$\to$48\,kHz systems with checks used for
-stochastic super-resolution of weather fields (fair CRPS, rank histograms, spread), after showing that for
-incoherent high bands, waveform spread measures output level as much as diversity. FLowHigh ranks first on
-LSD and ViSQOL yet is a regressor: one Euler step returns the conditional mean for any start noise.
-NU-Wave~2 samples, but 8--9\,dB too quietly in the high band. AudioSR is under-diverse and biased by band.
-On an 88k-parameter network, the deficit is set mainly by the loss domain and is closed by an energy score
-at no inference cost.
+evaluated with single-reference metrics. We audit four released 12$\to$48\,kHz systems on unseen anechoic
+speech with checks used for stochastic super-resolution of weather fields (fair CRPS, rank histograms,
+spread), after showing that for incoherent high bands, waveform spread measures output level as much as
+diversity. FLowHigh is a regressor: one Euler step returns the conditional mean for any start noise.
+NU-Wave~2 samples, but 9\,dB too quietly in the high band. AudioSR leads on LSD and ViSQOL yet is
+under-diverse. Every model pulls each utterance's level toward the mean. On one 88k-parameter network, the
+loss domain sets the level, and an energy score fills the band at no inference cost.
 \end{abstract}
 
 \begin{links}
@@ -54,15 +54,16 @@ downscaling of weather fields checks this with proper scores \citep{gneiting2007
 keeps them meaningful when the band is incoherent, (ii)~an audit of four released systems through one
 scorer, and (iii)~a controlled study separating the loss domain from sampling.
 
-\textbf{Setup.} VCTK~0.92, test split of FLowHigh and NU-Wave~2, with its input protocol (order-8 Chebyshev
-low-pass, 12\,kHz); its eight test speakers are unseen in training by every model. Levels, LSD and ViSQOL
-(v3, audio mode) use 240 utterances; calibration uses 32 utterances $\times$ 8 draws. Outputs are scaled to
-the truth's energy below 5.5\,kHz. The \emph{deficit} is $10\log_{10}$ of output over true energy per third
-octave above 6\,kHz, averaged over bands. CRPS is the fair ensemble estimator on high-band (HB)
-log-magnitude; a one-output model scores its MAE. Brackets give 95\% intervals from 10{,}000 resamples of utterances, not
-of bins, which are correlated within an utterance. The harness reproduces published LSD/ViSQOL: 0.761/3.61
-for FLowHigh (reported 0.75/3.61), 0.780/3.48 for AP-BWE \citep{lu2024} (0.78/3.46); NU-Wave~2 is slightly
-worse, 0.989/2.57 against 0.94/2.75.
+\textbf{Setup.} EARS \citep{richter2024}, 48\,kHz anechoic speech, its six test speakers: 96 four-second
+read utterances, 16 per speaker by a fixed rule. No audited model and not our network was trained on it.
+Inputs follow FLowHigh and NU-Wave~2 (order-8 Chebyshev low-pass, 12\,kHz); every metric uses all 96
+utterances $\times$ 8 draws. Outputs are scaled to the truth's energy below 5.5\,kHz. The \emph{deficit} is
+$10\log_{10}$ of output over true energy per third octave above 6\,kHz, averaged over bands. CRPS is the
+fair ensemble estimator on high-band (HB) log-magnitude; a one-output model scores its MAE. Brackets give
+95\% intervals from 10{,}000 resamples of utterances, not of bins, which are correlated within an
+utterance. On the VCTK test split the harness reproduces published LSD/ViSQOL: 0.761/3.61 for FLowHigh
+(reported 0.75/3.61), 0.780/3.48 for AP-BWE \citep{lu2024} (0.78/3.46); NU-Wave~2 is slightly worse,
+0.989/2.57 against 0.94/2.75. We wrote seven predictions before running EARS; four hold.
 
 \begin{table}[t]
 \centering\small\setlength{\tabcolsep}{2.4pt}
@@ -70,16 +71,17 @@ worse, 0.989/2.57 against 0.94/2.75.
 \toprule
 model & deficit & LSD & ViSQOL & gap (indep.) & CRPS \\
 \midrule
-FLowHigh 49M & $-1.60$ & 0.761 & 3.61 & 0.08 (1.77)$^\dagger$ & 0.682$^\dagger$ \\
-AP-BWE 30M & $-1.38$ & 0.780 & 3.48 & -- & 0.777$^*$ \\
-NU-Wave 2 1.7M & $-7.96$ & 0.989 & 2.57 & 0.57 (0.63) & 0.583 \\
-AudioSR 672M & $-0.60$ & 1.561 & 2.41 & 2.62 (3.92) & 1.243 \\
-ours, point 88k & $-6.18$ & 0.864 & 3.13 & -- & 0.889$^*$ \\
-ours, sampler 88k & $-0.70$ & 0.895 & 2.83 & 2.07 (2.37) & 0.514 \\
+FLowHigh 49M & $+1.08$ & 1.610 & 2.99 & 0.06 (1.48)$^\dagger$ & 1.506$^\dagger$ \\
+AP-BWE 30M & $+3.34$ & 2.147 & 2.30 & -- & 2.214$^*$ \\
+NU-Wave 2 1.7M & $-4.86$ & 1.928 & 2.05 & 0.50 (0.56) & 1.629 \\
+AudioSR 672M & $+1.08$ & 1.208 & 3.09 & 2.37 (3.69) & 0.849 \\
+ours, point 88k & $-2.70$ & 1.730 & 2.45 & -- & 1.754$^*$ \\
+ours, sampler 88k & $+3.37$ & 1.868 & 2.39 & 2.11 (2.38) & 1.463 \\
 \bottomrule
 \end{tabular}
-\caption{Deficit (dB), LSD, ViSQOL: 240 utterances. Gap (dB; in parentheses, independent draws at each utterance's
-measured HB energies) and fair CRPS: 32 utterances $\times$ 8 draws. $^\dagger$Prior restored. $^*$CRPS = MAE.}
+\caption{EARS, 96 utterances $\times$ 8 draws. Deficit (dB), LSD, ViSQOL, gap (dB; in parentheses,
+independent draws at each utterance's measured HB energies), fair CRPS. $^\dagger$Prior restored.
+$^*$CRPS = MAE.}
 \label{tab:released}
 \end{table}
 
@@ -87,11 +89,11 @@ measured HB energies) and fair CRPS: 32 utterances $\times$ 8 draws. $^\dagger$P
 Let the truth's high band have energy $E$, the output's $pE$, and let
 $c=\mathrm{Re}\langle y_H,\hat y_H\rangle/E$ be the coherent fraction. With a correct low band, the squared
 error is $\|y-\hat y\|^2=E\,(1+p-2c)$. An empty band costs $E$, and only $c>p/2$ beats it, so when
-$c\approx0$ silence maximizes SNR. On our utterances this ceiling $C$ is 22.02\,dB at 12\,kHz; LISA's released L1
-loss (\texttt{det\_paper}, Table~\ref{tab:arms}) comes within 0.15\,dB of it while leaving the band 21.8\,dB
-short. A reported SNR $S$ bounds the level: $p\le10^{(C-S)/10}-1+2c$. NU-Wave~2's own table ($C-S=0.5$\,dB) gives
-at most $-8.5$\,dB; we measure a broadband deficit of $-8.9$\,dB ($-7.96$\,dB band-averaged,
-Table~\ref{tab:released}). Every model has $c<0.02$.
+$c\approx0$ silence maximizes SNR. On EARS this ceiling $C$ is 21.16\,dB at 12\,kHz; LISA's released L1 loss
+(\texttt{det\_paper}, Table~\ref{tab:arms}) comes within 0.19\,dB of it while leaving the band 18.1\,dB
+short. A reported SNR $S$ bounds the level: $p\le10^{(C-S)/10}-1+2c$. On its VCTK test split, NU-Wave~2's
+own table ($C-S=0.5$\,dB) gives at most $-8.5$\,dB; we measure $-8.9$\,dB there and $-9.1$\,dB on EARS
+(broadband; $-4.86$\,dB band-averaged, Table~\ref{tab:released}). Every model has $c\le0.022$.
 
 For $M$ zero-mean draws independent of one another and of the truth, the gap
 $G=10\log_{10}\bigl(\overline{\|y-x_i\|^2}/\|y-\bar x\|^2\bigr)$ is, in expectation,
@@ -105,15 +107,16 @@ first and judge each model's gap against the independent value at its own level.
 \toprule
 arm & objective & deficit & gap & CRPS \\
 \midrule
-det\_paper & waveform L1 (LISA) & $-21.78$ & -- & 2.853$^*$ \\
-det & + log-mag., $\lambda{=}0.01$ & $-6.18$ & -- & 0.889$^*$ \\
-es\_marg & energy score & $-1.05$ & 2.21 & 0.537 \\
-es\_erb & + ERB bands & $-1.08$ & 2.03 & 0.512 \\
-es\_erb & $\lambda{=}0.001$ & $-5.73$ & 1.16 & 0.683 \\
-es\_dec\_erb & + decoder noise, $\lambda{=}0.1$ & $-0.70$ & 2.07 & 0.514 \\
+det\_paper & waveform L1 (LISA) & $-18.13$ & -- & 1.969$^*$ \\
+det & + log-mag., $\lambda{=}0.01$ & $-2.70$ & -- & 1.754$^*$ \\
+es\_marg & energy score & $+3.27$ & 2.37 & 1.444 \\
+es\_erb & + ERB bands & $+2.42$ & 2.04 & 1.440 \\
+es\_erb & $\lambda{=}0.001$ & $-1.92$ & 1.25 & 1.497 \\
+es\_dec\_erb & + decoder noise, $\lambda{=}0.1$ & $+3.37$ & 2.11 & 1.463 \\
 \bottomrule
 \end{tabular}
-\caption{One 88k network, identical batches; columns as Table~\ref{tab:released}.}
+\caption{One 88k network trained on VCTK, identical batches; scored on EARS, columns as
+Table~\ref{tab:released}.}
 \label{tab:arms}
 \end{table}
 
@@ -121,43 +124,48 @@ es\_dec\_erb & + decoder noise, $\lambda{=}0.1$ & $-0.70$ & 2.07 & 0.514 \\
 \textbf{FLowHigh is a regressor.} It is trained from $x_0+\epsilon$ ($x_0$: input log-mel) toward
 $(x_1-x_0)-(1-\sigma)\epsilon$ and also receives $x_0$ as conditioning, so at $t=0$ it can recover
 $\epsilon$. The optimal field then returns $\mathrm{E}[x_1\mid x_0]+\sigma s\epsilon$ after one Euler step,
-for any start-noise scale $s$; the released script also resets $s$ to $10^{-4}$, and its eight draws then agree to
-$2\times10^{-6}$ (relative RMS, waveform). With the trained prior restored they differ a tenth as much as
-NU-Wave~2's above 6\,kHz: the gap is 0.08\,dB, 1.69\,dB [1.40, 1.99] below the 1.77 of independent draws at
-its level, and the truth lies below or above all eight draws in 41\% [39, 43] and 46\% [44, 48] of HB bins.
+for any start-noise scale $s$; the released script also resets $s$ to $10^{-4}$, and its eight draws then
+agree to $3\times10^{-4}$ (relative RMS, waveform). With the trained prior restored they differ a ninth as
+much as NU-Wave~2's above 6\,kHz: the gap is 0.06\,dB, 1.42\,dB [1.30, 1.53] below the 1.48 of independent
+draws at its level, and the truth lies below or above all eight draws in 66\% [64, 67] and 23\% [22, 24] of
+HB bins.
 
-\textbf{NU-Wave~2 samples, quietly.} Its gap (0.57\,dB) is close to that of independent draws at its level
-(0.63), 0.06\,dB [0.04, 0.07] below. What fails is its level: 9.0\,dB under on loud frames and 4.7\,dB over on quiet ones. Its small
-spread (0.094) is a level problem, not a diversity one.
+\textbf{NU-Wave~2 samples, quietly.} Its gap (0.50\,dB) is close to that of independent draws at its level
+(0.56), 0.05\,dB [0.05, 0.06] below. What fails is its level: 5.8\,dB under on loud frames and 10.8\,dB over
+on quiet ones. Its small spread (0.085) is a level problem, not a diversity one.
 
-\textbf{AudioSR is under-dispersed.} Its gap (2.62\,dB) is 1.30\,dB [1.09, 1.51] below that of independent draws
-at its level (3.92), and its level is biased by band ($+5$\,dB at 11\,kHz, $-11$\,dB at 21\,kHz; truth above every
-draw in 52\% [50, 54] of HB bins). AP-BWE is a point estimate by design.
+\textbf{AudioSR is under-dispersed.} It leads on LSD and ViSQOL, yet its gap (2.37\,dB) is 1.31\,dB
+[1.19, 1.44] below that of independent draws at its level (3.69), and the truth lies below or above every
+draw in 29\% [28, 30] and 20\% [18, 21] of HB bins. AP-BWE is a point estimate by design.
 
-\textbf{Level regresses per utterance.} The deficit falls with the truth's HB energy share (slope in dB/dB,
-240 utterances): $-0.08$ FLowHigh, $-0.12$ AP-BWE, $-0.32$ NU-Wave~2, $-0.34$ AudioSR, $-0.20$ to $-0.35$
-our arms. Bright utterances come out too dark, dark ones too bright.
+\textbf{Level regresses per utterance.} The deficit falls with the truth's HB energy share (slope in dB/dB):
+$-0.14$ FLowHigh, $-0.20$ AP-BWE, $-0.41$ NU-Wave~2, $-0.27$ AudioSR, $-0.27$ to $-0.41$ our arms. Bright
+utterances come out too dark, dark ones too bright.
 
 \section{What Sets the Deficit}
-Six arms of an 88k-parameter INR derived from LISA \citep{kim2022} are trained on identical batches for
-104{,}950 steps. \texttt{det\_paper} reproduces LISA's released L1 loss; \texttt{det} adds a log-magnitude
-term to the same point estimate. The remaining four are samplers, with 8 Gaussian input channels
-concatenated with the signal, and 4 per output sample in the decoder-noise arm (Table~\ref{tab:arms}).
-\texttt{det\_paper} leaves the band 21.8\,dB short; the log-magnitude term recovers 15.6\,dB, and replacing
-the point loss by a two-draw energy score \citep{gritsenko2020,bouchacourt2016} recovers 5.1\,dB more. The
-loss domain, not point estimation as such, does most of the work: FLowHigh, a conditional mean in the
-log-mel domain, is not quiet. The ERB-band term lowers the band-correlation error from 0.374 to 0.289. Our
-sampler is not calibrated either: the truth lies above all draws in 21\% [18, 24] of HB bins against an ideal
-11\%, with the lower tail at its ideal, and its gap is 0.30\,dB [0.22, 0.39] below independent draws; a pure level shift would also empty the lower tail, so this is a missing
-upper tail: too few loud high-band events.
+Six arms of an 88k-parameter INR derived from LISA \citep{kim2022} are trained on VCTK on identical batches
+for 104{,}950 steps. \texttt{det\_paper} reproduces LISA's released L1 loss; \texttt{det} adds a
+log-magnitude term to the same point estimate. The remaining four are samplers, with 8 Gaussian input
+channels concatenated with the signal, and 4 per output sample in the decoder-noise arm
+(Table~\ref{tab:arms}). \texttt{det\_paper} leaves the band 18.1\,dB short; the log-magnitude term recovers
+15.4\,dB, and replacing the point loss by a two-draw energy score \citep{gritsenko2020,bouchacourt2016}
+recovers 6.0\,dB more. The loss domain, not point estimation as such, does most of the work: FLowHigh, a
+conditional mean in the log-mel domain, is not quiet. On EARS the samplers overshoot: every Table~\ref{tab:released} model but
+AudioSR over-fills the top third octave (ours $+11$\,dB at 21\,kHz, AP-BWE $+15$\,dB), so our sampler's
+band-averaged deficit is $+3.4$\,dB while its broadband one is $-0.8$\,dB. The ERB-band term lowers the
+band-correlation error from 1.09 to 0.97. Our sampler is not calibrated either: its gap is 0.27\,dB
+[0.24, 0.29] below independent draws, and the truth lies below all draws in 48\% [47, 49] of HB bins and
+above all in 6\%, against an ideal 11\% each; we had predicted the opposite tail.
 
 \section{Conclusion}
 Single-reference metrics cannot tell whether a BWE model samples, and with incoherent bands spread must be
-read against level. We suggest reporting level (per band and frame loudness), diversity relative to the
-model's own level, and rank tails beside LSD and ViSQOL. CRPS favours samplers by construction, so we
-compare it among samplers only. A low level is a calibration failure for a sampler, not necessarily a
-perceptual one \citep{nilsson2001}. Limitations: no listening test, marginal calibration only, 32
-utterances, one seed, VCTK only (derivations: repository, \texttt{supplementary/}).
+read against level. Their rankings also move with the corpus: FLowHigh leads on VCTK, AudioSR on EARS. We
+suggest reporting level (per band and frame loudness), diversity relative to the model's own level, and
+rank tails beside LSD and ViSQOL. CRPS favours samplers by construction, so we compare it among samplers
+only. A low level is a calibration failure for a sampler, not necessarily a perceptual one
+\citep{nilsson2001}. Limitations: no listening test, marginal calibration only, six test speakers, one
+seed, our network trained on VCTK only; three of our seven predictions failed (repository,
+\texttt{supplementary/}).
 
 \bibliography{refs}
 
