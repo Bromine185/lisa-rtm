@@ -1,0 +1,5 @@
+--- a/model.py
++++ b/model.py
+@@ -105 +105 @@
+-        output = torch.istft(ffted, self.n_fft, hop_length=self.hop_size, win_length=self.win_size, window=self.hann_window,
++        output = torch.istft(torch.view_as_complex(ffted.contiguous()), self.n_fft, hop_length=self.hop_size, win_length=self.win_size, window=self.hann_window,

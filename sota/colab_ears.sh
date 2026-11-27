@@ -37,6 +37,9 @@ setup() {
   cd "$SOTA"
   [ -d FLowHigh_code ] || git clone -q https://github.com/jjunak-yun/FLowHigh_code.git
   [ -d nuwave2 ] || git clone -q https://github.com/maum-ai/nuwave2.git
+  # torch >= 2 rejects istft on the real [..., 2] layout NU-Wave 2's model.py builds (stft return_complex=False);
+  # view_as_complex is the same tensor read as complex (supplementary/code/patches/nuwave2_istft_complex.diff)
+  grep -q view_as_complex nuwave2/model.py || sed -i 's/output = torch.istft(ffted, /output = torch.istft(torch.view_as_complex(ffted.contiguous()), /' nuwave2/model.py
   [ -d AP-BWE ] || git clone -q https://github.com/yxlu-0102/AP-BWE.git
   # checkpoints (public Drive links from each README)
   [ -f fh_ckpt/FLowHigh_indep_adaptive_400k.pt ] || { gdown -q --folder https://drive.google.com/drive/folders/1clsJ3bFTZSCLOb4I0wk0l6FL9Yh33Vof -O fh_dl
@@ -65,7 +68,8 @@ gate() {
   $Q sota/gate_check.py inputs
   $P sota/run_models.py --model apbwe --set core --seeds 1 --device cpu    # CPU, as on the Mac: on CUDA its per-utterance deficit drifts 0.02 dB
   $P sota/run_models.py --model flowhigh --set core --seeds 1 --device cuda
-  $Q sota/score.py --set core --workers 4 --no-perceptual --models apbwe flowhigh
+  $P sota/run_models.py --model nuwave2 --set core --seeds 8 --device cuda
+  $Q sota/score.py --set core --workers 8 --no-perceptual --models apbwe flowhigh nuwave2
   $Q sota/gate_check.py models 2>&1 | tee "$LOG/gate.log"
 }
 
