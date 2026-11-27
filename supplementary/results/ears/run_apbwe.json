@@ -1,0 +1,11 @@
+{
+ "model": "apbwe",
+ "device": "cpu",
+ "seeds": 1,
+ "stochastic": false,
+ "wall_s": 38.51281809806824,
+ "audio_s": 384.0,
+ "rtf": 0.10029379713038604,
+ "draws_run": 96,
+ "machine": "x86_64"
+}

@@ -1,0 +1,119 @@
+{
+ "_meta": {
+  "set": "ears",
+  "n_utts": 96,
+  "B": 10000,
+  "seed": 0,
+  "doc": "Unrounded level numbers for the camera-ready, read from the stored score files (no inference).\n\n    venv/bin/python sota/level_checks.py [--set wide]\n\n1. Per-utterance level regression on `wide` (240 utterances, paper split): slope of each utterance's\n   band-averaged deficit (dB) on the truth's HB energy share (10 log10 of energy above 6 kHz over total),\n   by np.polyfit, as demo/tools/make_results_sota.py does, but unrounded. Also a 95% utterance bootstrap.\n2. det_paper against the empty band on `wide`: SNR, the ceiling (true low band, empty high band), deficit.\nWrites <work>/<set>/level_checks.json (level_checks_<set>.json for any set but wide)."
+ },
+ "slope": {
+  "flowhigh": {
+   "slope": -0.1433283289488465,
+   "ci": [
+    -0.2355103586942713,
+    -0.06816344286675313
+   ],
+   "r": -0.38693863152183816,
+   "n": 96
+  },
+  "flowhigh_std1": {
+   "slope": -0.1588570480345795,
+   "ci": [
+    -0.24730272083636068,
+    -0.08601368582505378
+   ],
+   "r": -0.42758189052775875,
+   "n": 96
+  },
+  "nuwave2": {
+   "slope": -0.40770885736170137,
+   "ci": [
+    -0.5073090822899209,
+    -0.3000556221566731
+   ],
+   "r": -0.6917174848128955,
+   "n": 96
+  },
+  "audiosr": {
+   "slope": -0.26765602923894866,
+   "ci": [
+    -0.3664826412925386,
+    -0.17671226459697004
+   ],
+   "r": -0.5003800824932961,
+   "n": 96
+  },
+  "apbwe": {
+   "slope": -0.2004284847100337,
+   "ci": [
+    -0.2929168476247453,
+    -0.11192057325566568
+   ],
+   "r": -0.392338121813962,
+   "n": 96
+  },
+  "ours_det_paper": {
+   "slope": -0.40606472525433673,
+   "ci": [
+    -0.48519357331291896,
+    -0.3369418280271751
+   ],
+   "r": -0.7121583680290836,
+   "n": 96
+  },
+  "ours_det": {
+   "slope": -0.28463084895196866,
+   "ci": [
+    -0.3793675533531805,
+    -0.19414915470928248
+   ],
+   "r": -0.5218245527373808,
+   "n": 96
+  },
+  "ours_es_marg": {
+   "slope": -0.2976695842052416,
+   "ci": [
+    -0.38784141776969516,
+    -0.21164947308100834
+   ],
+   "r": -0.5749864704471704,
+   "n": 96
+  },
+  "ours_es_erb_l0.01": {
+   "slope": -0.3029403182420282,
+   "ci": [
+    -0.39781392374023283,
+    -0.2023770207984969
+   ],
+   "r": -0.5829788232523319,
+   "n": 96
+  },
+  "ours_es_erb_l0.001": {
+   "slope": -0.27240576945123646,
+   "ci": [
+    -0.37587814434264283,
+    -0.18348669960241143
+   ],
+   "r": -0.5126290041368997,
+   "n": 96
+  },
+  "ours_es_dec_erb_l0.1": {
+   "slope": -0.28168803147877897,
+   "ci": [
+    -0.3791779247320157,
+    -0.18660998579205673
+   ],
+   "r": -0.5331354461013309,
+   "n": 96
+  }
+ },
+ "det_paper": {
+  "snr": 20.96890118014556,
+  "snr_se": 0.5697859691128362,
+  "ceiling_snr_score": 21.15508871313625,
+  "ceiling_snr_12k": null,
+  "vs_ceiling": -0.1861875329906891,
+  "deficit": -18.131664450586754,
+  "deficit_bb": -14.651183776029596
+ }
+}

@@ -1,0 +1,158 @@
+apbwe: nothing to run, _run.json kept
+  warnings.warn("torch.nn.utils.weight_norm is deprecated in favor of torch.nn.utils.parametrizations.weight_norm.")
+Removing weight norm...
+flowhigh: nothing to run, _run.json kept
+  warnings.warn("torch.nn.utils.weight_norm is deprecated in favor of torch.nn.utils.parametrizations.weight_norm.")
+Removing weight norm...
+flowhigh_std1: nothing to run, _run.json kept
+nuwave2: nothing to run, _run.json kept
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 36.00 MiB. GPU 0 has a total capacity of 22.03 GiB of which 12.00 MiB is free. Process 69184 has 10.86 GiB memory in use. Including non-PyTorch memory, this process has 11.15 GiB memory in use. Of the allocated memory 10.84 GiB is allocated by PyTorch, and 126.67 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 18.00 MiB. GPU 0 has a total capacity of 22.03 GiB of which 12.00 MiB is free. Including non-PyTorch memory, this process has 10.86 GiB memory in use. Process 69183 has 11.15 GiB memory in use. Of the allocated memory 10.56 GiB is allocated by PyTorch, and 122.77 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+  encoder 9,984   decoder 76,897
+OV2 model/loss/trainer defined.  LISAS params: 87777
+OV3 model/distances defined.  LISASD params: 88,353  (LISAS 87,777; +4 decoder noise channels x 144 = 576 weights)
+ENV arms defined: ['es_env_l0.1', 'es_ctx_erb_l0.1', 'es_ctx_env_l0.1'].  LISASDW 108,033 params (LISASD 88,353), context 263 input samples = 21.9 ms; env bins at 1024: [128, 192, 299, 513]
+det_paper 18s
+det 16s
+es_marg 133s
+es_erb_l0.01 146s
+es_erb_l0.001 143s
+es_dec_erb_l0.1 164s
+
+## 4. Proper scores on the HB log-magnitude
+
+Lower is better. A point forecast (M = 1) scores its MAE: it is the reference line, not a competitor. CRPS is the datasheet's estimator (spread over all M^2 pairs, which under-credits a sampler's spread by (M-1)/M); CRPS fair uses M(M-1). corr_err ideal 0.
+
+| condition | M | CRPS | CRPS fair | sliced CRPS | corr_err draw 0 |
+|---|---|---|---|---|---|
+| naive (resample_poly) | 1 | 5.8697 | -- | 5.4201 | 2.340 |
+| FLowHigh (as shipped) | 8 | 1.6063 | 1.6055 | 1.6610 | 0.498 |
+| FLowHigh, trained prior (std 1) | 8 | 1.5171 | 1.5057 | 1.5642 | 0.520 |
+| NU-Wave 2 | 8 | 1.6843 | 1.6293 | 1.5534 | 0.516 |
+| AudioSR (speech) | 8 | 0.8968 | 0.8491 | 0.9200 | 0.472 |
+| AP-BWE | 1 | 2.2137 | -- | 2.1753 | 1.246 |
+| ours_det_paper | 1 | 1.9694 | -- | 2.1487 | 1.005 |
+| ours_det_paper \| pt | 1 | 1.9702 | -- | 2.1501 | 1.004 |
+| ours: det | 1 | 1.7542 | -- | 1.7913 | 0.568 |
+| ours: det \| pt | 1 | 1.7566 | -- | 1.7938 | 0.568 |
+| ours_es_marg | 8 | 1.5022 | 1.4443 | 1.4864 | 1.091 |
+| ours_es_marg \| pt | 8 | 1.5058 | 1.4479 | 1.4921 | 1.077 |
+| ours_es_marg logmean8 \| pt | 1 | 1.7312 | -- | 1.7721 | 1.110 |
+| ours_es_erb_l0.01 | 8 | 1.4953 | 1.4403 | 1.4941 | 0.974 |
+| ours_es_erb_l0.01 \| pt | 8 | 1.4990 | 1.4440 | 1.4991 | 0.963 |
+| ours_es_erb_l0.01 logmean8 \| pt | 1 | 1.7160 | -- | 1.7747 | 0.965 |
+| ours_es_erb_l0.001 | 8 | 1.5412 | 1.4973 | 1.5419 | 0.759 |
+| ours_es_erb_l0.001 \| pt | 8 | 1.5450 | 1.5010 | 1.5478 | 0.739 |
+| ours_es_erb_l0.001 logmean8 \| pt | 1 | 1.7550 | -- | 1.8043 | 0.708 |
+| ours: es_dec_erb_l0.1 | 8 | 1.5189 | 1.4628 | 1.4853 | 1.071 |
+| ours: es_dec_erb_l0.1 \| pt | 8 | 1.5215 | 1.4654 | 1.4890 | 1.063 |
+| ours: es_dec_erb_l0.1 logmean8 \| pt | 1 | 1.7388 | -- | 1.7634 | 1.064 |
+
+## 5. Perceptual (draw 0; the readout waveform for readouts)
+
+Ceilings: ViSQOL audio 4.73 (NSIM 1), ViSQOL speech ~4.5 (NSIM 1), PESQ wb 4.64. Audio mode spans 1.57-4.73 on this task; speech mode and PESQ stop at 8 kHz, so they see only 6-8 kHz of the missing band.
+
+| condition | ViSQOL audio | NSIM audio | ViSQOL speech | NSIM speech | PESQ wb |
+|---|---|---|---|---|---|
+| ceiling: true LB, empty HB | 2.20 | 0.774 | 3.86 | 0.959 | 4.20 |
+| naive (resample_poly) | 2.20 | 0.778 | 3.95 | 0.962 | 4.37 |
+| FLowHigh (as shipped) | 2.99 | 0.852 | 4.24 | 0.984 | 4.43 |
+| FLowHigh, trained prior (std 1) | 3.01 | 0.854 | 4.25 | 0.984 | 4.44 |
+| NU-Wave 2 | 2.05 | 0.731 | 3.51 | 0.942 | 4.02 |
+| AudioSR (speech) | 3.09 | 0.839 | 3.69 | 0.947 | 3.88 |
+| AP-BWE | 2.30 | 0.784 | 4.02 | 0.971 | 4.24 |
+| ours_det_paper | 2.38 | 0.795 | 4.01 | 0.967 | 4.43 |
+| ours_det_paper \| pt | 2.38 | 0.796 | 4.02 | 0.968 | 4.43 |
+| ours: det | 2.45 | 0.805 | 4.10 | 0.975 | 4.35 |
+| ours: det \| pt | 2.45 | 0.805 | 4.12 | 0.976 | 4.35 |
+| ours_es_marg | 2.36 | 0.778 | 3.70 | 0.953 | 3.86 |
+| ours_es_marg \| pt | 2.37 | 0.793 | 3.94 | 0.965 | 4.04 |
+| ours_es_marg logmean8 \| pt | 2.66 | 0.818 | 4.06 | 0.973 | 4.31 |
+| ours_es_erb_l0.01 | 2.39 | 0.787 | 3.83 | 0.960 | 3.99 |
+| ours_es_erb_l0.01 \| pt | 2.39 | 0.795 | 3.98 | 0.967 | 4.13 |
+| ours_es_erb_l0.01 logmean8 \| pt | 2.69 | 0.821 | 4.08 | 0.974 | 4.31 |
+| ours_es_erb_l0.001 | 2.15 | 0.729 | 3.18 | 0.921 | 3.51 |
+| ours_es_erb_l0.001 \| pt | 2.16 | 0.774 | 3.90 | 0.965 | 4.09 |
+| ours_es_erb_l0.001 logmean8 \| pt | 2.23 | 0.785 | 4.02 | 0.972 | 4.24 |
+| ours: es_dec_erb_l0.1 | 2.39 | 0.795 | 3.99 | 0.968 | 4.05 |
+| ours: es_dec_erb_l0.1 \| pt | 2.38 | 0.797 | 4.02 | 0.969 | 4.10 |
+| ours: es_dec_erb_l0.1 logmean8 \| pt | 2.68 | 0.823 | 4.11 | 0.975 | 4.34 |
+
+device   cpu
+cache    /tmp/audit_zvk_ze1o/lisa_rtm_cache
+seeded   0
+preset        SMOKE   run dir SMOKE_lam0.001
+rates         4000 Hz -> 16000 Hz  (4x)
+speakers      2 train / 1 held out
+transport     n_fft=512 hop=128  high band = bins 64..256
+evaluation    n_fft=1024 hop=256 (different basis, on purpose)
+LISA: 86,881 parameters  (paper reports ~89k)
+  encoder 9,984   decoder 76,897
+OV2 model/loss/trainer defined.  LISAS params: 87777
+OV3 model/distances defined.  LISASD params: 88,353  (LISAS 87,777; +4 decoder noise channels x 144 = 576 weights)
+flowhigh                 lo 71.6% [70.5, 72.6]  hi 27.6% [26.6, 28.7]  gap 0.00 [0.00, 0.00]  indep 1.69 [1.55, 1.82]  diff -1.69 [-1.82, -1.55]
+flowhigh_std1            lo 65.5% [64.4, 66.6]  hi 23.2% [22.2, 24.3]  gap 0.06 [0.05, 0.08]  indep 1.48 [1.36, 1.60]  diff -1.42 [-1.53, -1.30]
+nuwave2                  lo 51.1% [49.4, 52.8]  hi 12.0% [11.2, 12.8]  gap 0.50 [0.41, 0.61]  indep 0.56 [0.47, 0.66]  diff -0.05 [-0.06, -0.05]
+audiosr                  lo 28.9% [27.6, 30.2]  hi 19.5% [18.3, 20.8]  gap 2.37 [2.19, 2.56]  indep 3.69 [3.39, 3.98]  diff -1.31 [-1.44, -1.19]
+ours_es_marg             lo 46.0% [45.0, 47.0]  hi  6.9% [6.6, 7.2]  gap 2.37 [2.18, 2.57]  indep 2.50 [2.29, 2.71]  diff -0.13 [-0.14, -0.11]
+ours_es_erb_l0.01        lo 47.2% [46.2, 48.3]  hi  6.9% [6.5, 7.3]  gap 2.04 [1.85, 2.23]  indep 2.13 [1.94, 2.32]  diff -0.09 [-0.10, -0.08]
+ours_es_erb_l0.001       lo 47.1% [45.9, 48.3]  hi 17.1% [16.2, 18.0]  gap 1.25 [1.12, 1.39]  indep 1.47 [1.32, 1.62]  diff -0.22 [-0.24, -0.20]
+ours_es_dec_erb_l0.1     lo 47.9% [46.8, 48.9]  hi  6.4% [6.1, 6.8]  gap 2.11 [1.93, 2.30]  indep 2.38 [2.18, 2.59]  diff -0.27 [-0.29, -0.24]
+flowhigh                   slope -0.1433  [-0.236, -0.068]  n 96
+flowhigh_std1              slope -0.1589  [-0.247, -0.086]  n 96
+nuwave2                    slope -0.4077  [-0.507, -0.300]  n 96
+audiosr                    slope -0.2677  [-0.366, -0.177]  n 96
+apbwe                      slope -0.2004  [-0.293, -0.112]  n 96
+ours_det_paper             slope -0.4061  [-0.485, -0.337]  n 96
+ours_det                   slope -0.2846  [-0.379, -0.194]  n 96
+ours_es_marg               slope -0.2977  [-0.388, -0.212]  n 96
+ours_es_erb_l0.01          slope -0.3029  [-0.398, -0.202]  n 96
+ours_es_erb_l0.001         slope -0.2724  [-0.376, -0.183]  n 96
+ours_es_dec_erb_l0.1       slope -0.2817  [-0.379, -0.187]  n 96
+{
+ "snr": 20.96890118014556,
+ "snr_se": 0.5697859691128362,
+ "ceiling_snr_score": 21.15508871313625,
+ "ceiling_snr_12k": null,
+ "vs_ceiling": -0.1861875329906891,
+ "deficit": -18.131664450586754,
+ "deficit_bb": -14.651183776029596
+}
+flowhigh        M=8  wave_maxabs 1.55e-03 (max 7.23e-03)  wave_rel 3.33e-04 (max 1.04e-03)  hb_rel 4.48e-03 (max 8.91e-03)  hbmag_rel 3.15e-03 (max 4.27e-03)  logmel_maxabs 1.07e-01 (max 2.84e-01)
+flowhigh_std1   M=8  wave_maxabs 9.57e-02 (max 2.92e-01)  wave_rel 1.36e-02 (max 4.00e-02)  hb_rel 1.90e-01 (max 5.00e-01)  hbmag_rel 1.11e-01 (max 2.29e-01)  logmel_maxabs 1.62e+00 (max 3.21e+00)
+nuwave2         M=8  wave_maxabs 1.50e-01 (max 4.24e-01)  wave_rel 2.86e-02 (max 8.25e-02)  hb_rel 1.72e+00 (max 2.56e+00)  hbmag_rel 6.65e-01 (max 1.28e+00)  logmel_maxabs 4.90e+00 (max 6.82e+00)
+audiosr         M=8  wave_maxabs 2.96e-01 (max 6.05e-01)  wave_rel 1.61e-01 (max 2.84e-01)  hb_rel 1.34e+00 (max 1.82e+00)  hbmag_rel 6.25e-01 (max 8.60e-01)  logmel_maxabs 5.40e+00 (max 8.06e+00)
+ours_es_dec_erb_l0.1 M=8  wave_maxabs 1.49e+00 (max 2.07e+00)  wave_rel 7.74e-02 (max 2.16e-01)  hb_rel 1.87e+00 (max 2.23e+00)  hbmag_rel 6.59e-01 (max 1.12e+00)  logmel_maxabs 4.73e+00 (max 6.63e+00)
+total 4387
+drwx------ 2 root root    4096 Nov 27 20:32 .
+drwx------ 9 root root    4096 Nov 27 17:40 ..
+-rw------- 1 root root    4773 Nov 27 20:32 audiosr_core_1.log
+-rw------- 1 root root    4773 Nov 27 20:32 audiosr_core_2.log
+-rw------- 1 root root  373120 Nov 27 20:32 audiosr_core_h.log
+-rw------- 1 root root    4164 Nov 27 20:32 audiosr_ears_0.log
+-rw------- 1 root root    4164 Nov 27 20:32 audiosr_ears_1.log
+-rw------- 1 root root  196950 Nov 27 20:32 bootstrap_ears.json
+-rw------- 1 root root    7473 Nov 27 20:30 chain_live.log
+-rw------- 1 root root  116337 Nov 27 20:32 draw_agreement_ears.json
+-rw------- 1 root root  682958 Nov 27 18:17 gate_attempt5.log
+-rw------- 1 root root     637 Nov 27 20:32 gate.log
+-rw------- 1 root root  203793 Nov 27 20:32 gate_score_core.json
+-rw------- 1 root root    2846 Nov 27 20:32 level_checks_ears.json
+-rw------- 1 root root   11407 Nov 27 20:32 manifest.json
+-rw------- 1 root root     192 Nov 27 20:32 run_apbwe.json
+-rw------- 1 root root     211 Nov 27 20:32 run_audiosr_0of2.json
+-rw------- 1 root root     211 Nov 27 20:32 run_audiosr_1of2.json
+-rw------- 1 root root     198 Nov 27 20:32 run_flowhigh.json
+-rw------- 1 root root     203 Nov 27 20:32 run_flowhigh_std1.json
+-rw------- 1 root root     211 Nov 27 20:32 run_nuwave2.json
+-rw------- 1 root root     138 Nov 27 20:32 run_ours_det.json
+-rw------- 1 root root     144 Nov 27 20:32 run_ours_det_paper.json
+-rw------- 1 root root     150 Nov 27 20:32 run_ours_es_dec_erb_l0.1.json
+-rw------- 1 root root     148 Nov 27 20:32 run_ours_es_erb_l0.001.json
+-rw------- 1 root root     147 Nov 27 20:32 run_ours_es_erb_l0.01.json
+-rw------- 1 root root     141 Nov 27 20:32 run_ours_es_marg.json
+-rw------- 1 root root 2816887 Nov 27 20:32 score_ears.json
+-rw------- 1 root root   22969 Nov 27 20:32 score_ears.log
+-rw------- 1 root root   11361 Nov 27 20:32 score_ears.md
+-rw------- 1 root root    8435 Nov 27 20:32 utts.json
+CHAIN_DONE 0

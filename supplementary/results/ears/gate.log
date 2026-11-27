@@ -1,0 +1,9 @@
+GATE OK   apbwe     lsd      mean |diff| 0.0008  max 0.0023  mean diff +0.0000
+GATE OK   apbwe     deficit  mean |diff| 0.0173  max 0.1182  mean diff -0.0045
+GATE OK   flowhigh  lsd      mean |diff| 0.0001  max 0.0004  mean diff -0.0001
+GATE OK   flowhigh  deficit  mean |diff| 0.0010  max 0.0056  mean diff -0.0002
+GATE OK   nuwave2   lsd      mean |diff| 0.0000  max 0.0000  mean diff +0.0000
+GATE OK   nuwave2   deficit  mean |diff| 0.0001  max 0.0001  mean diff -0.0001
+GATE OK   audiosr   lsd      mean diff +0.0232  paired SE 0.0040  (stat)
+GATE FAIL audiosr   deficit  mean diff -0.6023  paired SE 0.1987  (stat)
+GATE FAIL models

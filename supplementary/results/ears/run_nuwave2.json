@@ -1,0 +1,12 @@
+{
+ "model": "nuwave2",
+ "device": "cuda",
+ "seeds": 8,
+ "stochastic": true,
+ "tf32": false,
+ "wall_s": 2027.8218989372253,
+ "audio_s": 3072.0,
+ "rtf": 0.660098274393628,
+ "draws_run": 768,
+ "machine": "x86_64"
+}

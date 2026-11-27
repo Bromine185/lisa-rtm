@@ -1,0 +1,8 @@
+{
+ "model": "ours_es_erb_l0.001",
+ "seeds": 8,
+ "stochastic": true,
+ "wall_s": 143.21104192733765,
+ "audio_s": 3072.0,
+ "rtf": 0.04661817771072189
+}

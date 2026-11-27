@@ -1,0 +1,12 @@
+{
+ "model": "audiosr",
+ "device": "cuda",
+ "seeds": 8,
+ "stochastic": true,
+ "tf32": false,
+ "wall_s": 3775.959897994995,
+ "audio_s": 1536.0,
+ "rtf": 2.4583072252571583,
+ "draws_run": 384,
+ "machine": "x86_64"
+}
