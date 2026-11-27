@@ -48,6 +48,17 @@ def models():
             ok &= bool(flag)
             print(f"GATE {'OK  ' if flag else 'FAIL'} {m:9s} {k:8s} mean |diff| {np.mean(np.abs(d)):.4f}  "
                   f"max {np.max(np.abs(d)):.4f}  mean diff {np.mean(d):+.4f}")
+    for m, ref in REF.get("models_stat", {}).items():
+        # different random streams per device, so not draw by draw: the mean over utterances of the per-utterance
+        # difference (each a mean over 8 draws) must lie within 3 paired standard errors, or 0.1 (dB / LSD) of 0
+        rows = {r["utt"]: r for r in S["per_utt"].get(m, [])}
+        if set(rows) != set(ref):
+            print(f"GATE FAIL {m}: {len(rows)} of {len(ref)} utterances scored"); ok = False; continue
+        for k in ("lsd", "deficit"):
+            d = np.array([rows[u][k] - ref[u][k] for u in ref]); se = np.std(d, ddof=1) / np.sqrt(len(d))
+            flag = abs(np.mean(d)) < max(3 * se, 0.1)
+            ok &= bool(flag)
+            print(f"GATE {'OK  ' if flag else 'FAIL'} {m:9s} {k:8s} mean diff {np.mean(d):+.4f}  paired SE {se:.4f}  (stat)")
     if not ok:
         sys.exit("GATE FAIL models")
     print("GATE OK models")

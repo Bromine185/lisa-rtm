@@ -67,7 +67,8 @@ gate() {
   $P sota/run_models.py --model apbwe --set core --seeds 1 --device cpu    # CPU, as on the Mac: on CUDA its per-utterance deficit drifts 0.02 dB
   $P sota/run_models.py --model flowhigh --set core --seeds 1 --device cuda
   $P sota/run_models.py --model nuwave2 --set core --seeds 8 --device cuda
-  $Q sota/score.py --set core --workers 8 --no-perceptual --models apbwe flowhigh nuwave2
+  $P sota/run_models.py --model audiosr --set core --seeds 8 --device cuda
+  $Q sota/score.py --set core --workers 8 --no-perceptual --models apbwe flowhigh nuwave2 audiosr
   $Q sota/gate_check.py models 2>&1 | tee "$LOG/gate.log"
 }
 
