@@ -37,9 +37,7 @@ setup() {
   cd "$SOTA"
   [ -d FLowHigh_code ] || git clone -q https://github.com/jjunak-yun/FLowHigh_code.git
   [ -d nuwave2 ] || git clone -q https://github.com/maum-ai/nuwave2.git
-  # torch >= 2 rejects istft on the real [..., 2] layout NU-Wave 2's model.py builds (stft return_complex=False);
-  # view_as_complex is the same tensor read as complex (supplementary/code/patches/nuwave2_istft_complex.diff)
-  grep -q view_as_complex nuwave2/model.py || sed -i 's/output = torch.istft(ffted, /output = torch.istft(torch.view_as_complex(ffted.contiguous()), /' nuwave2/model.py
+  $P "$REPO/sota/patch_nuwave2.py" nuwave2       # torch 2 istft, same numbers on CPU and CUDA (see the script)
   [ -d AP-BWE ] || git clone -q https://github.com/yxlu-0102/AP-BWE.git
   # checkpoints (public Drive links from each README)
   [ -f fh_ckpt/FLowHigh_indep_adaptive_400k.pt ] || { gdown -q --folder https://drive.google.com/drive/folders/1clsJ3bFTZSCLOb4I0wk0l6FL9Yh33Vof -O fh_dl
