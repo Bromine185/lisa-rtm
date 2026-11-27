@@ -163,6 +163,11 @@ def main():
     ap.add_argument("--work", default=str(SOTA / "work"))
     a = ap.parse_args()
     ws = pathlib.Path(a.work) / a.set
+    if a.device.startswith("cuda"):
+        # full fp32 on NVIDIA, as on the CPU/MPS runs: with TF32 convolutions NU-Wave 2's 8 DDIM steps drift
+        # (+2 dB in the high band on an L4 against the same seed on CPU, which matches the Mac exactly)
+        import torch
+        torch.backends.cuda.matmul.allow_tf32 = False; torch.backends.cudnn.allow_tf32 = False
     utts = json.load(open(ws / "utts.json"))["utts"][: a.n]
     out = ws / "out" / a.model; out.mkdir(parents=True, exist_ok=True)
     run, stochastic = {"flowhigh": flowhigh, "flowhigh_std1": lambda d: flowhigh(d, std1=True), "nuwave2": nuwave2, "apbwe": apbwe, "apbwe_sinc": lambda d: apbwe(d, own_input=True), "audiosr": audiosr}[a.model](a.device)
@@ -188,7 +193,7 @@ def main():
         print(f"{a.model}: nothing to run, _run.json kept", flush=True)
         return
     meta = {"model": a.model, "device": a.device, "seeds": len(seeds), "stochastic": stochastic,
-            "wall_s": wall, "audio_s": audio_s, "rtf": wall / max(audio_s, 1e-9), "draws_run": done,
+            "tf32": False if a.device.startswith("cuda") else None, "wall_s": wall, "audio_s": audio_s, "rtf": wall / max(audio_s, 1e-9), "draws_run": done,
             "machine": machine()}
     json.dump(meta, open(out / "_run.json", "w"), indent=1)
     print(meta, flush=True)
