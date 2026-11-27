@@ -1,4 +1,4 @@
-\begin{thebibliography}{12}
+\begin{thebibliography}{14}
 \providecommand{\natexlab}[1]{#1}
 
 \bibitem[{Bouchacourt, Mudigonda, and Nowozin(2016)}]{bouchacourt2016}
@@ -10,6 +10,11 @@ Bouchacourt, D.; Mudigonda, P.~K.; and Nowozin, S. 2016.
 Bruna, J.; Sprechmann, P.; and LeCun, Y. 2016.
 \newblock Super-Resolution with Deep Convolutional Sufficient Statistics.
 \newblock In \emph{Proc. ICLR}.
+
+\bibitem[{Fortin et~al.(2014)Fortin, Abaza, Anctil, and Turcotte}]{fortin2014}
+Fortin, V.; Abaza, M.; Anctil, F.; and Turcotte, R. 2014.
+\newblock Why Should Ensemble Spread Match the {RMSE} of the Ensemble Mean?
+\newblock \emph{Journal of Hydrometeorology}, 15(4): 1708--1713.
 
 \bibitem[{Gneiting and Raftery(2007)}]{gneiting2007}
 Gneiting, T.; and Raftery, A.~E. 2007.
@@ -60,6 +65,11 @@ Lu, Y.-X.; Ai, Y.; Du, H.-P.; and Ling, Z.-H. 2024.
   Parallel Amplitude and Phase Prediction.
 \newblock \emph{IEEE/ACM Transactions on Audio, Speech, and Language
   Processing}, 32.
+
+\bibitem[{Nilsson and Kle{\ij}n(2001)}]{nilsson2001}
+Nilsson, M.; and Kle{\ij}n, W.~B. 2001.
+\newblock Avoiding Over-Estimation in Bandwidth Extension of Telephony Speech.
+\newblock In \emph{Proc. ICASSP}, volume~2, 869--872.
 
 \bibitem[{Su et~al.(2021)Su, Wang, Finkelstein, and Jin}]{su2021}
 Su, J.; Wang, Y.; Finkelstein, A.; and Jin, Z. 2021.
