@@ -15,7 +15,7 @@
 set -euo pipefail
 REPO=/content/lisa-rtm
 export BWE_CACHE=/content/cache PYTHONUNBUFFERED=1
-P=/content/sotaenv/bin/python; Q=python3
+P=/content/sotaenv/bin/python; Q="env CUDA_VISIBLE_DEVICES= python3"   # Q on CPU: the scorer forks workers, and our arms run on CPU as on the Mac
 DRIVE=/content/drive/MyDrive/lisa_rtm; CKPT=$DRIVE/ckpt_OV50; OUTD=$DRIVE/ears_cr
 SOTA=$BWE_CACHE/sota; LOG=$BWE_CACHE/logs; mkdir -p "$SOTA" "$LOG"
 ARMS="det_paper det es_marg es_erb_l0.01 es_erb_l0.001 es_dec_erb_l0.1"   # the six arms of Table 2
