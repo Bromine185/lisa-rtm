@@ -1,0 +1,404 @@
+{
+ "T1 FLowHigh deficit": {
+  "value": -1.5999409335570856,
+  "source": "wide agg.flowhigh.deficit"
+ },
+ "T1 FLowHigh LSD": {
+  "value": 0.7612041482883785,
+  "source": "wide agg.flowhigh.lsd"
+ },
+ "T1 FLowHigh ViSQOL": {
+  "value": 3.6069523442135067,
+  "source": "wide agg.flowhigh.visqol_audio"
+ },
+ "T1 FLowHigh gap": {
+  "value": 0.08458707009936776,
+  "source": "core agg.flowhigh_std1.gap_hb"
+ },
+ "T1 FLowHigh gap indep": {
+  "value": 1.7712507948828238,
+  "source": "core agg.flowhigh_std1.gap_indep_hb"
+ },
+ "T1 FLowHigh CRPS": {
+  "value": 0.6824324944592703,
+  "source": "core agg.flowhigh_std1.crps_fair"
+ },
+ "T1 AP-BWE deficit": {
+  "value": -1.3768702866652893,
+  "source": "wide agg.apbwe.deficit"
+ },
+ "T1 AP-BWE LSD": {
+  "value": 0.779981218672765,
+  "source": "wide agg.apbwe.lsd"
+ },
+ "T1 AP-BWE ViSQOL": {
+  "value": 3.4764130033631853,
+  "source": "wide agg.apbwe.visqol_audio"
+ },
+ "T1 AP-BWE CRPS": {
+  "value": 0.7768258035002991,
+  "source": "core agg.apbwe.crps (MAE)"
+ },
+ "T1 NU-Wave 2 deficit": {
+  "value": -7.962772730291407,
+  "source": "wide agg.nuwave2.deficit"
+ },
+ "T1 NU-Wave 2 LSD": {
+  "value": 0.989185752442775,
+  "source": "wide agg.nuwave2.lsd"
+ },
+ "T1 NU-Wave 2 ViSQOL": {
+  "value": 2.569541134119235,
+  "source": "wide agg.nuwave2.visqol_audio"
+ },
+ "T1 NU-Wave 2 gap": {
+  "value": 0.5731565426033204,
+  "source": "core agg.nuwave2.gap_hb"
+ },
+ "T1 NU-Wave 2 gap indep": {
+  "value": 0.6282746351857509,
+  "source": "core agg.nuwave2.gap_indep_hb"
+ },
+ "T1 NU-Wave 2 CRPS": {
+  "value": 0.5834462736601965,
+  "source": "core agg.nuwave2.crps_fair"
+ },
+ "T1 AudioSR deficit": {
+  "value": -0.6003296773838761,
+  "source": "wide agg.audiosr.deficit"
+ },
+ "T1 AudioSR LSD": {
+  "value": 1.5607741112420301,
+  "source": "wide agg.audiosr.lsd"
+ },
+ "T1 AudioSR ViSQOL": {
+  "value": 2.4073283879188674,
+  "source": "wide agg.audiosr.visqol_audio"
+ },
+ "T1 AudioSR gap": {
+  "value": 2.6187931252183585,
+  "source": "core agg.audiosr.gap_hb"
+ },
+ "T1 AudioSR gap indep": {
+  "value": 3.91508431232691,
+  "source": "core agg.audiosr.gap_indep_hb"
+ },
+ "T1 AudioSR CRPS": {
+  "value": 1.243090691346657,
+  "source": "core agg.audiosr.crps_fair"
+ },
+ "T1 ours, point deficit": {
+  "value": -6.179522240833527,
+  "source": "wide agg.ours_det.deficit"
+ },
+ "T1 ours, point LSD": {
+  "value": 0.8641012009740727,
+  "source": "wide agg.ours_det.lsd"
+ },
+ "T1 ours, point ViSQOL": {
+  "value": 3.1254388416802157,
+  "source": "wide agg.ours_det.visqol_audio"
+ },
+ "T1 ours, point CRPS": {
+  "value": 0.889159372683317,
+  "source": "core agg.ours_det.crps (MAE)"
+ },
+ "T1 ours, sampler deficit": {
+  "value": -0.6990932792601572,
+  "source": "wide agg.ours_es_dec_erb_l0.1.deficit"
+ },
+ "T1 ours, sampler LSD": {
+  "value": 0.8951162122856825,
+  "source": "wide agg.ours_es_dec_erb_l0.1.lsd"
+ },
+ "T1 ours, sampler ViSQOL": {
+  "value": 2.8255269268785463,
+  "source": "wide agg.ours_es_dec_erb_l0.1.visqol_audio"
+ },
+ "T1 ours, sampler gap": {
+  "value": 2.071243792663128,
+  "source": "core agg.ours_es_dec_erb_l0.1.gap_hb"
+ },
+ "T1 ours, sampler gap indep": {
+  "value": 2.367285121842933,
+  "source": "core agg.ours_es_dec_erb_l0.1.gap_indep_hb"
+ },
+ "T1 ours, sampler CRPS": {
+  "value": 0.5137189578811352,
+  "source": "core agg.ours_es_dec_erb_l0.1.crps_fair"
+ },
+ "T2 det_paper deficit": {
+  "value": -21.780320471965005,
+  "source": "wide agg.ours_det_paper.deficit"
+ },
+ "T2 det_paper CRPS": {
+  "value": 2.852541905953323,
+  "source": "core agg.ours_det_paper.crps (MAE)"
+ },
+ "T2 det deficit": {
+  "value": -6.179522240833527,
+  "source": "wide agg.ours_det.deficit"
+ },
+ "T2 det CRPS": {
+  "value": 0.889159372683317,
+  "source": "core agg.ours_det.crps (MAE)"
+ },
+ "T2 es_marg deficit": {
+  "value": -1.049269062138753,
+  "source": "wide agg.ours_es_marg.deficit"
+ },
+ "T2 es_marg gap": {
+  "value": 2.213241688006428,
+  "source": "core agg.ours_es_marg.gap_hb"
+ },
+ "T2 es_marg CRPS": {
+  "value": 0.5372297206647956,
+  "source": "core agg.ours_es_marg.crps_fair"
+ },
+ "T2 es_erb deficit": {
+  "value": -1.0825438808097156,
+  "source": "wide agg.ours_es_erb_l0.01.deficit"
+ },
+ "T2 es_erb gap": {
+  "value": 2.031550024110895,
+  "source": "core agg.ours_es_erb_l0.01.gap_hb"
+ },
+ "T2 es_erb CRPS": {
+  "value": 0.511514844421174,
+  "source": "core agg.ours_es_erb_l0.01.crps_fair"
+ },
+ "T2 es_erb l0.001 deficit": {
+  "value": -5.729963741734954,
+  "source": "wide agg.ours_es_erb_l0.001.deficit"
+ },
+ "T2 es_erb l0.001 gap": {
+  "value": 1.1584775741919464,
+  "source": "core agg.ours_es_erb_l0.001.gap_hb"
+ },
+ "T2 es_erb l0.001 CRPS": {
+  "value": 0.6825077038617964,
+  "source": "core agg.ours_es_erb_l0.001.crps_fair"
+ },
+ "T2 es_dec_erb deficit": {
+  "value": -0.6990932792601572,
+  "source": "wide agg.ours_es_dec_erb_l0.1.deficit"
+ },
+ "T2 es_dec_erb gap": {
+  "value": 2.071243792663128,
+  "source": "core agg.ours_es_dec_erb_l0.1.gap_hb"
+ },
+ "T2 es_dec_erb CRPS": {
+  "value": 0.5137189578811352,
+  "source": "core agg.ours_es_dec_erb_l0.1.crps_fair"
+ },
+ "ceiling SNR (12 kHz input)": {
+  "value": 22.01618525294025,
+  "source": "wide/ceiling_wide.json by_rate.12000.empty"
+ },
+ "det_paper SNR below ceiling": {
+  "value": 0.15073478611636498,
+  "source": "wide agg.ours_det_paper.vs_ceiling"
+ },
+ "det_paper band short": {
+  "value": 21.780320471965005,
+  "source": "wide agg.ours_det_paper.deficit"
+ },
+ "log-mag term recovers": {
+  "value": 15.600798231131478,
+  "source": "wide deficit ours_det - ours_det_paper"
+ },
+ "energy score recovers more": {
+  "value": 5.130253178694774,
+  "source": "wide deficit ours_es_marg - ours_det"
+ },
+ "NU-Wave 2 broadband deficit": {
+  "value": -8.92844989826091,
+  "source": "wide agg.nuwave2.deficit_bb"
+ },
+ "max coherent fraction c": {
+  "value": 0.016387682650024406,
+  "source": "wide max agg.*.coh"
+ },
+ "NU-Wave 2 loud frames": {
+  "value": -8.95756001108989,
+  "source": "wide agg.nuwave2.loud"
+ },
+ "NU-Wave 2 quiet frames": {
+  "value": 4.720902446750023,
+  "source": "wide agg.nuwave2.quiet"
+ },
+ "NU-Wave 2 spread": {
+  "value": 0.09374985408511842,
+  "source": "core agg.nuwave2.spread_pooled_hb"
+ },
+ "AudioSR level at 10.7 kHz": {
+  "value": 4.948556330251025,
+  "source": "wide agg.audiosr.curve[2]"
+ },
+ "AudioSR level at 21.4 kHz": {
+  "value": -11.107967331267927,
+  "source": "wide agg.audiosr.curve[5]"
+ },
+ "ERB corr err es_marg": {
+  "value": 0.373944785677938,
+  "source": "core agg.ours_es_marg.corr_err_d0"
+ },
+ "ERB corr err es_erb": {
+  "value": 0.2889694543787014,
+  "source": "core agg.ours_es_erb_l0.01.corr_err_d0"
+ },
+ "flowhigh_std1 pit_lo %": {
+  "value": [
+   40.77638915178908,
+   38.658696236481966,
+   42.91831684904566
+  ],
+  "source": "bootstrap flowhigh_std1 pit_lo point, 95% CI"
+ },
+ "flowhigh_std1 pit_hi %": {
+  "value": [
+   45.95097283330487,
+   43.776506386351144,
+   48.115040137406865
+  ],
+  "source": "bootstrap flowhigh_std1 pit_hi point, 95% CI"
+ },
+ "audiosr pit_hi %": {
+  "value": [
+   51.97539869775917,
+   50.17099689104637,
+   53.972813632544415
+  ],
+  "source": "bootstrap audiosr pit_hi point, 95% CI"
+ },
+ "ours_es_dec_erb_l0.1 pit_hi %": {
+  "value": [
+   21.21135174814521,
+   18.354611846083767,
+   24.264488690829563
+  ],
+  "source": "bootstrap ours_es_dec_erb_l0.1 pit_hi point, 95% CI"
+ },
+ "ours_es_dec_erb_l0.1 pit_lo %": {
+  "value": [
+   10.710984713828653,
+   9.245189132823402,
+   12.192314932557908
+  ],
+  "source": "bootstrap ours_es_dec_erb_l0.1 pit_lo point, 95% CI"
+ },
+ "nuwave2 pit_lo %": {
+  "value": [
+   13.17557782897278,
+   10.042456452820351,
+   16.480951514281845
+  ],
+  "source": "bootstrap nuwave2 pit_lo point, 95% CI"
+ },
+ "nuwave2 pit_hi %": {
+  "value": [
+   21.71102626488336,
+   18.245785923788535,
+   25.34715674069945
+  ],
+  "source": "bootstrap nuwave2 pit_hi point, 95% CI"
+ },
+ "flowhigh_std1 gap - indep": {
+  "value": [
+   -1.686663724783456,
+   -1.9943605103077264,
+   -1.3981672248250925
+  ],
+  "source": "bootstrap flowhigh_std1 gap_minus_indep point, 95% CI"
+ },
+ "nuwave2 gap - indep": {
+  "value": [
+   -0.055118092582430486,
+   -0.07334596952237665,
+   -0.03864594389394907
+  ],
+  "source": "bootstrap nuwave2 gap_minus_indep point, 95% CI"
+ },
+ "audiosr gap - indep": {
+  "value": [
+   -1.2962911871085512,
+   -1.5073174091515227,
+   -1.085550604973412
+  ],
+  "source": "bootstrap audiosr gap_minus_indep point, 95% CI"
+ },
+ "ours_es_dec_erb_l0.1 gap - indep": {
+  "value": [
+   -0.2960413291798047,
+   -0.38904942643121204,
+   -0.21848660478706097
+  ],
+  "source": "bootstrap ours_es_dec_erb_l0.1 gap_minus_indep point, 95% CI"
+ },
+ "ours_es_marg gap - indep": {
+  "value": [
+   -0.15316886905837976,
+   -0.2244988914688734,
+   -0.09570397618142469
+  ],
+  "source": "bootstrap ours_es_marg gap_minus_indep point, 95% CI"
+ },
+ "ours_es_erb_l0.01 gap - indep": {
+  "value": [
+   -0.11531934907054643,
+   -0.16545162422212153,
+   -0.07391430524132613
+  ],
+  "source": "bootstrap ours_es_erb_l0.01 gap_minus_indep point, 95% CI"
+ },
+ "ours_es_erb_l0.001 gap - indep": {
+  "value": [
+   -0.23122612555297972,
+   -0.3002641333757437,
+   -0.17435605603232582
+  ],
+  "source": "bootstrap ours_es_erb_l0.001 gap_minus_indep point, 95% CI"
+ },
+ "FLowHigh as released: draw spread, waveform rel. RMS": {
+  "value": 2.3200274756853065e-06,
+  "source": "draw_agreement flowhigh wave_rel median"
+ },
+ "FLowHigh prior restored: HB rel. RMS": {
+  "value": 0.1919519136568656,
+  "source": "draw_agreement flowhigh_std1 hb_rel median"
+ },
+ "NU-Wave 2: HB rel. RMS": {
+  "value": 1.9037136320138413,
+  "source": "draw_agreement nuwave2 hb_rel median"
+ },
+ "slope FLowHigh": {
+  "value": -0.07531562532111044,
+  "source": "level_checks slope.flowhigh"
+ },
+ "slope AP-BWE": {
+  "value": -0.11880674308198906,
+  "source": "level_checks slope.apbwe"
+ },
+ "slope NU-Wave 2": {
+  "value": -0.3149472824582816,
+  "source": "level_checks slope.nuwave2"
+ },
+ "slope AudioSR": {
+  "value": -0.33827723947506827,
+  "source": "level_checks slope.audiosr"
+ },
+ "slope ours range": {
+  "value": [
+   -0.19641877125859505,
+   -0.34565338353906566
+  ],
+  "source": "level_checks slope.ours_<six Table 2 arms>"
+ },
+ "n levels / calibration": {
+  "value": [
+   240,
+   32
+  ],
+  "source": "_meta.n_utts"
+ }
+}
