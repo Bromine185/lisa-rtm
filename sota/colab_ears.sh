@@ -54,8 +54,14 @@ setup() {
 }
 
 gate() {
-  $Q sota/fetch_wide.py --per-speaker 30
-  $Q sota/make_inputs.py --set core --per-speaker 4
+  # Edinburgh DataShare refuses Colab's addresses (HTTP 403), so the Mac's own 32 inputs come through Drive;
+  # gate_check inputs still verifies them. Without the bundle, fetch from DataShare as the Mac did.
+  if [ -f "$DRIVE/core_inputs.tar.gz" ]; then
+    mkdir -p "$BWE_CACHE/sota/work" && tar -xzf "$DRIVE/core_inputs.tar.gz" -C "$BWE_CACHE/sota/work"
+  else
+    $Q sota/fetch_wide.py --per-speaker 30
+    $Q sota/make_inputs.py --set core --per-speaker 4
+  fi
   $Q sota/gate_check.py inputs
   $P sota/run_models.py --model apbwe --set core --seeds 1 --device cuda
   $P sota/run_models.py --model flowhigh --set core --seeds 1 --device cuda
