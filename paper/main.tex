@@ -36,6 +36,11 @@ On an 88k-parameter network, the deficit is set mainly by the loss domain and is
 at no inference cost.
 \end{abstract}
 
+\begin{links}
+\link{Code}{https://github.com/Bromine185/lisa-rtm/tree/aaai27-camera-ready}
+\link{Listening examples}{https://github.com/Bromine185/lisa-rtm/tree/aaai27-camera-ready/supplementary/audio}
+\end{links}
+
 \section{Introduction}
 Many high bands $y$ are consistent with one narrow band $x$, which limits deterministic BWE approaches
 \citep{jax2002,bruna2016}. For learned BWE, point estimation against a single reference waveform returns a
@@ -54,7 +59,8 @@ low-pass, 12\,kHz); its eight test speakers are unseen in training by every mode
 (v3, audio mode) use 240 utterances; calibration uses 32 utterances $\times$ 8 draws. Outputs are scaled to
 the truth's energy below 5.5\,kHz. The \emph{deficit} is $10\log_{10}$ of output over true energy per third
 octave above 6\,kHz, averaged over bands. CRPS is the fair ensemble estimator on high-band (HB)
-log-magnitude; a one-output model scores its MAE. The harness reproduces published LSD/ViSQOL: 0.761/3.61
+log-magnitude; a one-output model scores its MAE. Brackets give 95\% intervals from 10{,}000 resamples of utterances, not
+of bins, which are correlated within an utterance. The harness reproduces published LSD/ViSQOL: 0.761/3.61
 for FLowHigh (reported 0.75/3.61), 0.780/3.48 for AP-BWE \citep{lu2024} (0.78/3.46); NU-Wave~2 is slightly
 worse, 0.989/2.57 against 0.94/2.75.
 
@@ -72,8 +78,8 @@ ours, point 88k & $-6.18$ & 0.864 & 3.13 & -- & 0.889$^*$ \\
 ours, sampler 88k & $-0.70$ & 0.895 & 2.83 & 2.07 (2.37) & 0.514 \\
 \bottomrule
 \end{tabular}
-\caption{Deficit (dB), LSD, ViSQOL: 240 utterances. Gap (dB; independent-draw value at the model's level)
-and fair CRPS: 32 utterances $\times$ 8 draws. $^\dagger$Prior restored. $^*$CRPS = MAE.}
+\caption{Deficit (dB), LSD, ViSQOL: 240 utterances. Gap (dB; in parentheses, independent draws at each utterance's
+measured HB energies) and fair CRPS: 32 utterances $\times$ 8 draws. $^\dagger$Prior restored. $^*$CRPS = MAE.}
 \label{tab:released}
 \end{table}
 
@@ -81,8 +87,9 @@ and fair CRPS: 32 utterances $\times$ 8 draws. $^\dagger$Prior restored. $^*$CRP
 Let the truth's high band have energy $E$, the output's $pE$, and let
 $c=\mathrm{Re}\langle y_H,\hat y_H\rangle/E$ be the coherent fraction. With a correct low band, the squared
 error is $\|y-\hat y\|^2=E\,(1+p-2c)$. An empty band costs $E$, and only $c>p/2$ beats it, so when
-$c\approx0$ silence maximizes SNR. On our utterances this ceiling $C$ is 22.02\,dB at 12\,kHz, and a
-reported SNR $S$ bounds the level: $p\le10^{(C-S)/10}-1+2c$. NU-Wave~2's own table ($C-S=0.5$\,dB) gives
+$c\approx0$ silence maximizes SNR. On our utterances this ceiling $C$ is 22.02\,dB at 12\,kHz; LISA's released L1
+loss (\texttt{det\_paper}, Table~\ref{tab:arms}) comes within 0.15\,dB of it while leaving the band 21.8\,dB
+short. A reported SNR $S$ bounds the level: $p\le10^{(C-S)/10}-1+2c$. NU-Wave~2's own table ($C-S=0.5$\,dB) gives
 at most $-8.5$\,dB; we measure a broadband deficit of $-8.9$\,dB ($-7.96$\,dB band-averaged,
 Table~\ref{tab:released}). Every model has $c<0.02$.
 
@@ -114,17 +121,22 @@ es\_dec\_erb & + decoder noise, $\lambda{=}0.1$ & $-0.70$ & 2.07 & 0.514 \\
 \textbf{FLowHigh is a regressor.} It is trained from $x_0+\epsilon$ ($x_0$: input log-mel) toward
 $(x_1-x_0)-(1-\sigma)\epsilon$ and also receives $x_0$ as conditioning, so at $t=0$ it can recover
 $\epsilon$. The optimal field then returns $\mathrm{E}[x_1\mid x_0]+\sigma s\epsilon$ after one Euler step,
-for any start-noise scale $s$; the released script also resets $s$ to $10^{-4}$. With the trained prior
-restored, its draws remain within $10^{-5}$ of each other: the gap is 0.08\,dB against 1.77 for independent
-draws at its level, and the truth lies below or above all eight draws in 41\% and 46\% of HB bins.
+for any start-noise scale $s$; the released script also resets $s$ to $10^{-4}$, and its eight draws then agree to
+$2\times10^{-6}$ (relative RMS, waveform). With the trained prior restored they differ a tenth as much as
+NU-Wave~2's above 6\,kHz: the gap is 0.08\,dB, 1.69\,dB [1.40, 1.99] below the 1.77 of independent draws at
+its level, and the truth lies below or above all eight draws in 41\% [39, 43] and 46\% [44, 48] of HB bins.
 
 \textbf{NU-Wave~2 samples, quietly.} Its gap (0.57\,dB) is close to that of independent draws at its level
-(0.63). What fails is its level: 9.0\,dB under on loud frames and 4.7\,dB over on quiet ones. Its small
+(0.63), 0.06\,dB [0.04, 0.07] below. What fails is its level: 9.0\,dB under on loud frames and 4.7\,dB over on quiet ones. Its small
 spread (0.094) is a level problem, not a diversity one.
 
-\textbf{AudioSR is under-dispersed.} Its gap (2.62\,dB) is well below that of independent draws at its
-level (3.92), and its level is biased by band ($+5$\,dB at 11\,kHz, $-11$\,dB at 21\,kHz; truth above every
-draw in 52\% of HB bins). AP-BWE is a point estimate by design.
+\textbf{AudioSR is under-dispersed.} Its gap (2.62\,dB) is 1.30\,dB [1.09, 1.51] below that of independent draws
+at its level (3.92), and its level is biased by band ($+5$\,dB at 11\,kHz, $-11$\,dB at 21\,kHz; truth above every
+draw in 52\% [50, 54] of HB bins). AP-BWE is a point estimate by design.
+
+\textbf{Level regresses per utterance.} The deficit falls with the truth's HB energy share (slope in dB/dB,
+240 utterances): $-0.08$ FLowHigh, $-0.12$ AP-BWE, $-0.32$ NU-Wave~2, $-0.34$ AudioSR, $-0.20$ to $-0.35$
+our arms. Bright utterances come out too dark, dark ones too bright.
 
 \section{What Sets the Deficit}
 Six arms of an 88k-parameter INR derived from LISA \citep{kim2022} are trained on identical batches for
@@ -135,8 +147,8 @@ concatenated with the signal, and 4 per output sample in the decoder-noise arm (
 the point loss by a two-draw energy score \citep{gritsenko2020,bouchacourt2016} recovers 5.1\,dB more. The
 loss domain, not point estimation as such, does most of the work: FLowHigh, a conditional mean in the
 log-mel domain, is not quiet. The ERB-band term lowers the band-correlation error from 0.374 to 0.289. Our
-sampler is not calibrated either: the truth lies above all draws in 21\% of HB bins against an ideal 11\%,
-with the lower tail at its ideal; a pure level shift would also empty the lower tail, so this is a missing
+sampler is not calibrated either: the truth lies above all draws in 21\% [18, 24] of HB bins against an ideal
+11\%, with the lower tail at its ideal, and its gap is 0.30\,dB [0.22, 0.39] below independent draws; a pure level shift would also empty the lower tail, so this is a missing
 upper tail: too few loud high-band events.
 
 \section{Conclusion}
@@ -145,7 +157,7 @@ read against level. We suggest reporting level (per band and frame loudness), di
 model's own level, and rank tails beside LSD and ViSQOL. CRPS favours samplers by construction, so we
 compare it among samplers only. A low level is a calibration failure for a sampler, not necessarily a
 perceptual one \citep{nilsson2001}. Limitations: no listening test, marginal calibration only, 32
-utterances, one seed, VCTK only (derivations: supplement).
+utterances, one seed, VCTK only (derivations: repository, \texttt{supplementary/}).
 
 \bibliography{refs}
 
