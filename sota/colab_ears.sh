@@ -82,10 +82,10 @@ run() {
   for m in flowhigh flowhigh_std1 nuwave2; do
     $P sota/run_models.py --model $m --set ears --seeds 8 --device cuda 2>&1 | tail -3
   done
-  # AudioSR leaves the L4 two-thirds idle (one process: ~9 s per draw, 8.6 GB): three shards side by side
-  for i in 0 1 2; do $P sota/run_models.py --model audiosr --set ears --seeds 8 --device cuda --shard $i/3 > "$LOG/audiosr_ears_$i.log" 2>&1 & done
+  # AudioSR leaves the L4 two-thirds idle (one process: ~9 s per draw, 8.6 GB); two fit in 23 GB, three run out
+  for i in 0 1; do $P sota/run_models.py --model audiosr --set ears --seeds 8 --device cuda --shard $i/2 > "$LOG/audiosr_ears_$i.log" 2>&1 & done
   wait
-  for i in 0 1 2; do tail -1 "$LOG/audiosr_ears_$i.log"; done
+  for i in 0 1; do tail -1 "$LOG/audiosr_ears_$i.log"; done
   [ "$(ls $BWE_CACHE/sota/work/ears/out/audiosr/*.npy | wc -l)" -eq 768 ] || { echo "audiosr: draws missing"; exit 1; }
   $Q sota/run_ours.py --set ears --seeds 8 --arms $ARMS --ckpt-dir "$CKPT" 2>&1 | tail -10
 }
