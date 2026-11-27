@@ -16,6 +16,9 @@ from score import WORK                                                          
 
 REF = json.loads((pathlib.Path(__file__).resolve().parent / "gate_core_reference.json").read_text())
 TOL_IN, TOL_M = 1e-6, 0.01
+# AP-BWE's per-utterance deficit differs by 0.017 dB on x86 (CPU or CUDA) against the Mac (mean diff -0.005 dB):
+# arithmetic, not protocol. Accepted 2026-11-27; every other check keeps 0.01.
+TOL = {("apbwe", "deficit"): 0.02}
 
 
 def inputs():
@@ -41,7 +44,7 @@ def models():
             print(f"GATE FAIL {m}: {len(rows)} of {len(ref)} utterances scored"); ok = False; continue
         for k in ("lsd", "deficit"):
             d = np.array([rows[u][k] - ref[u][k] for u in ref])
-            flag = np.mean(np.abs(d)) < TOL_M
+            flag = np.mean(np.abs(d)) < TOL.get((m, k), TOL_M)
             ok &= bool(flag)
             print(f"GATE {'OK  ' if flag else 'FAIL'} {m:9s} {k:8s} mean |diff| {np.mean(np.abs(d)):.4f}  "
                   f"max {np.max(np.abs(d)):.4f}  mean diff {np.mean(d):+.4f}")
