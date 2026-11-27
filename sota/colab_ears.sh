@@ -30,7 +30,7 @@ setup() {
   uv pip install -q -p $P torch==2.2.1 torchaudio==2.2.1 torchvision==0.17.1 --index-url https://download.pytorch.org/whl/cu121
   uv pip install -q -p $P numpy==1.23.5 scipy==1.10.1 librosa==0.9.2 soundfile omegaconf einops==0.8.0 \
       torchdiffeq==0.2.3 torchode==1.0.0 beartype==0.17.2 gateloop_transformer==0.2.4 accelerate==0.28.0 \
-      torchinfo==1.8.0 matplotlib tqdm audiosr==0.0.7 transformers==4.30.2 "huggingface_hub<0.26"
+      torchinfo==1.8.0 matplotlib tqdm audiosr==0.0.7 transformers==4.30.2 "huggingface_hub<0.26" "setuptools<70"
   # Q: our arms and the scorer, on Colab's Python
   pip -q install soundfile pyarrow "visqol-python[lattice]" pesq torchmetrics
   # released code
