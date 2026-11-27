@@ -1,14 +1,14 @@
 """Unrounded level numbers for the camera-ready, read from the stored score files (no inference).
 
-    venv/bin/python sota/level_checks.py
+    venv/bin/python sota/level_checks.py [--set wide]
 
 1. Per-utterance level regression on `wide` (240 utterances, paper split): slope of each utterance's
    band-averaged deficit (dB) on the truth's HB energy share (10 log10 of energy above 6 kHz over total),
    by np.polyfit, as demo/tools/make_results_sota.py does, but unrounded. Also a 95% utterance bootstrap.
 2. det_paper against the empty band on `wide`: SNR, the ceiling (true low band, empty high band), deficit.
-Writes <work>/wide/level_checks.json.
+Writes <work>/<set>/level_checks.json (level_checks_<set>.json for any set but wide).
 """
-import json, pathlib, sys
+import argparse, json, pathlib, sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -23,9 +23,10 @@ def hb_share(ws, utt):
 
 
 def main():
-    ws = WORK / "wide"; S = json.loads((ws / "score_wide.json").read_text())
+    ap = argparse.ArgumentParser(); ap.add_argument("--set", default="wide"); a = ap.parse_args()
+    ws = WORK / a.set; S = json.loads((ws / f"score_{a.set}.json").read_text())
     share = {r["utt"]: hb_share(ws, r["utt"]) for r in S["per_utt"]["ceiling"]}
-    rng = np.random.default_rng(SEED); out = {"_meta": {"set": "wide", "n_utts": S["_meta"]["n_utts"], "B": B,
+    rng = np.random.default_rng(SEED); out = {"_meta": {"set": a.set, "n_utts": S["_meta"]["n_utts"], "B": B,
                                                         "seed": SEED, "doc": __doc__.strip()}, "slope": {}}
     idx = None
     for cond, rows in S["per_utt"].items():
@@ -39,13 +40,16 @@ def main():
         out["slope"][cond] = {"slope": b, "ci": [float(v) for v in np.percentile(bs, [2.5, 97.5])],
                               "r": float(np.corrcoef(x, y)[0, 1]), "n": len(x)}
         print(f"{cond:26s} slope {b:+.4f}  [{out['slope'][cond]['ci'][0]:+.3f}, {out['slope'][cond]['ci'][1]:+.3f}]  n {len(x)}")
-    a = S["agg"]; dp = a["ours_det_paper"]; ce = a["ceiling"]
-    C = json.loads((ws / "ceiling_wide.json").read_text())["by_rate"]["12000"]["empty"]
-    out["det_paper"] = {"snr": dp["snr"], "snr_se": dp["snr_se"], "ceiling_snr_score": ce["snr"],
-                        "ceiling_snr_12k": C if isinstance(C, float) else C, "vs_ceiling": dp["vs_ceiling"],
-                        "deficit": dp["deficit"], "deficit_bb": dp["deficit_bb"]}
-    print(json.dumps(out["det_paper"], indent=1))
-    (ws / "level_checks.json").write_text(json.dumps(out, indent=1))
+    g = S["agg"]; dp = g.get("ours_det_paper"); ce = g["ceiling"]
+    cf = ws / f"ceiling_{a.set}.json"
+    C = json.loads(cf.read_text())["by_rate"]["12000"]["empty"] if cf.exists() else None
+    if dp:
+        out["det_paper"] = {"snr": dp["snr"], "snr_se": dp["snr_se"], "ceiling_snr_score": ce["snr"],
+                            "ceiling_snr_12k": C, "vs_ceiling": dp["vs_ceiling"],
+                            "deficit": dp["deficit"], "deficit_bb": dp["deficit_bb"]}
+        print(json.dumps(out["det_paper"], indent=1))
+    name = "level_checks.json" if a.set == "wide" else f"level_checks_{a.set}.json"
+    (ws / name).write_text(json.dumps(out, indent=1))
 
 
 if __name__ == "__main__":
