@@ -103,7 +103,7 @@ pack() {
   cp $W/ears/score_ears.json $W/ears/score_ears.md $W/ears/bootstrap_ears.json $W/ears/level_checks_ears.json \
      $W/ears/draw_agreement_ears.json $W/ears/utts.json $BWE_CACHE/ears_seg/manifest.json "$OUTD"/
   cp $W/core/score_core.json "$OUTD"/gate_score_core.json; cp "$LOG"/*.log "$OUTD"/
-  for d in $W/ears/out/*/; do cp "$d/_run.json" "$OUTD/run_$(basename $d).json" 2>/dev/null || true; done
+  for d in $W/ears/out/*/; do for f in "$d"/_run*.json; do [ -f "$f" ] && cp "$f" "$OUTD/run_$(basename $d)$(basename $f .json | sed 's/^_run//').json"; done; done
   ls -la "$OUTD"
 }
 
