@@ -160,6 +160,8 @@ def main():
     ap.add_argument("--seeds", type=int, default=8)
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--n", type=int, default=None)
+    ap.add_argument("--shard", default=None, help="i/k: every k-th utterance from the i-th, for parallel processes; "
+                    "each draw is seeded on its own, so sharding changes no output")
     ap.add_argument("--work", default=str(SOTA / "work"))
     a = ap.parse_args()
     ws = pathlib.Path(a.work) / a.set
@@ -169,6 +171,8 @@ def main():
         import torch
         torch.backends.cuda.matmul.allow_tf32 = False; torch.backends.cudnn.allow_tf32 = False
     utts = json.load(open(ws / "utts.json"))["utts"][: a.n]
+    if a.shard:
+        i, k = map(int, a.shard.split("/")); utts = utts[i::k]
     out = ws / "out" / a.model; out.mkdir(parents=True, exist_ok=True)
     run, stochastic = {"flowhigh": flowhigh, "flowhigh_std1": lambda d: flowhigh(d, std1=True), "nuwave2": nuwave2, "apbwe": apbwe, "apbwe_sinc": lambda d: apbwe(d, own_input=True), "audiosr": audiosr}[a.model](a.device)
     seeds = range(a.seeds if stochastic else 1)
@@ -195,7 +199,7 @@ def main():
     meta = {"model": a.model, "device": a.device, "seeds": len(seeds), "stochastic": stochastic,
             "tf32": False if a.device.startswith("cuda") else None, "wall_s": wall, "audio_s": audio_s, "rtf": wall / max(audio_s, 1e-9), "draws_run": done,
             "machine": machine()}
-    json.dump(meta, open(out / "_run.json", "w"), indent=1)
+    json.dump(meta, open(out / (f"_run_{a.shard.replace('/', 'of')}.json" if a.shard else "_run.json"), "w"), indent=1)
     print(meta, flush=True)
 
 
