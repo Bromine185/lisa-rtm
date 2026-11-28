@@ -6,6 +6,7 @@ Writes notes/analysis/figs/sota_{levels,calibration,pit,ceiling,pareto}.png. The
 (parameters and RTFs, with their provenance in its _meta) and the `core16` set: symlinks to `core`'s truth/, lo12k/ and utts.json,
 then `sota/run_ours.py --set core16 --arms es_dec_erb_l0.1 --seeds 16`.
 """
+import os
 import json, pathlib
 import numpy as np
 import matplotlib
@@ -13,7 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-WORK = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work")
+WORK = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/sota/work")
 OUT = REPO / "notes/analysis/figs"; OUT.mkdir(parents=True, exist_ok=True)
 # fixed categorical order (dataviz reference palette, slots 1-7), colour follows the model everywhere
 COL = {"flowhigh": "#2a78d6", "flowhigh_std1": "#4a3aa7", "nuwave2": "#eb6834", "audiosr": "#1baf7a",

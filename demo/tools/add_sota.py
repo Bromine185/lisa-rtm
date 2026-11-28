@@ -20,6 +20,7 @@ sota/params.json (sota/count_params.py), RTFs from the scored core run's _run.js
 Re-running overwrites the same files and entries and touches nothing else. --manifest-only rewrites the
 `released` block alone: no audio is read or written.
 """
+import os
 import argparse, json, pathlib, platform, subprocess, sys
 
 import numpy as np
@@ -28,7 +29,7 @@ import soundfile as sf
 REPO = pathlib.Path(__file__).resolve().parents[2]
 FS, ALIGN = 48000, 5500.0
 MODELS = ["flowhigh", "apbwe", "nuwave2", "audiosr"]
-CORE = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work/core")
+CORE = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[2] / "lisa_rtm_cache")) + "/sota/work/core")
 
 
 def this_machine():
@@ -72,7 +73,7 @@ def align_gain(y, w):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--work", default=str(pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work/demo")))
+    ap.add_argument("--work", default=str(pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[2] / "lisa_rtm_cache")) + "/sota/work/demo")))
     ap.add_argument("--out", default=str(REPO / "web/public/assets/audio"))
     ap.add_argument("--models", nargs="*", default=MODELS)
     ap.add_argument("--manifest-only", action="store_true", help="rewrite manifest.released only; no audio read or written")

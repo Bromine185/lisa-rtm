@@ -15,13 +15,14 @@ Also the high band's share of the energy, which fixes the ceiling: C ~ -10 log10
 
 Writes <work>/<set>/ceiling_<set>.json.
 """
+import os
 import argparse, json, pathlib, sys
 import numpy as np
 import scipy.signal as sps
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
-WORK = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work")
+WORK = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/sota/work")
 FS = 48000
 
 

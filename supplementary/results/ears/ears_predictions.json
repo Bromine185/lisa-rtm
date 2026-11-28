@@ -1,0 +1,44 @@
+[
+ {
+  "n": 1,
+  "prediction": "FLowHigh (prior restored) is still a regressor: gap < indep/2, tails sum > 50%",
+  "pass": true,
+  "facts": "gap 0.064, indep 1.482, tails 65.5% + 23.2%"
+ },
+ {
+  "n": 2,
+  "prediction": "NU-Wave 2 samples at its own level: |diff| < 0.2 dB, deficit < -4 dB",
+  "pass": true,
+  "facts": "diff -0.055 [-0.062, -0.048], deficit -4.86"
+ },
+ {
+  "n": 3,
+  "prediction": "AudioSR is under-dispersed: diff < -0.5 dB with interval below 0, upper tail > 30%",
+  "pass": false,
+  "facts": "diff -1.314 [-1.443, -1.189], upper tail 19.5%"
+ },
+ {
+  "n": 4,
+  "prediction": "Our sampler: -0.6 < diff < 0 dB, upper tail > lower tail, lower tail in [7%, 15%]",
+  "pass": false,
+  "facts": "diff -0.266 [-0.294, -0.240], tails 47.9% / 6.4%"
+ },
+ {
+  "n": 5,
+  "prediction": "Loss domain sets the deficit: det_paper < -15 dB, det >= det_paper + 8, es_marg and es_dec_erb within 3 dB of 0",
+  "pass": false,
+  "facts": "det_paper -18.13, det -2.70, es_marg 3.27, es_dec_erb 3.37"
+ },
+ {
+  "n": 6,
+  "prediction": "Level regresses per utterance: every slope negative, interval below 0",
+  "pass": true,
+  "facts": "flowhigh -0.143 [-0.236, -0.068]; flowhigh_std1 -0.159 [-0.247, -0.086]; nuwave2 -0.408 [-0.507, -0.300]; audiosr -0.268 [-0.366, -0.177]; apbwe -0.200 [-0.293, -0.112]; ours_det_paper -0.406 [-0.485, -0.337]; ours_det -0.285 [-0.379, -0.194]; ours_es_marg -0.298 [-0.388, -0.212]; ours_es_erb_l0.01 -0.303 [-0.398, -0.202]; ours_es_erb_l0.001 -0.272 [-0.376, -0.183]; ours_es_dec_erb_l0.1 -0.282 [-0.379, -0.187]"
+ },
+ {
+  "n": 7,
+  "prediction": "FLowHigh as released is a point estimate: gap < 0.01 dB",
+  "pass": true,
+  "facts": "gap 3.35e-05"
+ }
+]

@@ -1,0 +1,553 @@
+{
+ "rule": "The EARS test set, cut into 4 s utterances by a fixed rule (notes/2026-11-27-ears-predictions.md).\n\n    python sota/fetch_ears.py [--per-speaker 16] [--keep-zips]\n\nEARS (Richter et al., Interspeech 2024; CC BY-NC 4.0): 48 kHz anechoic speech, 107 speakers. Its own test\nsplit is p102-p107. For each test speaker this downloads the release zip, reads only the read-speech files in\nregular style (`*_regular.wav`), and cuts them, in name order, into consecutive non-overlapping 4 s windows.\nA window is kept when at least 80% of its 20 ms frames lie within 40 dB of the file's loudest frame. From the\nkept windows, `per_speaker` evenly spaced ones are written (np.linspace, as sota/fetch_wide.py picks VCTK files).\n\nOutput: $BWE_CACHE/ears_seg/<spk>/<spk>_<k>.wav (float32, 48 kHz, raw level) and\n$BWE_CACHE/ears_seg/manifest.json (source file and offset of every utterance, speaker metadata).\nThen:  python sota/make_inputs.py --set ears --src ears --speakers p102 p103 p104 p105 p106 p107 --per-speaker 16",
+ "speakers": {
+  "p102": {
+   "age": "26-35",
+   "ethnicity": "white or caucasian",
+   "gender": "male",
+   "weight": "160 - 180 lbs",
+   "native language": "american english",
+   "height": "5'8 - 5'11",
+   "regular_files": 20,
+   "windows_kept": 52,
+   "picked": 16
+  },
+  "p103": {
+   "age": "prefer not to answer",
+   "ethnicity": "prefer not to answer",
+   "gender": "prefer not to answer",
+   "weight": "prefer not to answer",
+   "native language": "prefer not to answer",
+   "height": "prefer not to answer",
+   "regular_files": 20,
+   "windows_kept": 83,
+   "picked": 16
+  },
+  "p104": {
+   "age": "56-65",
+   "ethnicity": "white or caucasian",
+   "gender": "female",
+   "weight": "180 - 200 lbs",
+   "native language": "american english",
+   "height": "5'4 - 5'7",
+   "regular_files": 20,
+   "windows_kept": 77,
+   "picked": 16
+  },
+  "p105": {
+   "age": "36-45",
+   "ethnicity": "black or african american",
+   "gender": "male",
+   "weight": "220 - 240 lbs",
+   "native language": "american english",
+   "height": "6' - 6'3",
+   "regular_files": 20,
+   "windows_kept": 90,
+   "picked": 16
+  },
+  "p106": {
+   "age": "56-65",
+   "ethnicity": "white or caucasian",
+   "gender": "female",
+   "weight": "120 - 140 lbs",
+   "native language": "american english",
+   "height": "5' - 5'3",
+   "regular_files": 20,
+   "windows_kept": 66,
+   "picked": 16
+  },
+  "p107": {
+   "age": "36-45",
+   "ethnicity": "asian",
+   "gender": "male",
+   "weight": "140 - 160 lbs",
+   "native language": "russian",
+   "height": "5'8 - 5'11",
+   "regular_files": 20,
+   "windows_kept": 66,
+   "picked": 16
+  }
+ },
+ "utts": [
+  {
+   "utt": "p102_000",
+   "src": "p102/rainbow_01_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p102_001",
+   "src": "p102/rainbow_02_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p102_002",
+   "src": "p102/rainbow_03_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p102_003",
+   "src": "p102/rainbow_04_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p102_004",
+   "src": "p102/rainbow_06_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p102_005",
+   "src": "p102/rainbow_07_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p102_006",
+   "src": "p102/rainbow_08_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p102_007",
+   "src": "p102/sentences_01_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p102_008",
+   "src": "p102/sentences_02_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p102_009",
+   "src": "p102/sentences_16_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p102_010",
+   "src": "p102/sentences_17_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p102_011",
+   "src": "p102/sentences_18_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p102_012",
+   "src": "p102/sentences_20_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p102_013",
+   "src": "p102/sentences_21_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p102_014",
+   "src": "p102/sentences_23_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p102_015",
+   "src": "p102/sentences_24_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p103_000",
+   "src": "p103/rainbow_01_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p103_001",
+   "src": "p103/rainbow_02_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p103_002",
+   "src": "p103/rainbow_03_regular.wav",
+   "start_s": 16.0
+  },
+  {
+   "utt": "p103_003",
+   "src": "p103/rainbow_05_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p103_004",
+   "src": "p103/rainbow_06_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p103_005",
+   "src": "p103/rainbow_07_regular.wav",
+   "start_s": 16.0
+  },
+  {
+   "utt": "p103_006",
+   "src": "p103/rainbow_08_regular.wav",
+   "start_s": 20.0
+  },
+  {
+   "utt": "p103_007",
+   "src": "p103/sentences_02_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p103_008",
+   "src": "p103/sentences_15_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p103_009",
+   "src": "p103/sentences_17_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p103_010",
+   "src": "p103/sentences_18_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p103_011",
+   "src": "p103/sentences_19_regular.wav",
+   "start_s": 12.0
+  },
+  {
+   "utt": "p103_012",
+   "src": "p103/sentences_21_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p103_013",
+   "src": "p103/sentences_22_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p103_014",
+   "src": "p103/sentences_23_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p103_015",
+   "src": "p103/sentences_24_regular.wav",
+   "start_s": 12.0
+  },
+  {
+   "utt": "p104_000",
+   "src": "p104/rainbow_01_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p104_001",
+   "src": "p104/rainbow_02_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p104_002",
+   "src": "p104/rainbow_03_regular.wav",
+   "start_s": 12.0
+  },
+  {
+   "utt": "p104_003",
+   "src": "p104/rainbow_04_regular.wav",
+   "start_s": 12.0
+  },
+  {
+   "utt": "p104_004",
+   "src": "p104/rainbow_05_regular.wav",
+   "start_s": 16.0
+  },
+  {
+   "utt": "p104_005",
+   "src": "p104/rainbow_07_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p104_006",
+   "src": "p104/rainbow_08_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p104_007",
+   "src": "p104/sentences_01_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p104_008",
+   "src": "p104/sentences_02_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p104_009",
+   "src": "p104/sentences_16_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p104_010",
+   "src": "p104/sentences_17_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p104_011",
+   "src": "p104/sentences_19_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p104_012",
+   "src": "p104/sentences_21_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p104_013",
+   "src": "p104/sentences_22_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p104_014",
+   "src": "p104/sentences_23_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p104_015",
+   "src": "p104/sentences_24_regular.wav",
+   "start_s": 12.0
+  },
+  {
+   "utt": "p105_000",
+   "src": "p105/rainbow_01_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p105_001",
+   "src": "p105/rainbow_03_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p105_002",
+   "src": "p105/rainbow_04_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p105_003",
+   "src": "p105/rainbow_05_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p105_004",
+   "src": "p105/rainbow_06_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p105_005",
+   "src": "p105/rainbow_07_regular.wav",
+   "start_s": 16.0
+  },
+  {
+   "utt": "p105_006",
+   "src": "p105/rainbow_08_regular.wav",
+   "start_s": 16.0
+  },
+  {
+   "utt": "p105_007",
+   "src": "p105/sentences_02_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p105_008",
+   "src": "p105/sentences_15_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p105_009",
+   "src": "p105/sentences_16_regular.wav",
+   "start_s": 12.0
+  },
+  {
+   "utt": "p105_010",
+   "src": "p105/sentences_18_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p105_011",
+   "src": "p105/sentences_19_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p105_012",
+   "src": "p105/sentences_21_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p105_013",
+   "src": "p105/sentences_22_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p105_014",
+   "src": "p105/sentences_23_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p105_015",
+   "src": "p105/sentences_24_regular.wav",
+   "start_s": 12.0
+  },
+  {
+   "utt": "p106_000",
+   "src": "p106/rainbow_01_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p106_001",
+   "src": "p106/rainbow_02_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p106_002",
+   "src": "p106/rainbow_04_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p106_003",
+   "src": "p106/rainbow_05_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p106_004",
+   "src": "p106/rainbow_06_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p106_005",
+   "src": "p106/rainbow_07_regular.wav",
+   "start_s": 12.0
+  },
+  {
+   "utt": "p106_006",
+   "src": "p106/rainbow_08_regular.wav",
+   "start_s": 12.0
+  },
+  {
+   "utt": "p106_007",
+   "src": "p106/sentences_01_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p106_008",
+   "src": "p106/sentences_15_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p106_009",
+   "src": "p106/sentences_16_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p106_010",
+   "src": "p106/sentences_17_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p106_011",
+   "src": "p106/sentences_19_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p106_012",
+   "src": "p106/sentences_20_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p106_013",
+   "src": "p106/sentences_21_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p106_014",
+   "src": "p106/sentences_23_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p106_015",
+   "src": "p106/sentences_24_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p107_000",
+   "src": "p107/rainbow_01_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p107_001",
+   "src": "p107/rainbow_02_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p107_002",
+   "src": "p107/rainbow_04_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p107_003",
+   "src": "p107/rainbow_05_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p107_004",
+   "src": "p107/rainbow_06_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p107_005",
+   "src": "p107/rainbow_07_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p107_006",
+   "src": "p107/rainbow_08_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p107_007",
+   "src": "p107/sentences_01_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p107_008",
+   "src": "p107/sentences_02_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p107_009",
+   "src": "p107/sentences_15_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p107_010",
+   "src": "p107/sentences_17_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p107_011",
+   "src": "p107/sentences_19_regular.wav",
+   "start_s": 0.0
+  },
+  {
+   "utt": "p107_012",
+   "src": "p107/sentences_20_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p107_013",
+   "src": "p107/sentences_21_regular.wav",
+   "start_s": 8.0
+  },
+  {
+   "utt": "p107_014",
+   "src": "p107/sentences_23_regular.wav",
+   "start_s": 4.0
+  },
+  {
+   "utt": "p107_015",
+   "src": "p107/sentences_24_regular.wav",
+   "start_s": 8.0
+  }
+ ]
+}

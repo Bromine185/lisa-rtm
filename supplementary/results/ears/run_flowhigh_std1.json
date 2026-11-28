@@ -1,0 +1,11 @@
+{
+ "model": "flowhigh_std1",
+ "device": "cuda",
+ "seeds": 8,
+ "stochastic": true,
+ "wall_s": 124.02598166465759,
+ "audio_s": 3072.0,
+ "rtf": 0.04037304090646406,
+ "draws_run": 768,
+ "machine": "x86_64"
+}

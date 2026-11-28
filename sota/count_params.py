@@ -12,12 +12,13 @@ double-count weights. The total is the sum of the blocks.
 Output: {model: {total, blocks: {block_id: n}, checkpoint, state_dict, excluded, whole}}. Nothing is
 typed in: demo/tools/add_sota.py and make_results_sota.py read the numbers from here.
 """
+import os
 import argparse, glob, json, pathlib, pickle, types
 
 import torch
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-SOTA = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota")
+SOTA = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/sota")
 
 
 class _Stub:                                            # pytorch_lightning objects in NU-Wave 2's pickled hparams

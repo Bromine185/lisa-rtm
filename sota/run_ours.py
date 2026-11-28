@@ -6,13 +6,14 @@ Input is the Chebyshev 12 kHz file sota/make_inputs.py wrote, fed through encode
 fast/paper_split_eval.py does for --resampler cheby. Samplers draw at tau = 1 with seeds 0..M-1; deterministic
 arms run once. Output: <work>/<set>/out/ours_<arm>/<utt>_s<k>.npy.
 """
+import os
 import argparse, json, pathlib, sys, time
 import numpy as np
 import soundfile as sf
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
-WORK = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work")
+WORK = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/sota/work")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--set", default="core")

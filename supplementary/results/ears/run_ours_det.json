@@ -1,0 +1,8 @@
+{
+ "model": "ours_det",
+ "seeds": 1,
+ "stochastic": false,
+ "wall_s": 15.642679214477539,
+ "audio_s": 384.0,
+ "rtf": 0.04073614378770193
+}

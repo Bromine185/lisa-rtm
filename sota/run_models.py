@@ -32,7 +32,7 @@ import soundfile as sf
 import scipy.signal as sps
 
 RUN_CTX = {}
-SOTA = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota")
+SOTA = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/sota")
 FS = 48000
 
 
@@ -160,10 +160,19 @@ def main():
     ap.add_argument("--seeds", type=int, default=8)
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--n", type=int, default=None)
+    ap.add_argument("--shard", default=None, help="i/k: every k-th utterance from the i-th, for parallel processes; "
+                    "each draw is seeded on its own, so sharding changes no output")
     ap.add_argument("--work", default=str(SOTA / "work"))
     a = ap.parse_args()
     ws = pathlib.Path(a.work) / a.set
+    if a.device.startswith("cuda"):
+        # full fp32 on NVIDIA, as on the CPU/MPS runs: with TF32 convolutions NU-Wave 2's 8 DDIM steps drift
+        # (+2 dB in the high band on an L4 against the same seed on CPU, which matches the Mac exactly)
+        import torch
+        torch.backends.cuda.matmul.allow_tf32 = False; torch.backends.cudnn.allow_tf32 = False
     utts = json.load(open(ws / "utts.json"))["utts"][: a.n]
+    if a.shard:
+        i, k = map(int, a.shard.split("/")); utts = utts[i::k]
     out = ws / "out" / a.model; out.mkdir(parents=True, exist_ok=True)
     run, stochastic = {"flowhigh": flowhigh, "flowhigh_std1": lambda d: flowhigh(d, std1=True), "nuwave2": nuwave2, "apbwe": apbwe, "apbwe_sinc": lambda d: apbwe(d, own_input=True), "audiosr": audiosr}[a.model](a.device)
     seeds = range(a.seeds if stochastic else 1)
@@ -188,9 +197,9 @@ def main():
         print(f"{a.model}: nothing to run, _run.json kept", flush=True)
         return
     meta = {"model": a.model, "device": a.device, "seeds": len(seeds), "stochastic": stochastic,
-            "wall_s": wall, "audio_s": audio_s, "rtf": wall / max(audio_s, 1e-9), "draws_run": done,
+            "tf32": False if a.device.startswith("cuda") else None, "wall_s": wall, "audio_s": audio_s, "rtf": wall / max(audio_s, 1e-9), "draws_run": done,
             "machine": machine()}
-    json.dump(meta, open(out / "_run.json", "w"), indent=1)
+    json.dump(meta, open(out / (f"_run_{a.shard.replace('/', 'of')}.json" if a.shard else "_run.json"), "w"), indent=1)
     print(meta, flush=True)
 
 

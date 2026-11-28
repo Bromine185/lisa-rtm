@@ -15,11 +15,12 @@ sosfiltfilt, then scipy resample_poly down to 12 kHz (fast/paper_split_eval.py::
 --resampler poly, the repo's own decimate() (resample_poly alone), what EVAL12 and the training corpus use.
 Written as a float32 WAV so no model sees 16-bit quantisation the others do not. --src audit reads the
 audit fixtures (lisa_rtm_cache/audit: p236-p238, our held-out speakers, and the first files of the paper split)
-instead of audit_wide. raw_peak is the flac's stored peak, which AP-BWE needs (it is not level invariant).
+instead of audit_wide; --src ears reads the EARS test utterances sota/fetch_ears.py cut. raw_peak is the flac's stored peak, which AP-BWE needs (it is not level invariant).
 
 Layout: <work>/<set>/truth/<utt>.npy, <work>/<set>/lo12k/<utt>.wav, <work>/<set>/utts.json.
 `--per-speaker k` takes k utterances evenly spaced through what audit_wide holds for each speaker.
 """
+import os
 import argparse, json, pathlib, sys
 import numpy as np
 import soundfile as sf
@@ -29,9 +30,10 @@ sys.path.insert(0, str(REPO))
 from audit.vctk_fixtures import load                               # noqa: E402
 from fast.paper_split_eval import down_cheby, down_poly            # noqa: E402
 
-SRC = {"wide": pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/audit_wide"),
-       "audit": pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/audit")}
-WORK = pathlib.Path("/Users/raghavsharma/projects/lisa-rtm/lisa_rtm_cache/sota/work")
+SRC = {"wide": pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/audit_wide"),
+       "audit": pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/audit"),
+       "ears": pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/ears_seg")}
+WORK = pathlib.Path(os.environ.get("BWE_CACHE", str(pathlib.Path(__file__).resolve().parents[1] / "lisa_rtm_cache")) + "/sota/work")
 SPEAKERS = ("p360", "p361", "p362", "p363", "p364", "p374", "p376", "s5")
 FS, R, QUANT = 48000, 4, 3840
 
@@ -51,7 +53,7 @@ out = WORK / a.set
 (out / "truth").mkdir(parents=True, exist_ok=True); (out / "lo12k").mkdir(exist_ok=True)
 utts = []
 for spk in a.speakers:
-    have = sorted((WIDE / spk).glob("*_mic1.flac"))
+    have = sorted((WIDE / spk).glob("*.wav" if a.src == "ears" else "*_mic1.flac"))   # ears: sota/fetch_ears.py
     if not have:
         print(f"{spk}: nothing in {WIDE}", flush=True); continue
     if a.utts:
